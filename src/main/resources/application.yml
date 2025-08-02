@@ -1,0 +1,11 @@
+server:
+  port: 8082
+#  servlet.context-path: /
+
+spring:
+  application:
+    name: config-server
+
+global:
+  base-path: /home/srivatsan/abc
+  environment: kubernetes

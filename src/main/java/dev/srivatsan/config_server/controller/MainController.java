@@ -20,7 +20,7 @@ public class MainController {
 
     @PostMapping("/create/file")
     public String createFolder(@RequestBody IncomingRequest request) throws GitAPIException, IOException {
-        gitRepoService.createAppConfig(request.getFileName());
+        gitRepoService.createAppConfig(request.fileName());
         return "success";
     }
 

@@ -1,10 +1,12 @@
 server:
-  port: 8082
-#  servlet.context-path: /
+  port: 8080
+  servlet.context-path: /start
 
 spring:
   application:
     name: config-server
+  profiles:
+    active: dev
 
 global:
   base-path: /home/srivatsan/abc

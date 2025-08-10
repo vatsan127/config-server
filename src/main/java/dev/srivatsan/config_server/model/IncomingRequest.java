@@ -5,15 +5,14 @@ import lombok.Data;
 @Data
 public class IncomingRequest {
 
-    private String path;
-    private String content;
-    private String appName;
-    private String fileName;
+    private String appName; /* application name */
+    private String namespace; /* K8s Namespace */
+    private String path; /* path inside repository */
+    private String content; /* application configuration */
+    private String action; /* create, fetch, update */
+    private String fileName; /* configuration file name */
 
-    public IncomingRequest(String path, String content, String appName, String fileName) {
-        this.path = path == null ? "" : path;
-        this.content = content;
-        this.appName = appName;
-        this.fileName = fileName + ".yml";
+    public IncomingRequest(String appName) {
+        this.fileName = appName + ".yml";
     }
 }

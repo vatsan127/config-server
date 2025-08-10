@@ -1,11 +1,29 @@
 # URL
 
-path - "/start/create/file"
-request body -
+## create config
 
-```json
+localhost:8080/config-server/config/create
+
+```{
+"action": "create",
+"appName": "sample",
+"namespace": "default",
+"path": "/"
+}
+```
+
+## fetch config
+
+localhost:8080/config-server/config/fetch
+
+json
+
+```
 {
-  "fileName": "sample"
+"action": "fetch",
+"appName": "sample",
+"namespace": "default",
+"path": "/"
 }
 ```
 
@@ -20,3 +38,4 @@ request body -
 5. Exception handling for different scenarios
 6. Add Logback configuration
 7. Add Authentication and authorization
+8. ToDO: add aop for incoming request 

@@ -1,6 +1,6 @@
 server:
   port: 8080
-  servlet.context-path: /start
+  servlet.context-path: /config-server
 
 spring:
   application:
@@ -9,5 +9,5 @@ spring:
     active: dev
 
 global:
-  base-path: /home/srivatsan/config-server-data
+  base-path: /home/srivatsan/config-server-data/
   environment: kubernetes

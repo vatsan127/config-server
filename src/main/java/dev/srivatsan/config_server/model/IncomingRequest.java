@@ -12,7 +12,7 @@ public class IncomingRequest {
     private String action; /* create, fetch, update */
     private String fileName; /* configuration file name */
 
-    public IncomingRequest(String appName) {
-        this.fileName = appName + ".yml";
+    public String getFileName() {
+        return this.appName + ".yml";
     }
 }

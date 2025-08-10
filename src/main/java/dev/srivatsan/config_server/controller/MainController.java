@@ -50,7 +50,7 @@ public class MainController {
     }
 
     public void validateIncomingRequest(IncomingRequest request, String requiredActionType) {
-        if (request.getAction() == null || requiredActionType.equals(request.getAction())) {
+        if (request.getAction() == null || !requiredActionType.equals(request.getAction())) {
             throw new IllegalArgumentException("Action ('action') must be provided and must match the operation.");
         }
 

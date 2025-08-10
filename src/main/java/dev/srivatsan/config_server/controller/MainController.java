@@ -1,27 +1,34 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.model.IncomingRequest;
-import dev.srivatsan.config_server.service.git.GitRepoService;
+import dev.srivatsan.config_server.service.git.RepositoryService;
+import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 
+@Slf4j
 @RestController
 public class MainController {
 
-    private final GitRepoService gitRepoService;
+    private final RepositoryService repositoryService;
 
-    public MainController(GitRepoService gitRepoService) {
-        this.gitRepoService = gitRepoService;
+    public MainController(RepositoryService repositoryService) {
+        this.repositoryService = repositoryService;
     }
 
     @PostMapping("/create/file")
     public String createFolder(@RequestBody IncomingRequest request) throws GitAPIException, IOException {
-        gitRepoService.createAppConfig(request.fileName());
+        repositoryService.createAppConfig(request.getFileName());
         return "success";
+    }
+
+    @PostMapping("/get")
+    public String getConfig(@RequestBody IncomingRequest request) throws GitAPIException, IOException {
+        log.info("Request: {}", request);
+        String appConfigContent = repositoryService.getAppConfigContent(request.getPath(), request.getFileName());
+        return appConfigContent;
     }
 
 }

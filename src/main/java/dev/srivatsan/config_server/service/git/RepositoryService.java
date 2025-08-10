@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.service.git;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.service.util.UtilService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
@@ -13,24 +14,15 @@ import java.io.FileWriter;
 import java.io.IOException;
 
 @Service
-public class GitRepoService {
+public class RepositoryService {
 
-    private final Logger log = LoggerFactory.getLogger(GitRepoService.class);
-
+    private final Logger log = LoggerFactory.getLogger(RepositoryService.class);
     private final ApplicationConfig applicationConfig;
+    private final UtilService utilService;
 
-    public GitRepoService(ApplicationConfig applicationConfig) {
+    public RepositoryService(ApplicationConfig applicationConfig, UtilService utilService) {
         this.applicationConfig = applicationConfig;
-    }
-
-    public void checkAndCreateRepo() throws GitAPIException {
-        File repoDir = new File(applicationConfig.getBasePath());
-        try (Git git = Git.init().setDirectory(repoDir).call()) {
-            log.info("Repository is ready at: {}", repoDir.getAbsolutePath());
-        } catch (IllegalStateException | GitAPIException e) {
-            log.error("Failed to initialize repository at: {}", repoDir.getAbsolutePath(), e);
-            throw e;
-        }
+        this.utilService = utilService;
     }
 
     public boolean checkAppConfigExists(String fileName) {
@@ -40,7 +32,7 @@ public class GitRepoService {
 
     public void createAppConfig(String fileName) throws IOException, GitAPIException {
 
-        if (checkAppConfigExists(fileName)) {
+        if (checkAppConfigExists(fileName + applicationConfig.getFileExtension())) {
             log.info("Application Config already exists: {}", fileName);
             return;
         }
@@ -60,6 +52,14 @@ public class GitRepoService {
             log.error("Repository not found at path: {}", repoDir.getAbsolutePath());
             throw e;
         }
+    }
+
+
+    public String getAppConfigContent(String path, String fileName) throws IOException {
+        String temp = utilService.getYamlValueByKey(applicationConfig.getBasePath() + path + fileName, "spring");
+        log.info("Getting app config content from '{}'", temp);
+        String ymlFileContent = utilService.getYmlFileContent(applicationConfig.getBasePath() + path + fileName);
+        return ymlFileContent;
     }
 
 

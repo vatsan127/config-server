@@ -1,4 +1,4 @@
 package dev.srivatsan.config_server.service.environment;
 
-public class KubernetesService implements ContainerEnvironmentService {
+public final class KubernetesService implements ContainerEnvironmentService {
 }

@@ -9,5 +9,5 @@ spring:
     active: dev
 
 global:
-  base-path: /home/srivatsan/abc
+  base-path: /home/srivatsan/config-server-data
   environment: kubernetes

@@ -13,8 +13,6 @@ import org.springframework.context.annotation.Configuration;
 public class ApplicationConfig {
 
     private String basePath;
-    private String fileExtension;
-    private String environment;
 
     @PostConstruct
     public void init() {

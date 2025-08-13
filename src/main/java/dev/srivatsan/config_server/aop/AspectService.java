@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
-import org.aspectj.lang.annotation.AfterThrowing;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.springframework.stereotype.Component;
@@ -16,22 +15,14 @@ import java.util.Arrays;
 @Component
 public class AspectService {
 
-    private static final String POINTCUT_EXEC_FOR_ALL_SERVICE_METHODS = "execution(* dev.srivatsan.config_server.*.*.*(..))";
+    private static final String POINTCUT_EXEC_FOR_ALL_METHODS = "execution(* dev.srivatsan.config_server.*.*.*(..))";
 
-/*
-
-    @Pointcut("execution(* dev.srivatsan.config_server.service.*.*(..))")
-    public void allServiceMethods() {
-    }
-
-*/
-
-    @Before(POINTCUT_EXEC_FOR_ALL_SERVICE_METHODS)
+    @Before(POINTCUT_EXEC_FOR_ALL_METHODS)
     public void logBefore(JoinPoint joinPoint) {
         logMethodDetails(true, joinPoint, null);
     }
 
-    @AfterReturning(pointcut = POINTCUT_EXEC_FOR_ALL_SERVICE_METHODS, returning = "value")
+    @AfterReturning(pointcut = POINTCUT_EXEC_FOR_ALL_METHODS, returning = "value")
     public void logReturn(JoinPoint joinPoint, Object value) {
         logMethodDetails(false, joinPoint, value);
     }

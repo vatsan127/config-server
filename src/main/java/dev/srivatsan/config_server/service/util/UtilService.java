@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.service.util;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
-import dev.srivatsan.config_server.model.IncomingRequest;
+import dev.srivatsan.config_server.model.Payload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,11 +16,6 @@ import java.util.Map;
 public class UtilService {
 
     private final Logger log = LoggerFactory.getLogger(UtilService.class);
-    private final ApplicationConfig applicationConfig;
-
-    public UtilService(ApplicationConfig applicationConfig) {
-        this.applicationConfig = applicationConfig;
-    }
 
     public String getYmlFileContent(String absolutePath) throws IOException {
         log.info("Reading and parsing YML file from '{}' into an object", absolutePath);
@@ -36,7 +31,7 @@ public class UtilService {
         return (value != null) ? value.toString() : null;
     }
 
-    public String getRelativeFilePath(IncomingRequest request) {
+    public String getRelativeFilePath(Payload request) {
         return request.getNamespace() + request.getPath() + request.getFileName();
     }
 

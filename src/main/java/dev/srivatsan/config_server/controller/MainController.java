@@ -1,8 +1,8 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
-import dev.srivatsan.config_server.model.IncomingRequest;
-import dev.srivatsan.config_server.model.YamlConfigResponse;
+import dev.srivatsan.config_server.model.ActionType;
+import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.git.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +32,8 @@ public class MainController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<String> createFolder(@RequestBody IncomingRequest request) throws IOException {
-        validateIncomingRequest(request, "create");
+    public ResponseEntity<String> createFolder(@RequestBody Payload request) throws IOException {
+        validateIncomingRequest(request, ActionType.create);
         String relativeFilePath = utilService.getRelativeFilePath(request);
         String absoluteFilePath = applicationConfig.getBasePath() + relativeFilePath;
         repositoryService.createAppConfig(relativeFilePath, absoluteFilePath, request.getAppName());
@@ -41,16 +41,16 @@ public class MainController {
     }
 
     @PostMapping("/fetch")
-    public ResponseEntity<YamlConfigResponse> fetchConfig(@RequestBody IncomingRequest request) throws GitAPIException, IOException {
-        validateIncomingRequest(request, "fetch");
-        String absoluteFilePath = applicationConfig.getBasePath() + utilService.getRelativeFilePath(request);
+    public ResponseEntity<Payload> fetchConfig(@RequestBody Payload payload) throws GitAPIException, IOException {
+        validateIncomingRequest(payload, ActionType.fetch);
+        String absoluteFilePath = applicationConfig.getBasePath() + utilService.getRelativeFilePath(payload);
         String appConfigContent = utilService.getYmlFileContent(absoluteFilePath);
-        YamlConfigResponse response = new YamlConfigResponse(request.getAppName(), request.getNamespace(), request.getPath(), appConfigContent);
-        return ResponseEntity.status(HttpStatus.OK).body(response);
+        payload.setContent(appConfigContent);
+        return ResponseEntity.status(HttpStatus.OK).body(payload);
     }
 
-    public void validateIncomingRequest(IncomingRequest request, String requiredActionType) {
-        if (request.getAction() == null || !requiredActionType.equals(request.getAction())) {
+    public void validateIncomingRequest(Payload request, ActionType actionType) {
+        if (request.getAction() == null || !actionType.equals(request.getAction())) {
             throw new IllegalArgumentException("Action ('action') must be provided and must match the operation.");
         }
 

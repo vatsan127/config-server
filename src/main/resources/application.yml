@@ -10,4 +10,3 @@ spring:
 
 global:
   base-path: /home/srivatsan/config-server-data/
-  environment: kubernetes

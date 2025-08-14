@@ -1,6 +1,6 @@
 package dev.srivatsan.config_server.service.util;
 
-import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.Payload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +33,12 @@ public class UtilService {
 
     public String getRelativeFilePath(Payload request) {
         return request.getNamespace() + request.getPath() + request.getFileName();
+    }
+
+    public void validateActionType(Payload request, ActionType actionType) {
+        if (!actionType.equals(request.getAction())) {
+            throw new RuntimeException("Invalid action Type for request " + request.getAction());
+        }
     }
 
 /*    public String writeToYmlFile(String absolutePath, String content) throws IOException {

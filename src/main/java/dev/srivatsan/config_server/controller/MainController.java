@@ -3,6 +3,7 @@ package dev.srivatsan.config_server.controller;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.model.ResponseStatus;
 import dev.srivatsan.config_server.service.git.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import lombok.extern.slf4j.Slf4j;
@@ -33,39 +34,21 @@ public class MainController {
 
     @PostMapping("/create")
     public ResponseEntity<String> createFolder(@RequestBody Payload request) throws IOException {
-        validateIncomingRequest(request, ActionType.create);
+        utilService.validateActionType(request, ActionType.create);
         String relativeFilePath = utilService.getRelativeFilePath(request);
         String absoluteFilePath = applicationConfig.getBasePath() + relativeFilePath;
-        repositoryService.createAppConfig(relativeFilePath, absoluteFilePath, request.getAppName());
+        repositoryService.initializeConfigFile(relativeFilePath, absoluteFilePath, request.getAppName());
         return ResponseEntity.status(HttpStatus.CREATED).body("success");
     }
 
     @PostMapping("/fetch")
     public ResponseEntity<Payload> fetchConfig(@RequestBody Payload payload) throws GitAPIException, IOException {
-        validateIncomingRequest(payload, ActionType.fetch);
+        utilService.validateActionType(payload, ActionType.fetch);
         String absoluteFilePath = applicationConfig.getBasePath() + utilService.getRelativeFilePath(payload);
         String appConfigContent = utilService.getYmlFileContent(absoluteFilePath);
         payload.setContent(appConfigContent);
+        payload.setStatus(ResponseStatus.success);
         return ResponseEntity.status(HttpStatus.OK).body(payload);
-    }
-
-    public void validateIncomingRequest(Payload request, ActionType actionType) {
-        if (request.getAction() == null || !actionType.equals(request.getAction())) {
-            throw new IllegalArgumentException("Action ('action') must be provided and must match the operation.");
-        }
-
-        if (request.getAppName() == null || request.getAppName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Application name ('appName') must be provided.");
-        }
-
-        if (request.getNamespace() == null || request.getNamespace().trim().isEmpty()) {
-            throw new IllegalArgumentException("Namespace ('namespace') must be provided.");
-        }
-
-        String path = request.getPath();
-        if (path == null || path.trim().isEmpty() || !path.startsWith("/")) {
-            throw new IllegalArgumentException("Path ('path') must be provided and must start with a '/'.");
-        }
     }
 
 }

@@ -29,9 +29,9 @@ public class RepositoryService {
         this.utilService = utilService;
     }
 
-    public void createAppConfig(String filePath, String absoluteFilePath, String appName) throws IOException {
+    public void initializeConfigFile(String filePath, String absoluteFilePath, String appName) throws IOException {
 
-        if (Files.exists(Paths.get(absoluteFilePath))) {
+        if (Files.exists(Paths.get(absoluteFilePath))) { /** ToDO: Handle with proper response */
             log.info("Application Config already exists: {}", absoluteFilePath);
             return;
         }

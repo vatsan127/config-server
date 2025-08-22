@@ -1,6 +1,5 @@
 package dev.srivatsan.config_server.controller;
 
-import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.CommitDetailsRequest;
 import dev.srivatsan.config_server.model.Payload;
@@ -24,12 +23,10 @@ import java.util.Map;
 @RequestMapping("/config")
 public class MainController {
 
-    private final ApplicationConfig applicationConfig;
     private final RepositoryService repositoryService;
     private final UtilService utilService;
 
-    public MainController(ApplicationConfig applicationConfig, RepositoryService repositoryService, UtilService utilService) {
-        this.applicationConfig = applicationConfig;
+    public MainController(RepositoryService repositoryService, UtilService utilService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
     }
@@ -38,16 +35,15 @@ public class MainController {
     public ResponseEntity<String> createFolder(@RequestBody Payload request) throws IOException {
         utilService.validateActionType(request, ActionType.create);
         String relativeFilePath = utilService.getRelativeFilePath(request);
-        String absoluteFilePath = applicationConfig.getBasePath() + relativeFilePath;
-        repositoryService.initializeConfigFile(relativeFilePath, absoluteFilePath, request.getAppName());
+        repositoryService.initializeConfigFile(relativeFilePath, request.getAppName());
         return ResponseEntity.status(HttpStatus.CREATED).body("success");
     }
 
     @PostMapping("/fetch")
     public ResponseEntity<Payload> fetchConfig(@RequestBody Payload payload) throws GitAPIException, IOException {
         utilService.validateActionType(payload, ActionType.fetch);
-        String absoluteFilePath = applicationConfig.getBasePath() + utilService.getRelativeFilePath(payload);
-        String appConfigContent = utilService.getYmlFileContent(absoluteFilePath);
+        String relativeFilePath = utilService.getRelativeFilePath(payload);
+        String appConfigContent = repositoryService.getFileContent(relativeFilePath);
         payload.setContent(appConfigContent);
         payload.setStatus(ResponseStatus.success);
         return ResponseEntity.status(HttpStatus.OK).body(payload);
@@ -57,8 +53,7 @@ public class MainController {
     public ResponseEntity<String> updateConfig(@RequestBody Payload request) throws IOException, GitAPIException {
         utilService.validateActionType(request, ActionType.update);
         String relativeFilePath = utilService.getRelativeFilePath(request);
-        String absoluteFilePath = applicationConfig.getBasePath() + relativeFilePath;
-        repositoryService.updateConfigFile(relativeFilePath, absoluteFilePath, request.getContent(), request.getAppName());
+        repositoryService.updateConfigFile(relativeFilePath, request.getContent(), request.getAppName());
         return ResponseEntity.status(HttpStatus.OK).body("success");
     }
 

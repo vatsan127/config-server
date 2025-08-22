@@ -4,7 +4,8 @@
 
 localhost:8080/config-server/config/create
 
-```{
+```
+{
 "action": "create",
 "appName": "sample",
 "namespace": "default",
@@ -26,6 +27,73 @@ json
 "path": "/"
 }
 ```
+
+## update config
+
+localhost:8080/config-server/config/update
+
+```
+{
+"action": "update",
+"appName": "sample",
+"namespace": "default",
+"path": "/",
+"content": "server:\n  port: 8081\n\nspring:\n  application:\n    name: sample"
+}
+```
+
+## get commit history
+
+localhost:8080/config-server/config/history
+
+Get commit history for all files:
+```
+{
+"action": "history",
+"appName": "sample",
+"namespace": "default",
+"path": "/"
+}
+```
+
+Get commit history for specific file:
+```
+{
+"action": "history",
+"appName": "sample",
+"namespace": "default",
+"path": "/specific/file/path"
+}
+```
+
+Returns last 10 commits with summary information:
+- commitId and shortCommitId
+- author name and email
+- commit date and message
+
+## get specific commit details
+
+localhost:8080/config-server/config/commit-details
+
+Get all changes for a specific commit:
+```
+{
+"commitId": "a1b2c3d4e5f6789012345678901234567890abcd"
+}
+```
+
+Get changes for specific file in a commit:
+```
+{
+"commitId": "a1b2c3d4e5f6789012345678901234567890abcd",
+"filePath": "configs/sample-app.yml"
+}
+```
+
+Returns detailed commit information:
+- Full commit details (author, date, full message)
+- All file changes with clean diff
+- Change type for each file (ADD, MODIFY, DELETE, etc.)
 
 # ToDo
 

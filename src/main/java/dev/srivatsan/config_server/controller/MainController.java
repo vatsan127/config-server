@@ -50,23 +50,18 @@ public class MainController {
     }
 
     @PostMapping("/update")
-    public ResponseEntity<String> updateConfig(@RequestBody Payload request) throws IOException, GitAPIException {
-        utilService.validateActionType(request, ActionType.update);
-        String relativeFilePath = utilService.getRelativeFilePath(request);
-        repositoryService.updateConfigFile(relativeFilePath, request.getContent(), request.getAppName());
+    public ResponseEntity<String> updateConfig(@RequestBody Payload payload) throws IOException, GitAPIException {
+        utilService.validateActionType(payload, ActionType.update);
+        String relativeFilePath = utilService.getRelativeFilePath(payload);
+        repositoryService.updateConfigFile(relativeFilePath, payload.getMessage(), payload.getContent());
         return ResponseEntity.status(HttpStatus.OK).body("success");
     }
 
     @PostMapping("/history")
-    public ResponseEntity<Map<String, Object>> getCommitHistory(@RequestBody Payload request) throws IOException, GitAPIException {
-        utilService.validateActionType(request, ActionType.history);
-        String filePath = null;
-        
-        if (request.getPath() != null && !request.getPath().equals("/")) {
-            filePath = utilService.getRelativeFilePath(request);
-        }
-        
-        Map<String, Object> history = repositoryService.getCommitHistory(filePath);
+    public ResponseEntity<Map<String, Object>> getCommitHistory(@RequestBody Payload payload) throws IOException, GitAPIException {
+        utilService.validateActionType(payload, ActionType.history);
+        String relativeFilePath = utilService.getRelativeFilePath(payload);
+        Map<String, Object> history = repositoryService.getCommitHistory(relativeFilePath);
         return ResponseEntity.status(HttpStatus.OK).body(history);
     }
 

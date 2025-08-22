@@ -30,6 +30,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.eclipse.jgit.lib.Constants.HEAD;
+
 @Service
 public class RepositoryService {
 
@@ -94,7 +96,7 @@ public class RepositoryService {
         }
     }
 
-    public void updateConfigFile(String filePath, String content, String appName) throws IOException, GitAPIException {
+    public void updateConfigFile(String filePath, String commitMessage, String content) throws IOException, GitAPIException {
         try (Git git = openRepository()) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(filePath);
@@ -107,8 +109,8 @@ public class RepositoryService {
             Files.writeString(configFilePath, content);
 
             git.add().addFilepattern(filePath).call();
-            git.commit().setMessage("Update config for ApplicationName - " + appName).call();
-            log.info("Updated file: '{}'", configFilePath);
+            git.commit().setMessage(commitMessage).call();
+            log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
 
         } catch (IOException | GitAPIException e) {
             log.error("Error updating config file '{}': {}", filePath, e.getMessage(), e);
@@ -126,7 +128,7 @@ public class RepositoryService {
             }
 
             return Files.readString(configFilePath);
-            
+
         } catch (IOException e) {
             log.error("Error reading file '{}': {}", filePath, e.getMessage(), e);
             throw e;
@@ -137,26 +139,25 @@ public class RepositoryService {
     public Map<String, Object> getCommitHistory(String filePath) throws IOException, GitAPIException {
         try (Git git = openRepository()) {
             var logCommand = git.log()
-                    .setMaxCount(10)
-                    .add(git.getRepository().resolve("HEAD"));
-            
+                    .setMaxCount(applicationConfig.getCommitHistorySize())
+                    .add(git.getRepository().resolve(HEAD));
+
             if (filePath != null) {
                 logCommand.addPath(filePath);
             }
-            
+
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {
                 Map<String, Object> commitInfo = formatCommitInfo(commit);
                 commitInfo.put("message", commit.getShortMessage());
                 commits.add(commitInfo);
             }
-            
+
             Map<String, Object> result = new HashMap<>();
-            result.put("message", "Commit history (last 10 commits)");
             result.put("filePath", filePath);
             result.put("commits", commits);
             return result;
-            
+
         } catch (IOException | GitAPIException e) {
             log.error("Error getting commit history: {}", e.getMessage(), e);
             throw e;
@@ -167,30 +168,30 @@ public class RepositoryService {
     public Map<String, Object> getCommitDetails(String commitId, String filePath) throws IOException, GitAPIException {
         try (Git git = openRepository()) {
             Repository repository = git.getRepository();
-            
+
             ObjectId commitObjectId = repository.resolve(commitId);
             if (commitObjectId == null) {
                 Map<String, Object> errorResult = new HashMap<>();
                 errorResult.put("error", "Commit not found: " + commitId);
                 return errorResult;
             }
-            
+
             try (RevWalk revWalk = new RevWalk(repository)) {
                 RevCommit commit = revWalk.parseCommit(commitObjectId);
-                
+
                 Map<String, Object> result = formatCommitInfo(commit);
                 result.put("message", commit.getFullMessage());
-                
+
                 try (ObjectReader reader = repository.newObjectReader()) {
                     CanonicalTreeParser newTreeParser = new CanonicalTreeParser();
                     newTreeParser.reset(reader, commit.getTree().getId());
-                    
+
                     List<DiffEntry> diffs;
                     if (commit.getParentCount() > 0) {
                         // Compare with parent commit
                         CanonicalTreeParser oldTreeParser = new CanonicalTreeParser();
                         oldTreeParser.reset(reader, commit.getParent(0).getTree().getId());
-                        
+
                         diffs = git.diff()
                                 .setOldTree(oldTreeParser)
                                 .setNewTree(newTreeParser)
@@ -202,47 +203,47 @@ public class RepositoryService {
                                 .setNewTree(newTreeParser)
                                 .call();
                     }
-                    
+
                     List<Map<String, Object>> changes = new ArrayList<>();
                     for (DiffEntry diff : diffs) {
                         if (filePath == null || diff.getNewPath().equals(filePath) || diff.getOldPath().equals(filePath)) {
                             changes.add(createChangeInfo(diff, repository));
                         }
                     }
-                    
+
                     result.put("changes", changes);
                     result.put("totalChanges", changes.size());
-                    
+
                     if (commit.getParentCount() == 0) {
                         result.put("note", "Initial commit");
                     }
                 }
-                
+
                 return result;
             }
-            
+
         } catch (IOException | GitAPIException e) {
             log.error("Error getting commit details for {}: {}", commitId, e.getMessage(), e);
             throw e;
         }
     }
-    
+
     private String getSimpleCleanDiff(Repository repository, DiffEntry diff) throws IOException {
         StringBuilder cleanDiff = new StringBuilder();
-        
+
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
              DiffFormatter formatter = new DiffFormatter(out)) {
-            
+
             formatter.setRepository(repository);
             formatter.format(diff);
-            
+
             String fullDiff = out.toString("UTF-8");
             String[] lines = fullDiff.split("\n");
-            
+
             for (String line : lines) {
-                if (line.startsWith("+++") || line.startsWith("---") || 
-                    line.startsWith("@@") || line.startsWith("diff --git") || 
-                    line.startsWith("index ")) {
+                if (line.startsWith("+++") || line.startsWith("---") ||
+                        line.startsWith("@@") || line.startsWith("diff --git") ||
+                        line.startsWith("index ")) {
                     continue;
                 }
                 if (line.startsWith("+") || line.startsWith("-")) {
@@ -250,10 +251,9 @@ public class RepositoryService {
                 }
             }
         }
-        
+
         return cleanDiff.toString();
     }
-
 
 
 }

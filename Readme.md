@@ -38,7 +38,8 @@ localhost:8080/config-server/config/update
 "appName": "sample",
 "namespace": "default",
 "path": "/",
-"content": "server:\n  port: 8081\n\nspring:\n  application:\n    name: sample"
+"content": "server:\n  port: 8081\n\nspring:\n  application:\n    name: sample",
+"message": "commit for updating app config"
 }
 ```
 
@@ -56,20 +57,6 @@ Get commit history for all files:
 }
 ```
 
-Get commit history for specific file:
-```
-{
-"action": "history",
-"appName": "sample",
-"namespace": "default",
-"path": "/specific/file/path"
-}
-```
-
-Returns last 10 commits with summary information:
-- commitId and shortCommitId
-- author name and email
-- commit date and message
 
 ## get specific commit details
 

@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "global")
 public class ApplicationConfig {
 
+    private int commitHistorySize;
     private String basePath;
 
     @PostConstruct

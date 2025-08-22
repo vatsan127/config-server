@@ -9,4 +9,5 @@ spring:
     active: dev
 
 global:
-  base-path: /home/srivatsan/config-server-data/
+  base-path: /test/
+  commitHistorySize: 10

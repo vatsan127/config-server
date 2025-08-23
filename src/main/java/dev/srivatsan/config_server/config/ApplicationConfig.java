@@ -14,6 +14,7 @@ public class ApplicationConfig {
 
     private int commitHistorySize;
     private String basePath;
+    private String extension;
 
     @PostConstruct
     public void init() {

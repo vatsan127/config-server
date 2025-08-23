@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class UtilService {
@@ -41,8 +42,8 @@ public class UtilService {
         }
     }
 
-/*    public String writeToYmlFile(String absolutePath, String content) throws IOException {
-
-    }*/
+    public String generateRequestId() {
+        return UUID.randomUUID().toString().substring(0, 8);
+    }
 
 }

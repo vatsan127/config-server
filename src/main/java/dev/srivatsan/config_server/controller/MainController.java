@@ -6,6 +6,7 @@ import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.model.ResponseStatus;
 import dev.srivatsan.config_server.service.git.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.http.HttpStatus;
@@ -32,7 +33,7 @@ public class MainController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<String> createFolder(@RequestBody Payload request) throws IOException {
+    public ResponseEntity<String> createConfig(@Valid @RequestBody Payload request) throws IOException {
         utilService.validateActionType(request, ActionType.create);
         String relativeFilePath = utilService.getRelativeFilePath(request);
         repositoryService.initializeConfigFile(relativeFilePath, request.getAppName());

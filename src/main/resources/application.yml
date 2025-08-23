@@ -9,5 +9,6 @@ spring:
     active: dev
 
 global:
+  extension: .yml
   base-path: /test/
   commitHistorySize: 10

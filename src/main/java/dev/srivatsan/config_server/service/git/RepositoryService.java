@@ -101,6 +101,9 @@ public class RepositoryService {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(filePath);
 
+            log.info("workTree - {}",workTree);
+            log.info("configFilePath - {}",configFilePath);
+
             if (!Files.exists(configFilePath)) {
                 log.error("Configuration file does not exist: {}", configFilePath);
                 throw new RuntimeException("Configuration file not found: " + configFilePath);
@@ -145,6 +148,7 @@ public class RepositoryService {
             if (filePath != null) {
                 logCommand.addPath(filePath);
             }
+
 
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {

@@ -7,20 +7,24 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 
 @Data
+@Validated
 public class Payload {
 
     /**
      * application name
      */
     @NotBlank(message = "Application name ('appName') must be provided.")
+    @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Invalid app name format")
     private String appName;
 
     /**
      * K8s Namespace
      */
     @NotBlank(message = "Namespace ('namespace') must be provided.")
+    @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Invalid namespace format")
     private String namespace;
 
     /**

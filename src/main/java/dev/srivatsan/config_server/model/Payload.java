@@ -1,12 +1,10 @@
 package dev.srivatsan.config_server.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import lombok.Data;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.Data;
 import org.springframework.validation.annotation.Validated;
 
 @Data
@@ -54,7 +52,7 @@ public class Payload {
     /**
      * Update Commit message
      */
-//    @JsonIgnore
+//    @JsonIgnore // ToDO: update the setter in the payloa model class
     private String message;
 
     /**

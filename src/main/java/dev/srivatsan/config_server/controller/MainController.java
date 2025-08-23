@@ -66,9 +66,9 @@ public class MainController {
         return ResponseEntity.status(HttpStatus.OK).body(history);
     }
 
-    @PostMapping("/commit-details")
+    @PostMapping("/changes")
     public ResponseEntity<Map<String, Object>> getCommitDetails(@RequestBody CommitDetailsRequest request) throws IOException, GitAPIException {
-        Map<String, Object> commitDetails = repositoryService.getCommitDetails(request.getCommitId(), request.getFilePath());
+        Map<String, Object> commitDetails = repositoryService.getCommitDetails(request.getCommitId());
         return ResponseEntity.status(HttpStatus.OK).body(commitDetails);
     }
 

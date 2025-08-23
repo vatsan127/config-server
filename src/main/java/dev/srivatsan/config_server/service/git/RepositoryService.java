@@ -3,15 +3,12 @@ package dev.srivatsan.config_server.service.git;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
-import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.treewalk.CanonicalTreeParser;
-import org.eclipse.jgit.lib.ObjectReader;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,14 +18,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
@@ -64,14 +57,6 @@ public class RepositoryService {
         return commitInfo;
     }
 
-    private Map<String, Object> createChangeInfo(DiffEntry diff, Repository repository) throws IOException {
-        Map<String, Object> changeInfo = new HashMap<>();
-        changeInfo.put("changeType", diff.getChangeType().toString());
-        changeInfo.put("oldPath", diff.getOldPath());
-        changeInfo.put("newPath", diff.getNewPath());
-        changeInfo.put("cleanDiff", getSimpleCleanDiff(repository, diff));
-        return changeInfo;
-    }
 
     public void initializeConfigFile(String filePath, String appName) throws IOException {
         try (Git git = openRepository()) {
@@ -101,8 +86,8 @@ public class RepositoryService {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(filePath);
 
-            log.info("workTree - {}",workTree);
-            log.info("configFilePath - {}",configFilePath);
+            log.info("workTree - {}", workTree);
+            log.info("configFilePath - {}", configFilePath);
 
             if (!Files.exists(configFilePath)) {
                 log.error("Configuration file does not exist: {}", configFilePath);
@@ -168,95 +153,35 @@ public class RepositoryService {
         }
     }
 
+    public Map<String, Object> getCommitDetails(String commitId) throws IOException, GitAPIException {
+        Map<String, Object> result = new HashMap<>();
 
-    public Map<String, Object> getCommitDetails(String commitId, String filePath) throws IOException, GitAPIException {
-        try (Git git = openRepository()) {
-            Repository repository = git.getRepository();
+        String gitMetadataPath = applicationConfig.getBasePath() + ".git";
+        try (Repository repository = new FileRepositoryBuilder().setGitDir(new File(gitMetadataPath)).build();
+             RevWalk revWalk = new RevWalk(repository)) {
 
-            ObjectId commitObjectId = repository.resolve(commitId);
-            if (commitObjectId == null) {
-                Map<String, Object> errorResult = new HashMap<>();
-                errorResult.put("error", "Commit not found: " + commitId);
-                return errorResult;
-            }
+            RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
 
-            try (RevWalk revWalk = new RevWalk(repository)) {
-                RevCommit commit = revWalk.parseCommit(commitObjectId);
+            result.put("commitId", commit.getName());
+            result.put("message", commit.getFullMessage());
+            result.put("author", commit.getAuthorIdent().getName());
+            result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
-                Map<String, Object> result = formatCommitInfo(commit);
-                result.put("message", commit.getFullMessage());
+            if (commit.getParentCount() > 0) {
+                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                     DiffFormatter df = new DiffFormatter(out)) {
 
-                try (ObjectReader reader = repository.newObjectReader()) {
-                    CanonicalTreeParser newTreeParser = new CanonicalTreeParser();
-                    newTreeParser.reset(reader, commit.getTree().getId());
+                    df.setRepository(repository);
+                    df.format(df.scan(commit.getParent(0), commit).get(0));
 
-                    List<DiffEntry> diffs;
-                    if (commit.getParentCount() > 0) {
-                        // Compare with parent commit
-                        CanonicalTreeParser oldTreeParser = new CanonicalTreeParser();
-                        oldTreeParser.reset(reader, commit.getParent(0).getTree().getId());
-
-                        diffs = git.diff()
-                                .setOldTree(oldTreeParser)
-                                .setNewTree(newTreeParser)
-                                .call();
-                    } else {
-                        // Initial commit - show all files as additions
-                        diffs = git.diff()
-                                .setOldTree(null)
-                                .setNewTree(newTreeParser)
-                                .call();
-                    }
-
-                    List<Map<String, Object>> changes = new ArrayList<>();
-                    for (DiffEntry diff : diffs) {
-                        if (filePath == null || diff.getNewPath().equals(filePath) || diff.getOldPath().equals(filePath)) {
-                            changes.add(createChangeInfo(diff, repository));
-                        }
-                    }
-
-                    result.put("changes", changes);
-                    result.put("totalChanges", changes.size());
-
-                    if (commit.getParentCount() == 0) {
-                        result.put("note", "Initial commit");
-                    }
+                    result.put("changes", out.toString());
                 }
-
-                return result;
-            }
-
-        } catch (IOException | GitAPIException e) {
-            log.error("Error getting commit details for {}: {}", commitId, e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    private String getSimpleCleanDiff(Repository repository, DiffEntry diff) throws IOException {
-        StringBuilder cleanDiff = new StringBuilder();
-
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-             DiffFormatter formatter = new DiffFormatter(out)) {
-
-            formatter.setRepository(repository);
-            formatter.format(diff);
-
-            String fullDiff = out.toString("UTF-8");
-            String[] lines = fullDiff.split("\n");
-
-            for (String line : lines) {
-                if (line.startsWith("+++") || line.startsWith("---") ||
-                        line.startsWith("@@") || line.startsWith("diff --git") ||
-                        line.startsWith("index ")) {
-                    continue;
-                }
-                if (line.startsWith("+") || line.startsWith("-")) {
-                    cleanDiff.append(line).append("\n");
-                }
+            } else {
+                result.put("changes", "Initial commit - file created");
             }
         }
 
-        return cleanDiff.toString();
+        return result;
     }
 
 

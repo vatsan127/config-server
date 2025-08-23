@@ -62,8 +62,7 @@ localhost:8080/config-server/config/changes
 
 ```
 {
-    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3",
-    "filePath": "default/test.yml"
+    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3"
 }
 ```
 

@@ -1,13 +1,24 @@
-FROM eclipse-temurin:21-jdk
+FROM eclipse-temurin:21-jre
 
-# Project structure inside container
-# dependencies - /app/lib
-# maven - /app/META-INF
-# source - /app
+WORKDIR /app
 
-ARG DEPENDENCY=target/dependency
-COPY ${DEPENDENCY}/BOOT-INF/lib /app/lib
-COPY ${DEPENDENCY}/META-INF /app/META-INF
-COPY ${DEPENDENCY}/BOOT-INF/classes /app
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["java","-cp","app:app/lib/*","dev.srivatsan.config_server.ConfigServerApplication"]
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+COPY target/config-server-0.0.1-SNAPSHOT.jar app.jar
+
+RUN chown appuser:appuser app.jar
+USER appuser
+
+EXPOSE 8080
+
+# Health check
+#HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]

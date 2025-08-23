@@ -60,6 +60,12 @@ public class Payload {
      */
     private ResponseStatus status;
 
+    /**
+     * email
+     */
+    @NotBlank(message = "Email is mandatory!!!")
+    private String email;
+
     public String getFileName() {
         return this.appName + ".yml";
     }

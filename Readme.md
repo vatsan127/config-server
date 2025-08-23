@@ -9,7 +9,8 @@ localhost:8080/config-server/config/create
     "action": "create",
     "appName": "sample",
     "namespace": "default",
-    "path": "/"
+    "path": "/",
+    "email": "test@gmail.com"
 }
 ```
 
@@ -24,7 +25,8 @@ json
     "action": "fetch",
     "appName": "sample",
     "namespace": "default",
-    "path": "/"
+    "path": "/",
+    "email": "test@gmail.com"
 }
 ```
 
@@ -38,8 +40,9 @@ localhost:8080/config-server/config/update
     "appName": "test",
     "namespace": "default",
     "path": "/",
-    "content": "server:\n  port: 8081\n\nspring:\n  application:\n    name: abc",
-    "message": "commit for updating app config"
+    "content": "server:\n  port: 8081\n\nspring:\n  application:\n    name:  abc",
+    "message": "commit for updating app config",
+    "email": "test@gmail.com"
 }
 ```
 
@@ -52,7 +55,8 @@ localhost:8080/config-server/config/history
     "action": "history",
     "appName": "test",
     "namespace": "default",
-    "path": "/"
+    "path": "/",
+    "email": "test@gmail.com"
 }
 ```
 

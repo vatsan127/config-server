@@ -41,7 +41,7 @@ public class MainController {
     }
 
     @PostMapping("/fetch")
-    public ResponseEntity<Payload> fetchConfig(@RequestBody Payload payload) throws GitAPIException, IOException {
+    public ResponseEntity<Payload> fetchConfig(@Valid @RequestBody Payload payload) throws GitAPIException, IOException {
         utilService.validateActionType(payload, ActionType.fetch);
         String relativeFilePath = utilService.getRelativeFilePath(payload);
         String appConfigContent = repositoryService.getFileContent(relativeFilePath);
@@ -51,15 +51,15 @@ public class MainController {
     }
 
     @PostMapping("/update")
-    public ResponseEntity<String> updateConfig(@RequestBody Payload payload) throws IOException, GitAPIException {
+    public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) throws IOException, GitAPIException {
         utilService.validateActionType(payload, ActionType.update);
         String relativeFilePath = utilService.getRelativeFilePath(payload);
-        repositoryService.updateConfigFile(relativeFilePath, payload.getMessage(), payload.getContent());
+        repositoryService.updateConfigFile(relativeFilePath, payload);
         return ResponseEntity.status(HttpStatus.OK).body("success");
     }
 
     @PostMapping("/history")
-    public ResponseEntity<Map<String, Object>> getCommitHistory(@RequestBody Payload payload) throws IOException, GitAPIException {
+    public ResponseEntity<Map<String, Object>> getCommitHistory(@Valid @RequestBody Payload payload) throws IOException, GitAPIException {
         utilService.validateActionType(payload, ActionType.history);
         String relativeFilePath = utilService.getRelativeFilePath(payload);
         Map<String, Object> history = repositoryService.getCommitHistory(relativeFilePath);
@@ -67,7 +67,7 @@ public class MainController {
     }
 
     @PostMapping("/changes")
-    public ResponseEntity<Map<String, Object>> getCommitDetails(@RequestBody CommitDetailsRequest request) throws IOException, GitAPIException {
+    public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody CommitDetailsRequest request) throws IOException, GitAPIException {
         Map<String, Object> commitDetails = repositoryService.getCommitDetails(request.getCommitId());
         return ResponseEntity.status(HttpStatus.OK).body(commitDetails);
     }

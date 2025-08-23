@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.service.git;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.model.Payload;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -81,23 +82,26 @@ public class RepositoryService {
         }
     }
 
-    public void updateConfigFile(String filePath, String commitMessage, String content) throws IOException, GitAPIException {
+    public void updateConfigFile(String filePath, Payload payload) throws IOException, GitAPIException {
+        String commitMessage = payload.getMessage();
+        String email = payload.getEmail();
+
         try (Git git = openRepository()) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(filePath);
-
-            log.info("workTree - {}", workTree);
-            log.info("configFilePath - {}", configFilePath);
 
             if (!Files.exists(configFilePath)) {
                 log.error("Configuration file does not exist: {}", configFilePath);
                 throw new RuntimeException("Configuration file not found: " + configFilePath);
             }
 
-            Files.writeString(configFilePath, content);
+            Files.writeString(configFilePath, payload.getContent());
 
             git.add().addFilepattern(filePath).call();
-            git.commit().setMessage(commitMessage).call();
+            git.commit()
+                    .setMessage(commitMessage)
+                    .setAuthor(email.substring(0, email.indexOf('@')), email)
+                    .call();
             log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
 
         } catch (IOException | GitAPIException e) {

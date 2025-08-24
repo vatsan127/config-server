@@ -1,17 +1,20 @@
 server:
-  port: 8080
-  servlet.context-path: /config-server
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_SERVLET_CONTEXT_PATH:/config-server}
 
 spring:
-  application.name: config-server
-  application.version: 1.0.0
-  profiles.active: dev
+  application:
+    name: config-server
+    version: 1.0.0
+  profiles:
+    active: dev
   banner:
     charset: UTF-8
     location: classpath:banner.txt
     mode: console
 
 global:
+  base-path: ${CONFIG_BASE_PATH:/config/}
+  commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:10}
   extension: .yml
-  base-path: /config/
-  commitHistorySize: 10

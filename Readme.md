@@ -1,6 +1,8 @@
-# URL
+# Config Server
 
-## create config
+## API Endpoints
+
+### Create Configuration
 
 localhost:8080/config-server/config/create
 
@@ -14,11 +16,9 @@ localhost:8080/config-server/config/create
 }
 ```
 
-## fetch config
+### Fetch Configuration
 
 localhost:8080/config-server/config/fetch
-
-json
 
 ```
 {
@@ -30,7 +30,7 @@ json
 }
 ```
 
-## update config
+### Update Configuration
 
 localhost:8080/config-server/config/update
 
@@ -46,7 +46,7 @@ localhost:8080/config-server/config/update
 }
 ```
 
-## get history
+### Get Configuration History
 
 localhost:8080/config-server/config/history
 
@@ -60,35 +60,34 @@ localhost:8080/config-server/config/history
 }
 ```
 
-## get changes
+### Get Commit Changes
 
 localhost:8080/config-server/config/changes
 
 ```
 {
-    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3"
+    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3",
+    "namespace": "default"
 }
 ```
 
-## Docker Commands
+## Docker
 
-```
+```bash
+# Build image
 docker build -t config-server-image .
+
+# Run container
+docker run --name config-server -p 8080:8080 config-server-image
 ```
 
-```
-docker run --name config-server config-server-image
-```
+## Configuration
 
-# ToDo
+### Environment Variables
 
-## Core
-
-1. Docker/K8s service bean Initialization based on the Containerization Environment
-2. logic for different profiles on different path
-3. Refresh Config and Restart Application should be added
-4. Exception handling for different scenarios
-5. Add Logback configuration
-6. Add Authentication and authorization
-7. Error and Exception handling
-8. add swagger 
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `SERVER_PORT` | HTTP server port | `8080` |
+| `SERVER_SERVLET_CONTEXT_PATH` | Application context path | `/config-server` |
+| `CONFIG_BASE_PATH` | Base directory for namespace repositories | `/config/` |
+| `CONFIG_COMMIT_HISTORY_SIZE` | Maximum commits returned in history API | `10` |

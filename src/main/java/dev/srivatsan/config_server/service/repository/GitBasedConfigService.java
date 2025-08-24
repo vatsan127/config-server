@@ -9,7 +9,6 @@ import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -143,7 +142,6 @@ public class GitBasedConfigService implements RepositoryService {
 
         Map<String, Object> commitInfo = new HashMap<>();
         commitInfo.put("commitId", commit.getId().getName());
-        commitInfo.put("shortCommitId", commit.getId().abbreviate(7).name());
         commitInfo.put("author", author.getName());
         commitInfo.put("email", author.getEmailAddress());
         commitInfo.put("date", commitDate);
@@ -153,23 +151,20 @@ public class GitBasedConfigService implements RepositoryService {
     public Map<String, Object> getCommitChanges(String commitId) throws IOException {
         Map<String, Object> result = new HashMap<>();
 
-        String gitMetadataPath = applicationConfig.getBasePath() + ".git";
-        try (Repository repository = new FileRepositoryBuilder().setGitDir(new File(gitMetadataPath)).build(); // ToDo: openRepository method can be used.
+        try (Git git = openRepository();
+             Repository repository = git.getRepository();
              RevWalk revWalk = new RevWalk(repository)) {
 
             RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
-
             result.put("commitId", commit.getName());
             result.put("message", commit.getFullMessage());
             result.put("author", commit.getAuthorIdent().getName());
             result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
             if (commit.getParentCount() > 0) {
-                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-                     DiffFormatter df = new DiffFormatter(out)) {
+                try (ByteArrayOutputStream out = new ByteArrayOutputStream(); DiffFormatter df = new DiffFormatter(out)) {
                     df.setRepository(repository);
-                    df.format(df.scan(commit.getParent(0), commit).get(0));
-
+                    df.format(df.scan(commit.getParent(0), commit).getFirst());
                     result.put("changes", out.toString());
                 }
             } else {

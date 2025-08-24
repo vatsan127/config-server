@@ -35,8 +35,7 @@ public class AspectService {
         boolean isController = isControllerMethod(joinPoint);
         String requestId = getOrSetRequestId(isController);
 
-        log.info("{} - ENTRY | {} | RequestId: {} | Args: {}",
-                className, methodName, requestId, formatArguments(joinPoint.getArgs()));
+        log.info("{}:{} - ENTRY | RequestId: {} | Args: {}", className, methodName, requestId, formatArguments(joinPoint.getArgs()));
 
         StopWatch stopWatch = new StopWatch();
         try {
@@ -47,8 +46,7 @@ public class AspectService {
             long executionTime = stopWatch.getTotalTimeMillis();
             String resultStr = formatResult(result);
 
-            log.info("{} - EXIT | {} | RequestId: {} | {}ms | Result: {}",
-                    className, methodName, requestId, executionTime, resultStr);
+            log.info("{}:{} - EXIT | RequestId: {} | {}ms | Result: {}", className, methodName, requestId, executionTime, resultStr);
 
             return result;
         } catch (Throwable throwable) {

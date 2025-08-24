@@ -3,10 +3,13 @@ server:
   servlet.context-path: /config-server
 
 spring:
-  application:
-    name: config-server
-  profiles:
-    active: dev
+  application.name: config-server
+  application.version: 1.0.0
+  profiles.active: dev
+  banner:
+#    charset: UTF-8
+    location: classpath:banner.txt
+    mode: console
 
 global:
   extension: .yml

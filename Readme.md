@@ -84,3 +84,4 @@ localhost:8080/config-server/config/changes
 8. Error and Exception handling
 9. Create endpoint for update and commit
 10. Config history should be added
+11. add swagger also

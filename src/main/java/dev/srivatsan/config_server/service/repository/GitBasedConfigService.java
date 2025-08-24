@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.service.git;
+package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.Payload;
@@ -27,14 +27,12 @@ import java.util.*;
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
 @Service
-public class RepositoryService {
+public class GitBasedConfigService implements RepositoryService {
 
-    private final Logger log = LoggerFactory.getLogger(RepositoryService.class);
+    private final Logger log = LoggerFactory.getLogger(GitBasedConfigService.class);
     private final ApplicationConfig applicationConfig;
 
-    private static final String DEFAULT_CONFIG_TEMPLATE = "server:\n  port: 8080\n  servlet.context-path: /<app-name>\n\nspring:\n  application:\n    name: <app-name>\n\n  datasource:\n    url: jdbc:postgresql://<ip>:5432/<database-name>?currentSchema=<schema-name>\n    username: <user>\n    password: <password>\n    driver-class-name: org.postgresql.Driver\n    hikari:\n      maximum-pool-size: 30\n      minimum-idle: 15\n      pool-name: postgres-con\n      auto-commit: false\n\n  kafka:\n    bootstrap-servers: <kafka-ip>:9092\n\n    producer:\n      topic: <app-name>\n      key-serializer: org.apache.kafka.common.serialization.StringSerializer\n      value-serializer: org.apache.kafka.common.serialization.StringSerializer\n      acks: 0  # Acknowledgment level (0, 1, all/-1)\n      retries: 3\n      batch-size: 16384  # Batch size in bytes\n      properties:\n        linger.ms: 5\n        delivery.timeout.ms: 300000\n        allow.auto.create.topics: false\n\n    consumer:\n      topic: <app-name>\n      group-id: consumer-group-<app-name>\n      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer\n      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer\n      properties:\n        session.timeout.ms: 30000\n        max.poll.records: 500\n        max.poll.interval.ms: 300000\n        allow.auto.create.topics: false\n\n    listener:   # Listener configuration\n      concurrency: 3   # Concurrency level\n";
-
-    public RepositoryService(ApplicationConfig applicationConfig) {
+    public GitBasedConfigService(ApplicationConfig applicationConfig) {
         this.applicationConfig = applicationConfig;
     }
 
@@ -43,23 +41,7 @@ public class RepositoryService {
         return Git.open(repoDir);
     }
 
-    private Map<String, Object> formatCommitInfo(RevCommit commit) {
-        PersonIdent author = commit.getAuthorIdent();
-        String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
-                .atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-
-        Map<String, Object> commitInfo = new HashMap<>();
-        commitInfo.put("commitId", commit.getId().getName());
-        commitInfo.put("shortCommitId", commit.getId().abbreviate(7).name());
-        commitInfo.put("author", author.getName());
-        commitInfo.put("email", author.getEmailAddress());
-        commitInfo.put("date", commitDate);
-        return commitInfo;
-    }
-
-
-    public void initializeConfigFile(String filePath, String appName) throws IOException {
+    public void initializeConfigFile(String filePath, String appName) {
         try (Git git = openRepository()) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path newFilePath = workTree.resolve(filePath);
@@ -82,7 +64,7 @@ public class RepositoryService {
         }
     }
 
-    public void updateConfigFile(String filePath, Payload payload) throws IOException, GitAPIException {
+    public void updateConfigFile(String filePath, Payload payload) {
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
 
@@ -110,7 +92,7 @@ public class RepositoryService {
         }
     }
 
-    public String getFileContent(String filePath) throws IOException {
+    public String getConfigFile(String filePath) throws IOException {
         try (Git git = openRepository()) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(filePath);
@@ -127,17 +109,13 @@ public class RepositoryService {
         }
     }
 
-
-    public Map<String, Object> getCommitHistory(String filePath) throws IOException, GitAPIException {
+    public Map<String, Object> getConfigFileHistory(String filePath) throws Exception {
         try (Git git = openRepository()) {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
                     .add(git.getRepository().resolve(HEAD));
 
-            if (filePath != null) {
-                logCommand.addPath(filePath);
-            }
-
+            logCommand.addPath(filePath);
 
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {
@@ -157,11 +135,26 @@ public class RepositoryService {
         }
     }
 
-    public Map<String, Object> getCommitDetails(String commitId) throws IOException, GitAPIException {
+    private Map<String, Object> formatCommitInfo(RevCommit commit) {
+        PersonIdent author = commit.getAuthorIdent();
+        String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
+                .atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        Map<String, Object> commitInfo = new HashMap<>();
+        commitInfo.put("commitId", commit.getId().getName());
+        commitInfo.put("shortCommitId", commit.getId().abbreviate(7).name());
+        commitInfo.put("author", author.getName());
+        commitInfo.put("email", author.getEmailAddress());
+        commitInfo.put("date", commitDate);
+        return commitInfo;
+    }
+
+    public Map<String, Object> getCommitChanges(String commitId) throws IOException {
         Map<String, Object> result = new HashMap<>();
 
         String gitMetadataPath = applicationConfig.getBasePath() + ".git";
-        try (Repository repository = new FileRepositoryBuilder().setGitDir(new File(gitMetadataPath)).build();
+        try (Repository repository = new FileRepositoryBuilder().setGitDir(new File(gitMetadataPath)).build(); // ToDo: openRepository method can be used.
              RevWalk revWalk = new RevWalk(repository)) {
 
             RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
@@ -174,7 +167,6 @@ public class RepositoryService {
             if (commit.getParentCount() > 0) {
                 try (ByteArrayOutputStream out = new ByteArrayOutputStream();
                      DiffFormatter df = new DiffFormatter(out)) {
-
                     df.setRepository(repository);
                     df.format(df.scan(commit.getParent(0), commit).get(0));
 
@@ -187,6 +179,5 @@ public class RepositoryService {
 
         return result;
     }
-
 
 }

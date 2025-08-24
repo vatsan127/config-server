@@ -1,23 +1,22 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.model.ActionType;
-import dev.srivatsan.config_server.model.CommitDetailsRequest;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.model.ResponseStatus;
 import dev.srivatsan.config_server.service.repository.GitBasedConfigService;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -36,7 +35,7 @@ public class MainController {
     public ResponseEntity<String> createConfig(@Valid @RequestBody Payload request) {
         utilService.validateActionType(request, ActionType.create);
         String relativeFilePath = utilService.getRelativeFilePath(request);
-        repositoryService.initializeConfigFile(relativeFilePath, request.getAppName());
+        repositoryService.initializeConfigFile(relativeFilePath, request.getAppName(), request.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).body("success");
     }
 
@@ -67,13 +66,14 @@ public class MainController {
     }
 
     @PostMapping("/changes")
-    public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody CommitDetailsRequest request) throws IOException {
-        String namespace = request.getNamespace();
-        if (namespace == null || namespace.trim().isEmpty()) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Namespace is required"));
+    public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody Payload payload) throws IOException {
+        utilService.validateActionType(payload, ActionType.changes);
+        
+        if (payload.getCommitId() == null || payload.getCommitId().trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Commit ID is required"));
         }
         
-        Map<String, Object> commitDetails = repositoryService.getCommitChanges(request.getCommitId(), namespace);
+        Map<String, Object> commitDetails = repositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
         return ResponseEntity.status(HttpStatus.OK).body(commitDetails);
     }
 

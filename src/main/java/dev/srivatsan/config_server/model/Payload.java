@@ -66,6 +66,11 @@ public class Payload {
     @NotBlank(message = "Email is mandatory!!!")
     private String email;
 
+    /**
+     * commit ID for changes action
+     */
+    private String commitId;
+
     public String getFileName() {
         return this.appName + ".yml";
     }

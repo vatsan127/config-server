@@ -4,5 +4,6 @@ public enum ActionType {
     create,
     fetch,
     update,
-    history
+    history,
+    changes
 }

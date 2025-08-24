@@ -2,6 +2,7 @@ package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.service.util.UtilService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -30,9 +31,11 @@ public class GitBasedConfigService implements RepositoryService {
 
     private final Logger log = LoggerFactory.getLogger(GitBasedConfigService.class);
     private final ApplicationConfig applicationConfig;
+    private final UtilService utilService;
 
-    public GitBasedConfigService(ApplicationConfig applicationConfig) {
+    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService) {
         this.applicationConfig = applicationConfig;
+        this.utilService = utilService;
     }
 
     private Git openRepository(String namespace) throws IOException {
@@ -66,8 +69,8 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public void initializeConfigFile(String filePath, String appName, String email) {
-        String namespace = extractNamespaceFromFilePath(filePath);
-        String relativePath = getRelativePathWithinNamespace(filePath);
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path newFilePath = workTree.resolve(relativePath);
@@ -96,8 +99,8 @@ public class GitBasedConfigService implements RepositoryService {
     public void updateConfigFile(String filePath, Payload payload) {
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
-        String namespace = extractNamespaceFromFilePath(filePath);
-        String relativePath = getRelativePathWithinNamespace(filePath);
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
@@ -124,8 +127,8 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public String getConfigFile(String filePath) throws IOException {
-        String namespace = extractNamespaceFromFilePath(filePath);
-        String relativePath = getRelativePathWithinNamespace(filePath);
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
@@ -143,8 +146,8 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public Map<String, Object> getConfigFileHistory(String filePath) throws Exception {
-        String namespace = extractNamespaceFromFilePath(filePath);
-        String relativePath = getRelativePathWithinNamespace(filePath);
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
         try (Git git = openRepository(namespace)) {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
@@ -208,28 +211,6 @@ public class GitBasedConfigService implements RepositoryService {
         }
 
         return result;
-    }
-
-    private String extractNamespaceFromFilePath(String filePath) {
-        if (filePath.startsWith("/")) {
-            filePath = filePath.substring(1);
-        }
-        int slashIndex = filePath.indexOf('/');
-        if (slashIndex == -1) {
-            return filePath;
-        }
-        return filePath.substring(0, slashIndex);
-    }
-
-    private String getRelativePathWithinNamespace(String filePath) {
-        if (filePath.startsWith("/")) {
-            filePath = filePath.substring(1);
-        }
-        int slashIndex = filePath.indexOf('/');
-        if (slashIndex == -1) {
-            return "";
-        }
-        return filePath.substring(slashIndex + 1);
     }
 
 }

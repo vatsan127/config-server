@@ -8,16 +8,16 @@ import dev.srivatsan.config_server.service.repository.GitBasedConfigService;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 import java.io.IOException;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -68,8 +68,34 @@ public class MainController {
 
     @PostMapping("/changes")
     public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody CommitDetailsRequest request) throws IOException {
-        Map<String, Object> commitDetails = repositoryService.getCommitChanges(request.getCommitId());
+        String namespace = request.getNamespace();
+        if (namespace == null || namespace.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Namespace is required"));
+        }
+        
+        Map<String, Object> commitDetails = repositoryService.getCommitChanges(request.getCommitId(), namespace);
         return ResponseEntity.status(HttpStatus.OK).body(commitDetails);
+    }
+
+    @PostMapping("/namespace/create")
+    public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) {
+        try {
+            String namespace = request.get("namespace");
+            if (namespace == null || namespace.trim().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Namespace is required");
+            }
+            
+            if (!namespace.matches("^[a-zA-Z0-9-_]+$")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid namespace format");
+            }
+            
+            repositoryService.createNamespace(namespace.trim());
+            return ResponseEntity.status(HttpStatus.CREATED).body("Namespace created successfully");
+            
+        } catch (Exception e) {
+            log.error("Error creating namespace: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to create namespace: " + e.getMessage());
+        }
     }
 
 }

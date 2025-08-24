@@ -29,12 +29,17 @@ public class ConfigServerApplication {
 
     @PostConstruct
     public void init() throws GitAPIException {
-        File repoDir = new File(applicationConfig.getBasePath());
-        try (Git git = Git.init().setDirectory(repoDir).call()) {
-            log.info("Repository is ready at: {}", repoDir.getAbsolutePath());
-        } catch (IllegalStateException | GitAPIException e) {
-            log.error("Failed to initialize repository at: {}", repoDir.getAbsolutePath(), e);
-            throw e;
+        File baseDir = new File(applicationConfig.getBasePath());
+        if (!baseDir.exists()) {
+            boolean created = baseDir.mkdirs();
+            if (created) {
+                log.info("Created base directory at: {}", baseDir.getAbsolutePath());
+            } else {
+                log.error("Failed to create base directory at: {}", baseDir.getAbsolutePath());
+                throw new RuntimeException("Failed to create base directory");
+            }
+        } else {
+            log.info("Base directory already exists at: {}", baseDir.getAbsolutePath());
         }
     }
 

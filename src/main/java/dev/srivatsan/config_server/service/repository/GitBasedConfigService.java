@@ -35,15 +35,42 @@ public class GitBasedConfigService implements RepositoryService {
         this.applicationConfig = applicationConfig;
     }
 
-    private Git openRepository() throws IOException {
-        File repoDir = new File(applicationConfig.getBasePath());
-        return Git.open(repoDir);
+    private Git openRepository(String namespace) throws IOException {
+        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
+        if (!namespaceDir.exists()) {
+            throw new IOException("Namespace directory does not exist: " + namespace + 
+                ". Please create namespace first using /namespace/create endpoint.");
+        }
+        return Git.open(namespaceDir);
+    }
+
+    public void createNamespace(String namespace) throws GitAPIException, IOException {
+        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
+        
+        if (namespaceDir.exists()) {
+            log.info("Namespace directory already exists: {}", namespaceDir.getAbsolutePath());
+            return;
+        }
+        
+        boolean created = namespaceDir.mkdirs();
+        if (!created) {
+            throw new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath());
+        }
+        
+        try (Git git = Git.init().setDirectory(namespaceDir).call()) {
+            log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
+        } catch (GitAPIException e) {
+            log.error("Failed to initialize git repository for namespace '{}': {}", namespace, e.getMessage());
+            throw e;
+        }
     }
 
     public void initializeConfigFile(String filePath, String appName) {
-        try (Git git = openRepository()) {
+        String namespace = extractNamespaceFromFilePath(filePath);
+        String relativePath = getRelativePathWithinNamespace(filePath);
+        try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
-            Path newFilePath = workTree.resolve(filePath);
+            Path newFilePath = workTree.resolve(relativePath);
 
             if (Files.exists(newFilePath)) {
                 log.info("Application Config already exists: {}", newFilePath);
@@ -53,7 +80,7 @@ public class GitBasedConfigService implements RepositoryService {
             Files.createDirectories(newFilePath.getParent());
             Files.writeString(newFilePath, DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName));
 
-            git.add().addFilepattern(filePath).call();
+            git.add().addFilepattern(relativePath).call();
             git.commit().setMessage("First commit ApplicationName - " + appName).call();
             log.info("Created file: '{}'", newFilePath);
 
@@ -66,10 +93,12 @@ public class GitBasedConfigService implements RepositoryService {
     public void updateConfigFile(String filePath, Payload payload) {
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
+        String namespace = extractNamespaceFromFilePath(filePath);
+        String relativePath = getRelativePathWithinNamespace(filePath);
 
-        try (Git git = openRepository()) {
+        try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
-            Path configFilePath = workTree.resolve(filePath);
+            Path configFilePath = workTree.resolve(relativePath);
 
             if (!Files.exists(configFilePath)) {
                 log.error("Configuration file does not exist: {}", configFilePath);
@@ -78,7 +107,7 @@ public class GitBasedConfigService implements RepositoryService {
 
             Files.writeString(configFilePath, payload.getContent());
 
-            git.add().addFilepattern(filePath).call();
+            git.add().addFilepattern(relativePath).call();
             git.commit()
                     .setMessage(commitMessage)
                     .setAuthor(email.substring(0, email.indexOf('@')), email)
@@ -92,9 +121,11 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public String getConfigFile(String filePath) throws IOException {
-        try (Git git = openRepository()) {
+        String namespace = extractNamespaceFromFilePath(filePath);
+        String relativePath = getRelativePathWithinNamespace(filePath);
+        try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
-            Path configFilePath = workTree.resolve(filePath);
+            Path configFilePath = workTree.resolve(relativePath);
 
             if (!Files.exists(configFilePath)) {
                 throw new RuntimeException("Configuration file not found: " + configFilePath);
@@ -109,12 +140,14 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public Map<String, Object> getConfigFileHistory(String filePath) throws Exception {
-        try (Git git = openRepository()) {
+        String namespace = extractNamespaceFromFilePath(filePath);
+        try (Git git = openRepository(namespace)) {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
                     .add(git.getRepository().resolve(HEAD));
 
-            logCommand.addPath(filePath);
+            String relativePath = getRelativePathWithinNamespace(filePath);
+            logCommand.addPath(relativePath);
 
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {
@@ -148,10 +181,10 @@ public class GitBasedConfigService implements RepositoryService {
         return commitInfo;
     }
 
-    public Map<String, Object> getCommitChanges(String commitId) throws IOException {
+    public Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException {
         Map<String, Object> result = new HashMap<>();
 
-        try (Git git = openRepository();
+        try (Git git = openRepository(namespace);
              Repository repository = git.getRepository();
              RevWalk revWalk = new RevWalk(repository)) {
 
@@ -173,6 +206,28 @@ public class GitBasedConfigService implements RepositoryService {
         }
 
         return result;
+    }
+
+    private String extractNamespaceFromFilePath(String filePath) {
+        if (filePath.startsWith("/")) {
+            filePath = filePath.substring(1);
+        }
+        int slashIndex = filePath.indexOf('/');
+        if (slashIndex == -1) {
+            return filePath;
+        }
+        return filePath.substring(0, slashIndex);
+    }
+
+    private String getRelativePathWithinNamespace(String filePath) {
+        if (filePath.startsWith("/")) {
+            filePath = filePath.substring(1);
+        }
+        int slashIndex = filePath.indexOf('/');
+        if (slashIndex == -1) {
+            return "";
+        }
+        return filePath.substring(slashIndex + 1);
     }
 
 }

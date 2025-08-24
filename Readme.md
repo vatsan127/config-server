@@ -71,6 +71,18 @@ localhost:8080/config-server/config/changes
 }
 ```
 
+### Create Namespace
+
+localhost:8080/config-server/config/namespace/create
+
+```
+{
+    "namespace": "production"
+}
+```
+
+**Note**: You must create a namespace before creating configuration files in it. This initializes a git repository for the namespace.
+
 ## Docker
 
 ```bash

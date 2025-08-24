@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.model.Payload;
+import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.IOException;
 import java.util.Map;
@@ -56,12 +57,23 @@ public interface RepositoryService {
     Map<String, Object> getConfigFileHistory(String filePath) throws Exception;
 
     /**
-     * Retrieves the changes made in a specific commit.
+     * Creates and initializes a namespace directory with a git repository.
+     * This should be called before creating configuration files in a new namespace.
+     *
+     * @param namespace the namespace identifier
+     * @throws GitAPIException if git operations fail
+     * @throws IOException if directory creation fails
+     */
+    void createNamespace(String namespace) throws GitAPIException, IOException;
+
+    /**
+     * Retrieves the changes made in a specific commit within a namespace.
      * Returns detailed information about what was modified in the commit.
      *
      * @param commitId the unique identifier of the commit
+     * @param namespace the namespace where the commit was made
      * @return a map containing change information (files changed, additions, deletions)
      * @throws IOException if the repository cannot be accessed or the commit cannot be found
      */
-    Map<String, Object> getCommitChanges(String commitId) throws IOException;
+    Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException;
 }

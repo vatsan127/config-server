@@ -7,11 +7,11 @@ spring:
   application.version: 1.0.0
   profiles.active: dev
   banner:
-#    charset: UTF-8
+    charset: UTF-8
     location: classpath:banner.txt
     mode: console
 
 global:
   extension: .yml
-  base-path: test/
+  base-path: /config/
   commitHistorySize: 10

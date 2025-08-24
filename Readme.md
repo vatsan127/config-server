@@ -37,7 +37,7 @@ localhost:8080/config-server/config/update
 ```
 {
     "action": "update",
-    "appName": "test",
+    "appName": "sample",
     "namespace": "default",
     "path": "/",
     "content": "server:\n  port: 8081\n\nspring:\n  application:\n    name:  abc",
@@ -53,7 +53,7 @@ localhost:8080/config-server/config/history
 ```
 {
     "action": "history",
-    "appName": "test",
+    "appName": "sample",
     "namespace": "default",
     "path": "/",
     "email": "test@gmail.com"
@@ -70,6 +70,16 @@ localhost:8080/config-server/config/changes
 }
 ```
 
+## Docker Commands
+
+```
+docker build -t config-server-image .
+```
+
+```
+docker run --name config-server config-server-image
+```
+
 # ToDo
 
 ## Core
@@ -80,8 +90,5 @@ localhost:8080/config-server/config/changes
 4. Exception handling for different scenarios
 5. Add Logback configuration
 6. Add Authentication and authorization
-7. Send payload after the initializing a config
-8. Error and Exception handling
-9. Create endpoint for update and commit
-10. Config history should be added
-11. add swagger also
+7. Error and Exception handling
+8. add swagger 

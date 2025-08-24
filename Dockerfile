@@ -1,12 +1,8 @@
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git
 
 COPY target/config-server-0.0.1-SNAPSHOT.jar app.jar
 

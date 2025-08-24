@@ -4,6 +4,5 @@ public enum ActionType {
     create,
     fetch,
     update,
-    history,
-    commit_details
+    history
 }

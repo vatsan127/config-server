@@ -23,7 +23,7 @@ localhost:8080/config-server/config/create
 {
     "action": "create",
     "appName": "sample",
-    "namespace": "default",
+    "namespace": "test",
     "path": "/",
     "email": "test@gmail.com"
 }
@@ -37,7 +37,7 @@ localhost:8080/config-server/config/fetch
 {
     "action": "fetch",
     "appName": "sample",
-    "namespace": "default",
+    "namespace": "test",
     "path": "/",
     "email": "test@gmail.com"
 }
@@ -51,7 +51,7 @@ localhost:8080/config-server/config/update
 {
     "action": "update",
     "appName": "sample",
-    "namespace": "default",
+    "namespace": "test",
     "path": "/",
     "content": "server:\n  port: 8081\n\nspring:\n  application:\n    name:  abc",
     "message": "commit for updating app config",
@@ -67,7 +67,7 @@ localhost:8080/config-server/config/history
 {
     "action": "history",
     "appName": "sample",
-    "namespace": "default",
+    "namespace": "test",
     "path": "/",
     "email": "test@gmail.com"
 }
@@ -80,7 +80,7 @@ localhost:8080/config-server/config/changes
 ```
 {
     "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3",
-    "namespace": "default"
+    "namespace": "test"
 }
 ```
 

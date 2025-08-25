@@ -240,7 +240,7 @@ public interface ConfigurationAPI {
                                     name = "Create Namespace Example",
                                     value = """
                                             {
-                                                "namespace": "production"
+                                                "namespace": "test"
                                             }
                                             """
                             )

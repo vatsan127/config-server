@@ -18,7 +18,7 @@ public class Payload {
     @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Invalid app name format")
     private String appName;
 
-    @Schema(description = "Namespace for configuration isolation", example = "production", required = true)
+    @Schema(description = "Namespace for configuration isolation", example = "test", required = true)
     @NotBlank(message = "Namespace ('namespace') must be provided.")
     @Pattern(regexp = "^[a-zA-Z0-9-_]+$", message = "Invalid namespace format")
     private String namespace;

@@ -90,7 +90,7 @@ localhost:8080/config-server/config/namespace/create
 
 ```
 {
-    "namespace": "production"
+    "namespace": "test"
 }
 ```
 
@@ -119,7 +119,7 @@ docker run --name config-server -p 8080:8080 config-server-image
    ```bash
    curl -X POST http://localhost:8080/config-server/config/namespace/create \
      -H "Content-Type: application/json" \
-     -d '{"namespace": "production"}'
+     -d '{"namespace": "test"}'
    ```
 
 4. **Create your first configuration file** using the Swagger UI or API endpoints below.

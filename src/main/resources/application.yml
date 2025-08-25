@@ -17,4 +17,3 @@ spring:
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}
   commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:10}
-  extension: .yml

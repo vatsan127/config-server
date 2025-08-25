@@ -1,5 +1,18 @@
 # Config Server
 
+A Git-based Configuration Management Server with multi-namespace support for application configuration files.
+
+## 📖 API Documentation
+
+Interactive API documentation is available via Swagger UI:
+
+- **Swagger UI**: `http://localhost:8080/swagger-ui/index.html`
+- **OpenAPI JSON**: `http://localhost:8080/v3/api-docs`
+
+The Swagger interface provides complete API documentation with request/response examples, parameter descriptions, and the ability to test endpoints directly.
+
+> **✨ Enhanced Documentation**: All endpoints now include comprehensive Swagger annotations with examples, validation details, and proper error responses.
+
 ## API Endpoints
 
 ### Create Configuration
@@ -92,6 +105,24 @@ docker build -t config-server-image .
 # Run container
 docker run --name config-server -p 8080:8080 config-server-image
 ```
+
+## 🚀 Getting Started
+
+1. **Start the application**:
+   ```bash
+   mvn spring-boot:run
+   ```
+
+2. **Access Swagger UI**: Navigate to `http://localhost:8080/swagger-ui/index.html`
+
+3. **Create a namespace** (required before creating config files):
+   ```bash
+   curl -X POST http://localhost:8080/config-server/config/namespace/create \
+     -H "Content-Type: application/json" \
+     -d '{"namespace": "production"}'
+   ```
+
+4. **Create your first configuration file** using the Swagger UI or API endpoints below.
 
 ## Configuration
 

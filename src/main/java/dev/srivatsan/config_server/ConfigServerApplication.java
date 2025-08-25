@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.exception.NamespaceException;
 import jakarta.annotation.PostConstruct;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -36,7 +37,8 @@ public class ConfigServerApplication {
                 log.info("Created base directory at: {}", baseDir.getAbsolutePath());
             } else {
                 log.error("Failed to create base directory at: {}", baseDir.getAbsolutePath());
-                throw new RuntimeException("Failed to create base directory");
+                throw NamespaceException.creationFailed("base", 
+                    new RuntimeException("Failed to create base directory"));
             }
         } else {
             log.info("Base directory already exists at: {}", baseDir.getAbsolutePath());

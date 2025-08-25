@@ -6,15 +6,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StopWatch;
 
 import java.util.Arrays;
 
 @Aspect
-@Slf4j
 @Component
 public class AspectService {
+
+    private final Logger log = LoggerFactory.getLogger(AspectService.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final UtilService utilService;
@@ -56,6 +59,11 @@ public class AspectService {
             log.error("{} - EXCEPTION | {} | RequestId: {} | {}ms | Exception: {}",
                     className, methodName, requestId, executionTime, throwable.getMessage());
             throw throwable;
+        } finally {
+            // Clean up ThreadLocal to prevent memory leaks
+            if (isController) {
+                RequestContext.clear();
+            }
         }
     }
 

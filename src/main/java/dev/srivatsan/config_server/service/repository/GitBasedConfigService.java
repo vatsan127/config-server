@@ -1,6 +1,9 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.exception.ConfigFileException;
+import dev.srivatsan.config_server.exception.GitOperationException;
+import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.util.UtilService;
 import org.eclipse.jgit.api.Git;
@@ -39,49 +42,63 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     private Git openRepository(String namespace) throws IOException {
+        utilService.validateNamespace(namespace);
+        
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
         if (!namespaceDir.exists()) {
-            throw new IOException("Namespace directory does not exist: " + namespace +
-                    ". Please create namespace first using /namespace/create endpoint.");
+            throw NamespaceException.notFound(namespace);
         }
-        return Git.open(namespaceDir);
+        
+        try {
+            return Git.open(namespaceDir);
+        } catch (IOException e) {
+            throw GitOperationException.repositoryAccessFailed(namespace, e);
+        }
     }
 
     public void createNamespace(String namespace) throws GitAPIException, IOException {
+        utilService.validateNamespace(namespace);
+        
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
 
         if (namespaceDir.exists()) {
-            log.info("Namespace directory already exists: {}", namespaceDir.getAbsolutePath());
-            return;
+            throw NamespaceException.alreadyExists(namespace);
         }
 
         boolean created = namespaceDir.mkdirs();
         if (!created) {
-            throw new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath());
+            throw NamespaceException.creationFailed(namespace, 
+                new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath()));
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
         } catch (GitAPIException e) {
             log.error("Failed to initialize git repository for namespace '{}': {}", namespace, e.getMessage());
-            throw e;
+            throw GitOperationException.initFailed(namespace, e);
         }
     }
 
     public void initializeConfigFile(String filePath, String appName, String email) {
+        utilService.validateSafePath(filePath);
+        utilService.validateAppName(appName);
+        utilService.validateEmail(email);
+        
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
+        
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path newFilePath = workTree.resolve(relativePath);
 
             if (Files.exists(newFilePath)) {
-                log.info("Application Config already exists: {}", newFilePath);
-                return;
+                throw ConfigFileException.alreadyExists(filePath);
             }
 
             Files.createDirectories(newFilePath.getParent());
-            Files.writeString(newFilePath, DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName));
+            String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
+            utilService.validateYamlContent(configContent);
+            Files.writeString(newFilePath, configContent);
 
             git.add().addFilepattern(relativePath).call();
             git.commit()
@@ -90,13 +107,21 @@ public class GitBasedConfigService implements RepositoryService {
                     .call();
             log.info("Created file: '{}'", newFilePath);
 
-        } catch (IOException | GitAPIException e) {
+        } catch (IOException e) {
             log.error("Error initializing config file '{}': {}", filePath, e.getMessage(), e);
-            throw new RuntimeException("Failed to initialize config file", e);
+            throw ConfigFileException.creationFailed(filePath, e);
+        } catch (GitAPIException e) {
+            log.error("Git error initializing config file '{}': {}", filePath, e.getMessage(), e);
+            throw GitOperationException.commitFailed(filePath, e);
         }
     }
 
     public void updateConfigFile(String filePath, Payload payload) {
+        utilService.validateSafePath(filePath);
+        utilService.validateEmail(payload.getEmail());
+        utilService.validateYamlContent(payload.getContent());
+        utilService.validateCommitMessage(payload.getMessage());
+        
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
@@ -107,8 +132,7 @@ public class GitBasedConfigService implements RepositoryService {
             Path configFilePath = workTree.resolve(relativePath);
 
             if (!Files.exists(configFilePath)) {
-                log.error("Configuration file does not exist: {}", configFilePath);
-                throw new RuntimeException("Configuration file not found: " + configFilePath);
+                throw ConfigFileException.notFound(filePath);
             }
 
             Files.writeString(configFilePath, payload.getContent());
@@ -120,34 +144,43 @@ public class GitBasedConfigService implements RepositoryService {
                     .call();
             log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
 
-        } catch (IOException | GitAPIException e) {
+        } catch (IOException e) {
             log.error("Error updating config file '{}': {}", filePath, e.getMessage(), e);
-            throw new RuntimeException("Failed to update config file", e);
+            throw ConfigFileException.updateFailed(filePath, e);
+        } catch (GitAPIException e) {
+            log.error("Git error updating config file '{}': {}", filePath, e.getMessage(), e);
+            throw GitOperationException.commitFailed(filePath, e);
         }
     }
 
     public String getConfigFile(String filePath) throws IOException {
+        utilService.validateSafePath(filePath);
+        
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
+        
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
             if (!Files.exists(configFilePath)) {
-                throw new RuntimeException("Configuration file not found: " + configFilePath);
+                throw ConfigFileException.notFound(filePath);
             }
 
             return Files.readString(configFilePath);
 
         } catch (IOException e) {
             log.error("Error reading file '{}': {}", filePath, e.getMessage(), e);
-            throw e;
+            throw ConfigFileException.readFailed(filePath, e);
         }
     }
 
     public Map<String, Object> getConfigFileHistory(String filePath) throws Exception {
+        utilService.validateSafePath(filePath);
+        
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
+        
         try (Git git = openRepository(namespace)) {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
@@ -166,9 +199,12 @@ public class GitBasedConfigService implements RepositoryService {
             result.put("commits", commits);
             return result;
 
-        } catch (IOException | GitAPIException e) {
+        } catch (IOException e) {
             log.error("Error getting commit history: {}", e.getMessage(), e);
-            throw e;
+            throw GitOperationException.repositoryAccessFailed(namespace, e);
+        } catch (GitAPIException e) {
+            log.error("Git error getting commit history: {}", e.getMessage(), e);
+            throw GitOperationException.logFailed(filePath, e);
         }
     }
 
@@ -187,6 +223,9 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException {
+        utilService.validateCommitId(commitId);
+        utilService.validateNamespace(namespace);
+        
         Map<String, Object> result = new HashMap<>();
 
         try (Git git = openRepository(namespace);
@@ -208,6 +247,9 @@ public class GitBasedConfigService implements RepositoryService {
             } else {
                 result.put("changes", "Initial commit - file created");
             }
+        } catch (IOException e) {
+            log.error("Error getting commit changes: {}", e.getMessage(), e);
+            throw GitOperationException.diffFailed(commitId, e);
         }
 
         return result;

@@ -4,7 +4,7 @@ import dev.srivatsan.config_server.api.ConfigurationAPI;
 import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.ChangeEntry;
 import dev.srivatsan.config_server.model.Payload;
-import dev.srivatsan.config_server.cache.ChangeLogCacheManager;
+import dev.srivatsan.config_server.service.ChangeLogService;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import jakarta.validation.Valid;
@@ -29,13 +29,10 @@ public class MainController implements ConfigurationAPI {
 
     private final RepositoryService repositoryService;
     private final UtilService utilService;
-    private final ChangeLogCacheManager changeLogCacheManager;
 
-    public MainController(RepositoryService repositoryService, UtilService utilService, 
-                         ChangeLogCacheManager changeLogCacheManager) {
+    public MainController(RepositoryService repositoryService, UtilService utilService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
-        this.changeLogCacheManager = changeLogCacheManager;
     }
 
     private String validateAndGetFilePath(Payload payload, ActionType expectedAction) {
@@ -67,17 +64,6 @@ public class MainController implements ConfigurationAPI {
         return ResponseEntity.ok(payload);
     }
 
-    @Override
-    public ResponseEntity<List<ChangeEntry>> getCachedChanges(@RequestBody Map<String, String> request) {
-        String namespace = request.get("namespace");
-        log.info("Getting cached changes for namespace: {}", namespace);
-        
-        utilService.validateNamespace(namespace);
-        List<ChangeEntry> changes = changeLogCacheManager.getChanges(namespace);
-        
-        log.info("Successfully retrieved {} cached changes for namespace: {}", changes.size(), namespace);
-        return ResponseEntity.ok(changes);
-    }
 
     @Override
     public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
@@ -85,6 +71,7 @@ public class MainController implements ConfigurationAPI {
         
         String filePath = validateAndGetFilePath(payload, ActionType.update);
         repositoryService.updateConfigFile(filePath, payload);
+        
         
         log.info("Successfully updated config file: {} with message: {}", filePath, payload.getMessage());
         return ResponseEntity.ok(SUCCESS_MESSAGE);
@@ -114,41 +101,5 @@ public class MainController implements ConfigurationAPI {
         return ResponseEntity.ok(commitDetails);
     }
 
-    @Override
-    public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) throws Exception {
-        String namespace = request.get("namespace");
-        log.info("Creating namespace: {}", namespace);
-        
-        utilService.validateNamespace(namespace);
-        repositoryService.createNamespace(namespace.trim());
-        
-        log.info("Successfully created namespace: {}", namespace);
-        return ResponseEntity.status(HttpStatus.CREATED).body(NAMESPACE_CREATED_MESSAGE);
-    }
-
-    @Override
-    public ResponseEntity<List<String>> listNamespaces() {
-        log.info("Listing all namespaces");
-        
-        List<String> namespaces = repositoryService.listNamespaces();
-        
-        log.info("Successfully retrieved {} namespaces", namespaces.size());
-        return ResponseEntity.ok(namespaces);
-    }
-
-    @Override
-    public ResponseEntity<List<String>> listDirectoryContents(@RequestBody Map<String, String> request) {
-        String namespace = request.get("namespace");
-        String path = request.getOrDefault("path", "");
-        
-        log.info("Listing directory contents for namespace: {} and path: {}", namespace, path);
-        
-        utilService.validateNamespace(namespace);
-        
-        List<String> fileNames = repositoryService.listDirectoryContents(namespace, path);
-        
-        log.info("Successfully retrieved {} entries for namespace: {} path: {}", fileNames.size(), namespace, path);
-        return ResponseEntity.ok(fileNames);
-    }
 
 }

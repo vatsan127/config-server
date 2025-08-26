@@ -17,9 +17,9 @@ The Swagger interface provides complete API documentation with request/response 
 
 ### Create Configuration
 
-localhost:8080/config-server/config/create
+**POST** localhost:8080/config-server/config/create
 
-```
+```json
 {
     "action": "create",
     "appName": "sample",
@@ -31,9 +31,9 @@ localhost:8080/config-server/config/create
 
 ### Fetch Configuration
 
-localhost:8080/config-server/config/fetch
+**POST** localhost:8080/config-server/config/fetch
 
-```
+```json
 {
     "action": "fetch",
     "appName": "sample",
@@ -45,9 +45,9 @@ localhost:8080/config-server/config/fetch
 
 ### Update Configuration
 
-localhost:8080/config-server/config/update
+**POST** localhost:8080/config-server/config/update
 
-```
+```json
 {
     "action": "update",
     "appName": "sample",
@@ -61,9 +61,9 @@ localhost:8080/config-server/config/update
 
 ### Get Configuration History
 
-localhost:8080/config-server/config/history
+**POST** localhost:8080/config-server/config/history
 
-```
+```json
 {
     "action": "history",
     "appName": "sample",
@@ -75,9 +75,9 @@ localhost:8080/config-server/config/history
 
 ### Get Commit Changes
 
-localhost:8080/config-server/config/changes
+**POST** localhost:8080/config-server/config/changes
 
-```
+```json
 {
     "action": "changes",
     "appName": "sample",
@@ -88,11 +88,26 @@ localhost:8080/config-server/config/changes
 }
 ```
 
+
+## Change Log Management
+
+### Get Cached Changes (Fast)
+
+**POST** localhost:8080/config-server/changelog/cached
+
+```json
+{
+    "namespace": "test"
+}
+```
+
+## Namespace Management
+
 ### Create Namespace
 
-localhost:8080/config-server/config/namespace/create
+**POST** localhost:8080/config-server/namespace/create
 
-```
+```json
 {
     "namespace": "test"
 }
@@ -102,17 +117,17 @@ localhost:8080/config-server/config/namespace/create
 
 ### List Namespaces
 
-localhost:8080/config-server/config/namespaces
+**POST** localhost:8080/config-server/namespace/list
 
-```
-GET /config-server/config/namespaces
+```json
+{}
 ```
 
 ### List Directory Contents
 
-localhost:8080/config-server/config/files
+**POST** localhost:8080/config-server/namespace/files
 
-```
+```json
 {
     "namespace": "test",
     "path": "config"
@@ -140,7 +155,7 @@ docker run --name config-server -p 8080:8080 config-server-image
 
 3. **Create a namespace** (required before creating config files):
    ```bash
-   curl -X POST http://localhost:8080/config-server/config/namespace/create \
+   curl -X POST http://localhost:8080/config-server/namespace/create \
      -H "Content-Type: application/json" \
      -d '{"namespace": "test"}'
    ```

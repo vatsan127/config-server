@@ -2,7 +2,6 @@ package dev.srivatsan.config_server;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.NamespaceException;
-import dev.srivatsan.config_server.cache.ChangeLogCacheManager;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,11 +19,9 @@ public class ConfigServerApplication {
 
     private final Logger log = LoggerFactory.getLogger(ConfigServerApplication.class);
     private final ApplicationConfig applicationConfig;
-    private final ChangeLogCacheManager changeLogCacheManager;
 
-    public ConfigServerApplication(ApplicationConfig applicationConfig, ChangeLogCacheManager changeLogCacheManager) {
+    public ConfigServerApplication(ApplicationConfig applicationConfig) {
         this.applicationConfig = applicationConfig;
-        this.changeLogCacheManager = changeLogCacheManager;
     }
 
     public static void main(String[] args) {

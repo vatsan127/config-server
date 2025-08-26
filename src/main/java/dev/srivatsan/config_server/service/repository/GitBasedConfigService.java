@@ -16,6 +16,8 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -59,6 +61,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
+    @CacheEvict(value = {"namespaces", "directory-listing"}, allEntries = true)
     public void createNamespace(String namespace) {
         utilService.validateNamespace(namespace);
 
@@ -82,6 +85,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
+    @CacheEvict(value = {"config-content", "commit-history"}, key = "#filePath")
     public void initializeConfigFile(String filePath, String appName, String email) {
         utilService.validateSafePath(filePath);
         utilService.validateAppName(appName);
@@ -119,6 +123,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
+    @CacheEvict(value = {"config-content", "commit-history", "change-logs"}, key = "#filePath")
     public void updateConfigFile(String filePath, Payload payload) {
         utilService.validateSafePath(filePath);
         utilService.validateEmail(payload.getEmail());
@@ -156,6 +161,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
+    @Cacheable(value = "config-content", key = "#filePath")
     public String getConfigFile(String filePath) {
         utilService.validateSafePath(filePath);
 
@@ -179,6 +185,7 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     @Override
+    @Cacheable(value = "commit-history", key = "#filePath")
     public Map<String, Object> getConfigFileHistory(String filePath) {
         utilService.validateSafePath(filePath);
 
@@ -226,6 +233,7 @@ public class GitBasedConfigService implements RepositoryService {
         return commitInfo;
     }
 
+    @Cacheable(value = "commit-details", key = "#commitId + '_' + #namespace")
     public Map<String, Object> getCommitChanges(String commitId, String namespace) {
         utilService.validateCommitId(commitId);
         utilService.validateNamespace(namespace);
@@ -260,6 +268,7 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     @Override
+    @Cacheable(value = "namespaces", key = "'all'")
     public List<String> listNamespaces() {
         File baseDir = new File(applicationConfig.getBasePath());
         
@@ -298,6 +307,7 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     @Override
+    @Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
     public List<String> listDirectoryContents(String namespace, String path) {
         utilService.validateNamespace(namespace);
         

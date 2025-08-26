@@ -1,5 +1,6 @@
 package dev.srivatsan.config_server.api;
 
+import dev.srivatsan.config_server.model.ChangeEntry;
 import dev.srivatsan.config_server.model.Payload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Configuration Management", description = "APIs for managing application configuration files with Git version control")
@@ -127,8 +129,53 @@ public interface ConfigurationAPI {
             @Valid @RequestBody Payload payload);
 
     @Operation(
-            summary = "Get configuration file commit history",
-            description = "Retrieves the commit history for a specific configuration file"
+            summary = "Get cached configuration changes (Fast)",
+            description = "Retrieves the last 20 configuration changes from in-memory cache for optimal performance"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Cached changes retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = """
+                                    [
+                                      {
+                                        "commitId": "abc123def456",
+                                        "message": "Update user service port",
+                                        "author": "developer",
+                                        "email": "developer@company.com",
+                                        "modifiedTime": "2024-01-15 10:30:00",
+                                        "fileName": "user-service.yml",
+                                        "changes": "--- a/user-service.yml\\n+++ b/user-service.yml\\n@@ -1,4 +1,4 @@\\n server:\\n-  port: 8080\\n+  port: 8081"
+                                      }
+                                    ]
+                                    """))),
+            @ApiResponse(responseCode = "400", description = "Invalid namespace"),
+            @ApiResponse(responseCode = "404", description = "Namespace not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/changes/cached")
+    ResponseEntity<List<ChangeEntry>> getCachedChanges(
+            @Parameter(description = "Namespace to get cached changes for", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Request to get cached changes for a namespace",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Get Cached Changes Example",
+                                    value = """
+                                            {
+                                                "namespace": "test"
+                                            }
+                                            """
+                            )
+                    )
+            )
+            @RequestBody Map<String, String> request);
+
+    @Deprecated
+    @Operation(
+            summary = "Get configuration file commit history (Deprecated - Use /changes/cached)",
+            description = "Retrieves the commit history for a specific configuration file. This endpoint is deprecated in favor of the faster cached changes endpoint."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "History retrieved successfully",

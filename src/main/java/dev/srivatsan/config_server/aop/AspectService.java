@@ -38,7 +38,7 @@ public class AspectService {
         boolean isController = isControllerMethod(joinPoint);
         String requestId = getOrSetRequestId(isController);
 
-        log.info("{}:{} - ENTRY | RequestId: {} | Args: {}", className, methodName, requestId, formatArguments(joinPoint.getArgs()));
+        log.debug("{}:{} - ENTRY | RequestId: {} | Args: {}", className, methodName, requestId, formatArguments(joinPoint.getArgs()));
 
         StopWatch stopWatch = new StopWatch();
         try {
@@ -49,7 +49,7 @@ public class AspectService {
             long executionTime = stopWatch.getTotalTimeMillis();
             String resultStr = formatResult(result);
 
-            log.info("{}:{} - EXIT | RequestId: {} | {}ms | Result: {}", className, methodName, requestId, executionTime, resultStr);
+            log.debug("{}:{} - EXIT | RequestId: {} | {}ms | Result: {}", className, methodName, requestId, executionTime, resultStr);
 
             return result;
         } catch (Throwable throwable) {
@@ -60,7 +60,6 @@ public class AspectService {
                     className, methodName, requestId, executionTime, throwable.getMessage());
             throw throwable;
         } finally {
-            // Clean up ThreadLocal to prevent memory leaks
             if (isController) {
                 RequestContext.clear();
             }

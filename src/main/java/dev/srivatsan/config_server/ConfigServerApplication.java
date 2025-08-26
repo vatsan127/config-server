@@ -2,6 +2,7 @@ package dev.srivatsan.config_server;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.NamespaceException;
+import dev.srivatsan.config_server.service.cache.ChangeLogCacheService;
 import jakarta.annotation.PostConstruct;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -10,18 +11,22 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.io.File;
 
 @EnableAspectJAutoProxy
+@EnableScheduling
 @SpringBootApplication
 public class ConfigServerApplication {
 
     private final Logger log = LoggerFactory.getLogger(ConfigServerApplication.class);
     private final ApplicationConfig applicationConfig;
+    private final ChangeLogCacheService changeLogCacheService;
 
-    public ConfigServerApplication(ApplicationConfig applicationConfig) {
+    public ConfigServerApplication(ApplicationConfig applicationConfig, ChangeLogCacheService changeLogCacheService) {
         this.applicationConfig = applicationConfig;
+        this.changeLogCacheService = changeLogCacheService;
     }
 
     public static void main(String[] args) {
@@ -29,7 +34,7 @@ public class ConfigServerApplication {
     }
 
     @PostConstruct
-    public void init() throws GitAPIException {
+    public void init() {
         File baseDir = new File(applicationConfig.getBasePath());
         if (!baseDir.exists()) {
             boolean created = baseDir.mkdirs();
@@ -43,6 +48,7 @@ public class ConfigServerApplication {
         } else {
             log.info("Base directory already exists at: {}", baseDir.getAbsolutePath());
         }
+        
     }
 
 }

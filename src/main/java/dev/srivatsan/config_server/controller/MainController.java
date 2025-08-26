@@ -2,7 +2,9 @@ package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.ConfigurationAPI;
 import dev.srivatsan.config_server.model.ActionType;
+import dev.srivatsan.config_server.model.ChangeEntry;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.service.cache.ChangeLogCacheService;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import jakarta.validation.Valid;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -26,10 +29,13 @@ public class MainController implements ConfigurationAPI {
 
     private final RepositoryService repositoryService;
     private final UtilService utilService;
+    private final ChangeLogCacheService changeLogCacheService;
 
-    public MainController(RepositoryService repositoryService, UtilService utilService) {
+    public MainController(RepositoryService repositoryService, UtilService utilService, 
+                         ChangeLogCacheService changeLogCacheService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
+        this.changeLogCacheService = changeLogCacheService;
     }
 
     private String validateAndGetFilePath(Payload payload, ActionType expectedAction) {
@@ -62,6 +68,18 @@ public class MainController implements ConfigurationAPI {
     }
 
     @Override
+    public ResponseEntity<List<ChangeEntry>> getCachedChanges(@RequestBody Map<String, String> request) {
+        String namespace = request.get("namespace");
+        log.info("Getting cached changes for namespace: {}", namespace);
+        
+        utilService.validateNamespace(namespace);
+        List<ChangeEntry> changes = changeLogCacheService.getChanges(namespace);
+        
+        log.info("Successfully retrieved {} cached changes for namespace: {}", changes.size(), namespace);
+        return ResponseEntity.ok(changes);
+    }
+
+    @Override
     public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
         log.info("Updating config file for app: {} in namespace: {}", payload.getAppName(), payload.getNamespace());
         
@@ -73,7 +91,9 @@ public class MainController implements ConfigurationAPI {
     }
 
     @Override
+    @Deprecated
     public ResponseEntity<Map<String, Object>> getCommitHistory(@Valid @RequestBody Payload payload) throws Exception {
+        log.warn("DEPRECATED: getCommitHistory endpoint used. Please migrate to /changes/cached for better performance");
         log.info("Getting commit history for app: {} in namespace: {}", payload.getAppName(), payload.getNamespace());
         
         String filePath = validateAndGetFilePath(payload, ActionType.history);

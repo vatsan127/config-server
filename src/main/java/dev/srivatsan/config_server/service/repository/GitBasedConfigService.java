@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -43,12 +44,12 @@ public class GitBasedConfigService implements RepositoryService {
 
     private Git openRepository(String namespace) throws IOException {
         utilService.validateNamespace(namespace);
-        
+
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
         if (!namespaceDir.exists()) {
             throw NamespaceException.notFound(namespace);
         }
-        
+
         try {
             return Git.open(namespaceDir);
         } catch (IOException e) {
@@ -56,9 +57,9 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
-    public void createNamespace(String namespace) throws GitAPIException, IOException {
+    public void createNamespace(String namespace) {
         utilService.validateNamespace(namespace);
-        
+
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
 
         if (namespaceDir.exists()) {
@@ -67,8 +68,8 @@ public class GitBasedConfigService implements RepositoryService {
 
         boolean created = namespaceDir.mkdirs();
         if (!created) {
-            throw NamespaceException.creationFailed(namespace, 
-                new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath()));
+            throw NamespaceException.creationFailed(namespace,
+                    new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath()));
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
@@ -83,10 +84,10 @@ public class GitBasedConfigService implements RepositoryService {
         utilService.validateSafePath(filePath);
         utilService.validateAppName(appName);
         utilService.validateEmail(email);
-        
+
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
-        
+
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path newFilePath = workTree.resolve(relativePath);
@@ -101,7 +102,7 @@ public class GitBasedConfigService implements RepositoryService {
             Files.writeString(newFilePath, configContent);
 
             git.add().addFilepattern(relativePath).call();
-            git.commit()
+            RevCommit commit = git.commit()
                     .setMessage("First commit ApplicationName - " + appName)
                     .setAuthor(email.substring(0, email.indexOf('@')), email)
                     .call();
@@ -121,7 +122,7 @@ public class GitBasedConfigService implements RepositoryService {
         utilService.validateEmail(payload.getEmail());
         utilService.validateYamlContent(payload.getContent());
         utilService.validateCommitMessage(payload.getMessage());
-        
+
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
@@ -138,7 +139,7 @@ public class GitBasedConfigService implements RepositoryService {
             Files.writeString(configFilePath, payload.getContent());
 
             git.add().addFilepattern(relativePath).call();
-            git.commit()
+            RevCommit commit = git.commit()
                     .setMessage(commitMessage)
                     .setAuthor(email.substring(0, email.indexOf('@')), email)
                     .call();
@@ -153,12 +154,12 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
-    public String getConfigFile(String filePath) throws IOException {
+    public String getConfigFile(String filePath) {
         utilService.validateSafePath(filePath);
-        
+
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
-        
+
         try (Git git = openRepository(namespace)) {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
@@ -175,12 +176,12 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
-    public Map<String, Object> getConfigFileHistory(String filePath) throws Exception {
+    public Map<String, Object> getConfigFileHistory(String filePath) {
         utilService.validateSafePath(filePath);
-        
+
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
-        
+
         try (Git git = openRepository(namespace)) {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
@@ -222,10 +223,10 @@ public class GitBasedConfigService implements RepositoryService {
         return commitInfo;
     }
 
-    public Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException {
+    public Map<String, Object> getCommitChanges(String commitId, String namespace) {
         utilService.validateCommitId(commitId);
         utilService.validateNamespace(namespace);
-        
+
         Map<String, Object> result = new HashMap<>();
 
         try (Git git = openRepository(namespace);

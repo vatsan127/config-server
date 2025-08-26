@@ -16,4 +16,9 @@ spring:
 
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}
-  commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:10}
+  commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
+  cache-refresh-interval: ${CACHE_REFRESH_INTERVAL_SECONDS:30}
+
+logging:
+  level:
+    root: ${LOG_LEVEL:info}

@@ -79,8 +79,12 @@ localhost:8080/config-server/config/changes
 
 ```
 {
-    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3",
-    "namespace": "test"
+    "action": "changes",
+    "appName": "sample",
+    "namespace": "test",
+    "path": "/",
+    "email": "test@gmail.com",
+    "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3"
 }
 ```
 
@@ -95,6 +99,25 @@ localhost:8080/config-server/config/namespace/create
 ```
 
 **Note**: You must create a namespace before creating configuration files in it. This initializes a git repository for the namespace.
+
+### List Namespaces
+
+localhost:8080/config-server/config/namespaces
+
+```
+GET /config-server/config/namespaces
+```
+
+### List Directory Contents
+
+localhost:8080/config-server/config/files
+
+```
+{
+    "namespace": "test",
+    "path": "config"
+}
+```
 
 ## Docker
 
@@ -113,7 +136,7 @@ docker run --name config-server -p 8080:8080 config-server-image
    mvn spring-boot:run
    ```
 
-2. **Access Swagger UI**: Navigate to `http://localhost:8080/swagger-ui/index.html`
+2. **Access Swagger UI**: Navigate to `http://localhost:8080/config-server/swagger-ui/index.html`
 
 3. **Create a namespace** (required before creating config files):
    ```bash

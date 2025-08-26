@@ -4,6 +4,7 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
+import dev.srivatsan.config_server.model.DirectoryEntry;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.util.UtilService;
 import org.eclipse.jgit.api.Git;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
@@ -176,6 +178,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
+    @Override
     public Map<String, Object> getConfigFileHistory(String filePath) {
         utilService.validateSafePath(filePath);
 
@@ -254,6 +257,104 @@ public class GitBasedConfigService implements RepositoryService {
         }
 
         return result;
+    }
+
+    @Override
+    public List<String> listNamespaces() {
+        File baseDir = new File(applicationConfig.getBasePath());
+        
+        if (!baseDir.exists() || !baseDir.isDirectory()) {
+            log.warn("Base directory does not exist: {}", baseDir.getAbsolutePath());
+            return Collections.emptyList();
+        }
+
+        File[] namespaceDirs = baseDir.listFiles(File::isDirectory);
+        if (namespaceDirs == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> namespaces = Arrays.stream(namespaceDirs)
+                .map(File::getName)
+                .filter(name -> isValidNamespace(name))
+                .sorted()
+                .collect(Collectors.toList());
+
+        log.debug("Found {} namespaces in base directory", namespaces.size());
+        return namespaces;
+    }
+
+    private boolean isValidNamespace(String name) {
+        try {
+            utilService.validateNamespace(name);
+            
+            // Check if it's a valid git repository
+            File namespaceDir = new File(applicationConfig.getBasePath(), name);
+            File gitDir = new File(namespaceDir, ".git");
+            return gitDir.exists() && gitDir.isDirectory();
+        } catch (Exception e) {
+            log.debug("Skipping invalid namespace directory: {}", name);
+            return false;
+        }
+    }
+
+    @Override
+    public List<String> listDirectoryContents(String namespace, String path) {
+        utilService.validateNamespace(namespace);
+        
+        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
+        if (!namespaceDir.exists()) {
+            throw NamespaceException.notFound(namespace);
+        }
+
+        // Clean and validate the path
+        String cleanPath = (path == null || path.trim().isEmpty()) ? "" : path.trim();
+        if (cleanPath.startsWith("/")) {
+            cleanPath = cleanPath.substring(1);
+        }
+        
+        File targetDir = cleanPath.isEmpty() ? namespaceDir : new File(namespaceDir, cleanPath);
+        
+        if (!targetDir.exists()) {
+            throw new RuntimeException("Directory not found: " + cleanPath);
+        }
+        
+        if (!targetDir.isDirectory()) {
+            throw new RuntimeException("Path is not a directory: " + cleanPath);
+        }
+
+        // Security check: ensure target directory is within namespace
+        try {
+            if (!targetDir.getCanonicalPath().startsWith(namespaceDir.getCanonicalPath())) {
+                throw new RuntimeException("Invalid path: access denied");
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to validate path security", e);
+        }
+
+        File[] files = targetDir.listFiles();
+        if (files == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> fileNames = new ArrayList<>();
+
+        for (File file : files) {
+            // Skip .git directory and other hidden files/directories
+            if (file.getName().startsWith(".")) {
+                continue;
+            }
+            
+            // Include only directories and .yml files
+            if (file.isDirectory() || file.getName().toLowerCase().endsWith(".yml")) {
+                fileNames.add(file.getName());
+            }
+        }
+
+        // Sort alphabetically
+        Collections.sort(fileNames, String.CASE_INSENSITIVE_ORDER);
+
+        log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
+        return fileNames;
     }
 
 }

@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.api;
 
 import dev.srivatsan.config_server.model.ChangeEntry;
+import dev.srivatsan.config_server.model.DirectoryEntry;
 import dev.srivatsan.config_server.model.Payload;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,8 +12,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
 import java.util.List;
@@ -172,10 +176,9 @@ public interface ConfigurationAPI {
             )
             @RequestBody Map<String, String> request);
 
-    @Deprecated
     @Operation(
-            summary = "Get configuration file commit history (Deprecated - Use /changes/cached)",
-            description = "Retrieves the commit history for a specific configuration file. This endpoint is deprecated in favor of the faster cached changes endpoint."
+            summary = "Get configuration file commit history",
+            description = "Retrieves the commit history for a specific configuration file"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "History retrieved successfully",
@@ -254,8 +257,12 @@ public interface ConfigurationAPI {
                                     name = "Get Changes Example",
                                     value = """
                                             {
-                                                "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3",
-                                                "namespace": "test"
+                                                "action": "changes",
+                                                "appName": "sample",
+                                                "namespace": "test",
+                                                "path": "/",
+                                                "email": "test@gmail.com",
+                                                "commitId": "de2c57c02c091da9e61546db416142fe81f84dd3"
                                             }
                                             """
                             )
@@ -294,4 +301,63 @@ public interface ConfigurationAPI {
                     )
             )
             @RequestBody Map<String, String> request) throws Exception;
+
+    @Operation(
+            summary = "List all namespaces",
+            description = "Retrieves a list of all available namespaces in the configuration server"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Namespaces retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = """
+                                    [
+                                      "production",
+                                      "staging", 
+                                      "development",
+                                      "test"
+                                    ]
+                                    """))),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @GetMapping("/namespaces")
+    ResponseEntity<List<String>> listNamespaces();
+
+    @Operation(
+            summary = "List directory contents",
+            description = "Retrieves the list of .yml files and subdirectories within a specified directory path in a namespace"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Directory contents retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = """
+                                    [
+                                      "services",
+                                      "user-service.yml",
+                                      "database.yml"
+                                    ]
+                                    """))),
+            @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
+            @ApiResponse(responseCode = "404", description = "Namespace or directory not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/files")
+    ResponseEntity<List<String>> listDirectoryContents(
+            @Parameter(description = "Directory listing request", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Request to list .yml files and directories in a namespace",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "List Files Example",
+                                    value = """
+                                            {
+                                                "namespace": "production",
+                                                "path": "config"
+                                            }
+                                            """
+                            )
+                    )
+            )
+            @RequestBody Map<String, String> request);
 }

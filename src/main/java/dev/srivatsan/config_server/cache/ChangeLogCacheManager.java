@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.service.cache;
+package dev.srivatsan.config_server.cache;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.ChangeEntry;
@@ -11,7 +11,6 @@ import org.eclipse.jgit.diff.DiffFormatter;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevWalk;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -27,7 +26,7 @@ import static org.eclipse.jgit.lib.Constants.HEAD;
 
 @Slf4j
 @Service
-public class ChangeLogCacheService {
+public class ChangeLogCacheManager {
 
     private final ApplicationConfig applicationConfig;
     private final UtilService utilService;
@@ -35,36 +34,10 @@ public class ChangeLogCacheService {
     private final Map<String, List<ChangeEntry>> namespaceChangeCache = new HashMap<>();
     private final Map<String, Object> namespaceLocks = new ConcurrentHashMap<>();
 
-    public ChangeLogCacheService(ApplicationConfig applicationConfig, UtilService utilService) {
+    public ChangeLogCacheManager(ApplicationConfig applicationConfig, UtilService utilService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
     }
-
-    public void initializeCache() {
-        log.info("Initializing change log cache for all namespaces");
-        
-        File baseDir = new File(applicationConfig.getBasePath());
-        if (!baseDir.exists() || !baseDir.isDirectory()) {
-            log.warn("Base directory does not exist: {}", baseDir.getAbsolutePath());
-            return;
-        }
-
-        File[] namespaceDirs = baseDir.listFiles(File::isDirectory);
-        if (namespaceDirs != null) {
-            for (File namespaceDir : namespaceDirs) {
-                String namespace = namespaceDir.getName();
-                try {
-                    populateNamespaceCache(namespace);
-                    log.info("Initialized cache for namespace: {}", namespace);
-                } catch (Exception e) {
-                    log.error("Failed to initialize cache for namespace '{}': {}", namespace, e.getMessage(), e);
-                }
-            }
-        }
-        
-        log.info("Change log cache initialization completed. Loaded {} namespaces", namespaceChangeCache.size());
-    }
-
 
     private void populateNamespaceCache(String namespace) throws IOException, GitAPIException {
         utilService.validateNamespace(namespace);
@@ -139,38 +112,13 @@ public class ChangeLogCacheService {
         }
     }
 
-    public void addChangeEntry(String namespace, ChangeEntry changeEntry) {
-        synchronized (getNamespaceLock(namespace)) {
-            List<ChangeEntry> changes = namespaceChangeCache.computeIfAbsent(namespace, k -> new ArrayList<>());
-            changes.add(0, changeEntry); // Add to front
-            
-            // Keep only last 20 entries
-            if (changes.size() > applicationConfig.getCommitHistorySize()) {
-                changes.remove(applicationConfig.getCommitHistorySize());
-            }
-        }
-        
-        log.debug("Added change entry to cache for namespace: {}, total entries: {}", 
-                namespace, namespaceChangeCache.get(namespace).size());
-    }
-
     public List<ChangeEntry> getChanges(String namespace) {
         synchronized (getNamespaceLock(namespace)) {
             return new ArrayList<>(namespaceChangeCache.getOrDefault(namespace, Collections.emptyList()));
         }
     }
 
-    public void refreshNamespaceCache(String namespace) {
-        try {
-            populateNamespaceCache(namespace);
-            log.info("Refreshed cache for namespace: {}", namespace);
-        } catch (Exception e) {
-            log.error("Failed to refresh cache for namespace '{}': {}", namespace, e.getMessage(), e);
-        }
-    }
-
-    @Scheduled(fixedRateString = "#{${global.cache-refresh-interval} * 1000}", 
-               initialDelayString = "#{5 * 1000}")
+    @Scheduled(fixedRateString = "#{${global.cache-refresh-interval} * 1000}", initialDelayString = "#{10 * 1000}")
     public void refreshAllCaches() {
         log.info("Starting scheduled cache refresh for all namespaces");
         

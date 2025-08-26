@@ -2,10 +2,8 @@ package dev.srivatsan.config_server;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.NamespaceException;
-import dev.srivatsan.config_server.service.cache.ChangeLogCacheService;
+import dev.srivatsan.config_server.cache.ChangeLogCacheManager;
 import jakarta.annotation.PostConstruct;
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.GitAPIException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
@@ -22,11 +20,11 @@ public class ConfigServerApplication {
 
     private final Logger log = LoggerFactory.getLogger(ConfigServerApplication.class);
     private final ApplicationConfig applicationConfig;
-    private final ChangeLogCacheService changeLogCacheService;
+    private final ChangeLogCacheManager changeLogCacheManager;
 
-    public ConfigServerApplication(ApplicationConfig applicationConfig, ChangeLogCacheService changeLogCacheService) {
+    public ConfigServerApplication(ApplicationConfig applicationConfig, ChangeLogCacheManager changeLogCacheManager) {
         this.applicationConfig = applicationConfig;
-        this.changeLogCacheService = changeLogCacheService;
+        this.changeLogCacheManager = changeLogCacheManager;
     }
 
     public static void main(String[] args) {

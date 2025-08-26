@@ -41,7 +41,7 @@ public class ChangeLogService {
     @Cacheable(value = "change-logs", key = "#namespace")
     public List<ChangeEntry> getChanges(String namespace) {
         utilService.validateNamespace(namespace);
-        
+
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
         if (!namespaceDir.exists()) {
             return Collections.emptyList();
@@ -49,14 +49,14 @@ public class ChangeLogService {
 
         try (Git git = Git.open(namespaceDir)) {
             Repository repository = git.getRepository();
-            
+
             if (repository.resolve(HEAD) == null) {
                 log.debug("Repository '{}' has no commits yet", namespace);
                 return Collections.emptyList();
             }
-            
+
             List<ChangeEntry> changes = new ArrayList<>();
-            
+
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
                     .add(repository.resolve(HEAD));
@@ -66,14 +66,14 @@ public class ChangeLogService {
                     ChangeEntry entry = createChangeEntry(repository, commit);
                     changes.add(entry);
                 } catch (Exception e) {
-                    log.warn("Failed to create change entry for commit {} in namespace '{}': {}", 
+                    log.warn("Failed to create change entry for commit {} in namespace '{}': {}",
                             commit.getId().getName(), namespace, e.getMessage());
                 }
             }
-            
+
             log.debug("Retrieved {} changes for namespace '{}'", changes.size(), namespace);
             return changes;
-            
+
         } catch (IOException | GitAPIException e) {
             log.error("Error retrieving changes for namespace '{}': {}", namespace, e.getMessage(), e);
             return Collections.emptyList();
@@ -87,16 +87,16 @@ public class ChangeLogService {
 
     private ChangeEntry createChangeEntry(Repository repository, RevCommit commit) throws IOException {
         PersonIdent author = commit.getAuthorIdent();
-        
+
         ChangeEntry entry = new ChangeEntry();
         entry.setCommitId(commit.getId().getName());
         entry.setMessage(commit.getShortMessage() != null ? commit.getShortMessage() : "No message");
         entry.setAuthor(author != null ? author.getName() : "Unknown");
         entry.setEmail(author != null ? author.getEmailAddress() : "unknown@unknown.com");
-        entry.setModifiedTime(author != null ? 
+        entry.setModifiedTime(author != null ?
                 LocalDateTime.ofInstant(author.getWhen().toInstant(), ZoneId.systemDefault()) :
                 LocalDateTime.now());
-        
+
         // Extract filename from commit
         try (DiffFormatter diffFormatter = new DiffFormatter(new ByteArrayOutputStream())) {
             diffFormatter.setRepository(repository);
@@ -112,7 +112,7 @@ public class ChangeLogService {
         } catch (Exception e) {
             log.debug("Could not extract filename from commit {}: {}", commit.getId().getName(), e.getMessage());
         }
-        
+
         // Generate git diff
         try {
             entry.setChanges(generateGitDiff(repository, commit));
@@ -120,16 +120,16 @@ public class ChangeLogService {
             log.debug("Could not generate diff for commit {}: {}", commit.getId().getName(), e.getMessage());
             entry.setChanges("Diff not available");
         }
-        
+
         return entry;
     }
 
     private String generateGitDiff(Repository repository, RevCommit commit) throws IOException {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
              DiffFormatter diffFormatter = new DiffFormatter(out)) {
-            
+
             diffFormatter.setRepository(repository);
-            
+
             if (commit.getParentCount() > 0) {
                 List<DiffEntry> diffs = diffFormatter.scan(commit.getParent(0), commit);
                 for (DiffEntry diff : diffs) {

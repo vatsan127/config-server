@@ -37,13 +37,13 @@ public class ConfigServerApplication {
                 log.info("Created base directory at: {}", baseDir.getAbsolutePath());
             } else {
                 log.error("Failed to create base directory at: {}", baseDir.getAbsolutePath());
-                throw NamespaceException.creationFailed("base", 
-                    new RuntimeException("Failed to create base directory"));
+                throw NamespaceException.creationFailed("base",
+                        new RuntimeException("Failed to create base directory"));
             }
         } else {
             log.info("Base directory already exists at: {}", baseDir.getAbsolutePath());
         }
-        
+
     }
 
 }

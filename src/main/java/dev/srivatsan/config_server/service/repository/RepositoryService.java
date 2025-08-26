@@ -1,6 +1,5 @@
 package dev.srivatsan.config_server.service.repository;
 
-import dev.srivatsan.config_server.model.DirectoryEntry;
 import dev.srivatsan.config_server.model.Payload;
 import org.eclipse.jgit.api.errors.GitAPIException;
 
@@ -65,7 +64,7 @@ public interface RepositoryService {
      *
      * @param namespace the namespace identifier
      * @throws GitAPIException if git operations fail
-     * @throws IOException if directory creation fails
+     * @throws IOException     if directory creation fails
      */
     void createNamespace(String namespace) throws GitAPIException, IOException;
 
@@ -73,7 +72,7 @@ public interface RepositoryService {
      * Retrieves the changes made in a specific commit within a namespace.
      * Returns detailed information about what was modified in the commit.
      *
-     * @param commitId the unique identifier of the commit
+     * @param commitId  the unique identifier of the commit
      * @param namespace the namespace where the commit was made
      * @return a map containing change information (files changed, additions, deletions)
      * @throws IOException if the repository cannot be accessed or the commit cannot be found
@@ -93,7 +92,7 @@ public interface RepositoryService {
      * Returns only .yml files and subdirectories in the specified path.
      *
      * @param namespace the namespace identifier
-     * @param path the relative directory path within the namespace (empty string for root)
+     * @param path      the relative directory path within the namespace (empty string for root)
      * @return a list of .yml file names and folder names
      * @throws RuntimeException if the namespace or directory is not found or cannot be accessed
      */

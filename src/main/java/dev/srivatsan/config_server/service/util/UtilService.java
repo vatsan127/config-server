@@ -146,11 +146,11 @@ public class UtilService {
 
         if (    // Reserved namespace names
                 "system".equalsIgnoreCase(cleanNamespace) ||
-                "admin".equalsIgnoreCase(cleanNamespace) ||
-                "dashboard".equalsIgnoreCase(cleanNamespace) ||
-                "default".equalsIgnoreCase(cleanNamespace) ||
-                "log".equalsIgnoreCase(cleanNamespace) ||
-                "root".equalsIgnoreCase(cleanNamespace)
+                        "admin".equalsIgnoreCase(cleanNamespace) ||
+                        "dashboard".equalsIgnoreCase(cleanNamespace) ||
+                        "default".equalsIgnoreCase(cleanNamespace) ||
+                        "log".equalsIgnoreCase(cleanNamespace) ||
+                        "root".equalsIgnoreCase(cleanNamespace)
         ) {
             throw ValidationException.invalidNamespace(namespace, "Reserved namespace name");
         }

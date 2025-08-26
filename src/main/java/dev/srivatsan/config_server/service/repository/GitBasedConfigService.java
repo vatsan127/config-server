@@ -4,7 +4,6 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
-import dev.srivatsan.config_server.model.DirectoryEntry;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.util.UtilService;
 import org.eclipse.jgit.api.Git;
@@ -26,7 +25,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -271,7 +269,7 @@ public class GitBasedConfigService implements RepositoryService {
     @Cacheable(value = "namespaces", key = "'all'")
     public List<String> listNamespaces() {
         File baseDir = new File(applicationConfig.getBasePath());
-        
+
         if (!baseDir.exists() || !baseDir.isDirectory()) {
             log.warn("Base directory does not exist: {}", baseDir.getAbsolutePath());
             return Collections.emptyList();
@@ -295,7 +293,7 @@ public class GitBasedConfigService implements RepositoryService {
     private boolean isValidNamespace(String name) {
         try {
             utilService.validateNamespace(name);
-            
+
             // Check if it's a valid git repository
             File namespaceDir = new File(applicationConfig.getBasePath(), name);
             File gitDir = new File(namespaceDir, ".git");
@@ -310,7 +308,7 @@ public class GitBasedConfigService implements RepositoryService {
     @Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
     public List<String> listDirectoryContents(String namespace, String path) {
         utilService.validateNamespace(namespace);
-        
+
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
         if (!namespaceDir.exists()) {
             throw NamespaceException.notFound(namespace);
@@ -321,13 +319,13 @@ public class GitBasedConfigService implements RepositoryService {
         if (cleanPath.startsWith("/")) {
             cleanPath = cleanPath.substring(1);
         }
-        
+
         File targetDir = cleanPath.isEmpty() ? namespaceDir : new File(namespaceDir, cleanPath);
-        
+
         if (!targetDir.exists()) {
             throw new RuntimeException("Directory not found: " + cleanPath);
         }
-        
+
         if (!targetDir.isDirectory()) {
             throw new RuntimeException("Path is not a directory: " + cleanPath);
         }
@@ -349,19 +347,16 @@ public class GitBasedConfigService implements RepositoryService {
         List<String> fileNames = new ArrayList<>();
 
         for (File file : files) {
-            // Skip .git directory and other hidden files/directories
             if (file.getName().startsWith(".")) {
-                continue;
-            }
-            
-            // Include only directories and .yml files
-            if (file.isDirectory() || file.getName().toLowerCase().endsWith(".yml")) {
-                fileNames.add(file.getName());
+                // Skip .git directory and other hidden files/directories
+            } else if (file.getName().toLowerCase().endsWith(".yml")) {
+                fileNames.add(file.getName().split("\\.")[0]);
+            } else if (file.isDirectory()) {
+                fileNames.add(file.getName() + "/");
             }
         }
 
-        // Sort alphabetically
-        Collections.sort(fileNames, String.CASE_INSENSITIVE_ORDER);
+        fileNames.sort(String.CASE_INSENSITIVE_ORDER);  // Sort alphabetically
 
         log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
         return fileNames;

@@ -28,7 +28,7 @@ public class Payload {
     @Pattern(regexp = "^/.*", message = "Path ('path') must start with a '/'.")
     private String path;
 
-    @Schema(description = "YAML configuration content", 
+    @Schema(description = "YAML configuration content",
             example = "server:\n  port: 8080\nspring:\n  application:\n    name: user-service")
     private String content;
 

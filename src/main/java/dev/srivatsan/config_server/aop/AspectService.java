@@ -2,7 +2,6 @@ package dev.srivatsan.config_server.aop;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.srivatsan.config_server.service.util.UtilService;
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;

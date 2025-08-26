@@ -16,32 +16,32 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DirectoryEntry {
-    
+
     /**
      * The name of the file or directory
      */
     private String name;
-    
+
     /**
      * The type of entry - either "file" or "directory"
      */
     private String type;
-    
+
     /**
      * The relative path from the namespace root
      */
     private String path;
-    
+
     /**
      * File size in bytes (null for directories)
      */
     private Long size;
-    
+
     /**
      * Last modified timestamp
      */
     private LocalDateTime lastModified;
-    
+
     /**
      * File extension (null for directories or files without extension)
      */

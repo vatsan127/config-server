@@ -92,8 +92,8 @@ public interface NamespaceAPI {
                             examples = @ExampleObject(value = """
                                     [
                                       "services",
-                                      "user-service.yml",
-                                      "database.yml"
+                                      "user-service",
+                                      "payment-service"
                                     ]
                                     """))),
             @ApiResponse(responseCode = "400", description = "Invalid request parameters"),

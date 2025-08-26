@@ -32,10 +32,10 @@ public class NamespaceController implements NamespaceAPI {
     public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
         log.info("Creating namespace: {}", namespace);
-        
+
         utilService.validateNamespace(namespace);
         repositoryService.createNamespace(namespace.trim());
-        
+
         log.info("Successfully created namespace: {}", namespace);
         return ResponseEntity.status(HttpStatus.CREATED).body(NAMESPACE_CREATED_MESSAGE);
     }
@@ -43,9 +43,9 @@ public class NamespaceController implements NamespaceAPI {
     @Override
     public ResponseEntity<List<String>> listNamespaces(@RequestBody(required = false) Map<String, String> request) {
         log.info("Listing all namespaces");
-        
+
         List<String> namespaces = repositoryService.listNamespaces();
-        
+
         log.info("Successfully retrieved {} namespaces", namespaces.size());
         return ResponseEntity.ok(namespaces);
     }
@@ -53,14 +53,14 @@ public class NamespaceController implements NamespaceAPI {
     @Override
     public ResponseEntity<List<String>> listDirectoryContents(@RequestBody Map<String, String> request) {
         String namespace = request.get("namespace");
-        String path = request.getOrDefault("path", "");
-        
+        String path = request.get("path");
+
         log.info("Listing directory contents for namespace: {} and path: {}", namespace, path);
-        
+
         utilService.validateNamespace(namespace);
-        
+
         List<String> fileNames = repositoryService.listDirectoryContents(namespace, path);
-        
+
         log.info("Successfully retrieved {} entries for namespace: {} path: {}", fileNames.size(), namespace, path);
         return ResponseEntity.ok(fileNames);
     }

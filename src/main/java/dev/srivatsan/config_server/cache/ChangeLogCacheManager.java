@@ -48,20 +48,38 @@ public class ChangeLogCacheManager {
         }
 
         try (Git git = Git.open(namespaceDir)) {
+            Repository repository = git.getRepository();
+            
+            // Check if HEAD exists (repository has commits)
+            if (repository.resolve(HEAD) == null) {
+                log.debug("Repository '{}' has no commits yet, skipping cache population", namespace);
+                synchronized (getNamespaceLock(namespace)) {
+                    namespaceChangeCache.put(namespace, Collections.emptyList());
+                }
+                return;
+            }
+            
             List<ChangeEntry> changes = new ArrayList<>();
             
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
-                    .add(git.getRepository().resolve(HEAD));
+                    .add(repository.resolve(HEAD));
 
             for (RevCommit commit : logCommand.call()) {
-                ChangeEntry entry = createChangeEntry(git.getRepository(), commit);
-                changes.add(entry);
+                try {
+                    ChangeEntry entry = createChangeEntry(repository, commit);
+                    changes.add(entry);
+                } catch (Exception e) {
+                    log.warn("Failed to create change entry for commit {} in namespace '{}': {}", 
+                            commit.getId().getName(), namespace, e.getMessage());
+                }
             }
             
             synchronized (getNamespaceLock(namespace)) {
                 namespaceChangeCache.put(namespace, changes);
             }
+            
+            log.debug("Populated cache for namespace '{}' with {} changes", namespace, changes.size());
         }
     }
 
@@ -70,11 +88,12 @@ public class ChangeLogCacheManager {
         
         ChangeEntry entry = new ChangeEntry();
         entry.setCommitId(commit.getId().getName());
-        entry.setMessage(commit.getShortMessage());
-        entry.setAuthor(author.getName());
-        entry.setEmail(author.getEmailAddress());
-        entry.setModifiedTime(LocalDateTime.ofInstant(
-                author.getWhen().toInstant(), ZoneId.systemDefault()));
+        entry.setMessage(commit.getShortMessage() != null ? commit.getShortMessage() : "No message");
+        entry.setAuthor(author != null ? author.getName() : "Unknown");
+        entry.setEmail(author != null ? author.getEmailAddress() : "unknown@unknown.com");
+        entry.setModifiedTime(author != null ? 
+                LocalDateTime.ofInstant(author.getWhen().toInstant(), ZoneId.systemDefault()) :
+                LocalDateTime.now());
         
         // Extract filename from commit
         try (DiffFormatter diffFormatter = new DiffFormatter(new ByteArrayOutputStream())) {
@@ -83,13 +102,22 @@ public class ChangeLogCacheManager {
                 List<DiffEntry> diffs = diffFormatter.scan(commit.getParent(0), commit);
                 if (!diffs.isEmpty()) {
                     String path = diffs.get(0).getNewPath();
-                    entry.setFileName(path.substring(path.lastIndexOf('/') + 1));
+                    if (path != null && !path.isEmpty()) {
+                        entry.setFileName(path.substring(path.lastIndexOf('/') + 1));
+                    }
                 }
             }
+        } catch (Exception e) {
+            log.debug("Could not extract filename from commit {}: {}", commit.getId().getName(), e.getMessage());
         }
         
         // Generate git diff
-        entry.setChanges(generateGitDiff(repository, commit));
+        try {
+            entry.setChanges(generateGitDiff(repository, commit));
+        } catch (Exception e) {
+            log.debug("Could not generate diff for commit {}: {}", commit.getId().getName(), e.getMessage());
+            entry.setChanges("Diff not available");
+        }
         
         return entry;
     }
@@ -120,29 +148,72 @@ public class ChangeLogCacheManager {
 
     @Scheduled(fixedRateString = "#{${global.cache-refresh-interval} * 1000}", initialDelayString = "#{10 * 1000}")
     public void refreshAllCaches() {
-        log.info("Starting scheduled cache refresh for all namespaces");
+        // Set proper thread name for easier debugging
+        String originalThreadName = Thread.currentThread().getName();
+        Thread.currentThread().setName("cache-refresh-scheduler");
         
-        File baseDir = new File(applicationConfig.getBasePath());
-        if (!baseDir.exists() || !baseDir.isDirectory()) {
-            log.warn("Base directory does not exist during scheduled refresh: {}", baseDir.getAbsolutePath());
-            return;
-        }
-
-        File[] namespaceDirs = baseDir.listFiles(File::isDirectory);
-        if (namespaceDirs != null) {
-            int refreshed = 0;
-            for (File namespaceDir : namespaceDirs) {
-                String namespace = namespaceDir.getName();
-                try {
-                    populateNamespaceCache(namespace);
-                    refreshed++;
-                } catch (Exception e) {
-                    log.warn("Failed to refresh cache for namespace '{}' during scheduled refresh: {}", 
-                            namespace, e.getMessage());
-                }
+        try {
+            log.info("Starting scheduled cache refresh for all namespaces");
+            
+            File baseDir = new File(applicationConfig.getBasePath());
+            if (!baseDir.exists() || !baseDir.isDirectory()) {
+                log.warn("Base directory does not exist during scheduled refresh: {}", baseDir.getAbsolutePath());
+                return;
             }
-            log.info("Scheduled cache refresh completed. Refreshed {} out of {} namespaces", 
-                    refreshed, namespaceDirs.length);
+
+            File[] namespaceDirs = baseDir.listFiles(this::isValidNamespaceDirectory);
+            if (namespaceDirs != null) {
+                int refreshed = 0;
+                for (File namespaceDir : namespaceDirs) {
+                    String namespace = namespaceDir.getName();
+                    try {
+                        populateNamespaceCache(namespace);
+                        refreshed++;
+                        log.debug("Successfully refreshed cache for namespace: {}", namespace);
+                    } catch (Exception e) {
+                        log.warn("Failed to refresh cache for namespace '{}' during scheduled refresh: {}", 
+                                namespace, e.getMessage());
+                    }
+                }
+                log.info("Scheduled cache refresh completed. Refreshed {} out of {} namespaces", 
+                        refreshed, namespaceDirs.length);
+            }
+        } finally {
+            // Restore original thread name
+            Thread.currentThread().setName(originalThreadName);
+        }
+    }
+
+    /**
+     * Validates if a directory should be considered as a namespace directory
+     */
+    private boolean isValidNamespaceDirectory(File dir) {
+        if (!dir.isDirectory()) {
+            return false;
+        }
+        
+        String name = dir.getName();
+        
+        // Skip hidden directories (starting with .)
+        if (name.startsWith(".")) {
+            log.debug("Skipping hidden directory: {}", name);
+            return false;
+        }
+        
+        // Check if it's a valid git repository
+        File gitDir = new File(dir, ".git");
+        if (!gitDir.exists() || !gitDir.isDirectory()) {
+            log.debug("Skipping non-git directory: {}", name);
+            return false;
+        }
+        
+        // Validate namespace format
+        try {
+            utilService.validateNamespace(name);
+            return true;
+        } catch (Exception e) {
+            log.debug("Skipping invalid namespace directory '{}': {}", name, e.getMessage());
+            return false;
         }
     }
 

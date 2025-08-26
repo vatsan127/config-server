@@ -42,7 +42,7 @@ public interface ChangeLogAPI {
             @ApiResponse(responseCode = "404", description = "Namespace not found"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    @PostMapping("/cached")
+    @PostMapping("")
     ResponseEntity<List<ChangeEntry>> getCachedChanges(
             @Parameter(description = "Namespace to get cached changes for", required = true)
             @io.swagger.v3.oas.annotations.parameters.RequestBody(

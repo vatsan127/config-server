@@ -91,9 +91,9 @@ The Swagger interface provides complete API documentation with request/response 
 
 ## Change Log Management
 
-### Get Cached Changes (Fast)
+### Get Cached Changes
 
-**POST** localhost:8080/config-server/changelog/cached
+**POST** localhost:8080/config-server/changelog
 
 ```json
 {
@@ -130,7 +130,7 @@ The Swagger interface provides complete API documentation with request/response 
 ```json
 {
     "namespace": "test",
-    "path": "config"
+    "path": "/"
 }
 ```
 

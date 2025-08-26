@@ -113,7 +113,7 @@ public interface NamespaceAPI {
                                     value = """
                                             {
                                                 "namespace": "production",
-                                                "path": "config"
+                                                "path": "/"
                                             }
                                             """
                             )

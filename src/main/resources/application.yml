@@ -7,14 +7,12 @@ spring:
   application:
     name: config-server
     version: 1.0.0
-  profiles:
-    active: dev
+  profiles.active: dev
   banner:
     charset: UTF-8
     location: classpath:banner.txt
     mode: console
 
-spring:
   cache:
     type: caffeine
     cache-names: config-content,commit-history,commit-details,change-logs,namespaces,directory-listing

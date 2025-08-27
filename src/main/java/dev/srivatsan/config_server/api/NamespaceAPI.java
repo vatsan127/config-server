@@ -99,7 +99,7 @@ public interface NamespaceAPI {
                                     name = "List Files Example",
                                     value = """
                                             {
-                                                "namespace": "production",
+                                                "namespace": "test",
                                                 "path": "/"
                                             }
                                             """

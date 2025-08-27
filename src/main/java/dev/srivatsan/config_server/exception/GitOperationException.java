@@ -40,4 +40,9 @@ public class GitOperationException extends ConfigServerException {
         return new GitOperationException(GIT_REPOSITORY_ACCESS_FAILED,
                 "Failed to access Git repository for namespace: " + namespace, cause);
     }
+
+    public static GitOperationException operationFailed(String namespace, Throwable cause) {
+        return new GitOperationException(GIT_REPOSITORY_ACCESS_FAILED,
+                "Git operation failed for namespace: " + namespace, cause);
+    }
 }

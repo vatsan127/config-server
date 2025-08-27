@@ -37,9 +37,9 @@ public class ConfigurationController implements ConfigurationAPI {
     }
 
     @Override
-    public ResponseEntity<String> createConfig(@Valid @RequestBody Payload request) {
-        String filePath = validateAndGetFilePath(request, ActionType.create);
-        repositoryService.initializeConfigFile(filePath, request.getAppName(), request.getEmail());
+    public ResponseEntity<String> createConfig(@Valid @RequestBody Payload payload) {
+        String filePath = validateAndGetFilePath(payload, ActionType.create);
+        repositoryService.initializeConfigFile(filePath, payload.getAppName(), payload.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).body(SUCCESS_MESSAGE);
     }
 

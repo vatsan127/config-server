@@ -6,6 +6,7 @@ import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.util.UtilService;
+import dev.srivatsan.config_server.service.util.GitOperationHelper;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -38,25 +39,12 @@ public class GitBasedConfigService implements RepositoryService {
     private final Logger log = LoggerFactory.getLogger(GitBasedConfigService.class);
     private final ApplicationConfig applicationConfig;
     private final UtilService utilService;
+    private final GitOperationHelper gitOperationHelper;
 
-    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService) {
+    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
-    }
-
-    private Git openRepository(String namespace) throws IOException {
-        utilService.validateNamespace(namespace);
-
-        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
-        if (!namespaceDir.exists()) {
-            throw NamespaceException.notFound(namespace);
-        }
-
-        try {
-            return Git.open(namespaceDir);
-        } catch (IOException e) {
-            throw GitOperationException.repositoryAccessFailed(namespace, e);
-        }
+        this.gitOperationHelper = gitOperationHelper;
     }
 
     @CacheEvict(value = {"namespaces", "directory-listing"}, allEntries = true)
@@ -83,7 +71,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
-    @CacheEvict(value = {"config-content", "commit-history", "directory-listing"}, allEntries = true)
+    @CacheEvict(value = "directory-listing", allEntries = true)
     public void initializeConfigFile(String filePath, String appName, String email) {
         utilService.validateSafePath(filePath);
         utilService.validateAppName(appName);
@@ -92,36 +80,13 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        try (Git git = openRepository(namespace)) {
-            Path workTree = git.getRepository().getWorkTree().toPath();
-            Path newFilePath = workTree.resolve(relativePath);
-
-            if (Files.exists(newFilePath)) {
-                throw ConfigFileException.alreadyExists(filePath);
-            }
-
-            Files.createDirectories(newFilePath.getParent());
-            String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
-            utilService.validateYamlContent(configContent);
-            Files.writeString(newFilePath, configContent);
-
-            git.add().addFilepattern(relativePath).call();
-            RevCommit commit = git.commit()
-                    .setMessage("First commit ApplicationName - " + appName)
-                    .setAuthor(email.substring(0, email.indexOf('@')), email)
-                    .call();
-            log.info("Created file: '{}'", newFilePath);
-
-        } catch (IOException e) {
-            log.error("Error initializing config file '{}': {}", filePath, e.getMessage(), e);
-            throw ConfigFileException.creationFailed(filePath, e);
-        } catch (GitAPIException e) {
-            log.error("Git error initializing config file '{}': {}", filePath, e.getMessage(), e);
-            throw GitOperationException.commitFailed(filePath, e);
-        }
+        gitOperationHelper.executeGitVoidOperation(namespace, git -> {
+            createConfigFileWithContent(git, relativePath, appName, filePath);
+            commitNewFile(git, relativePath, appName, email);
+        });
     }
 
-    @CacheEvict(value = {"config-content", "commit-history", "change-logs"}, key = "#filePath")
+    @CacheEvict(value = {"config-content", "commit-history", "change-logs"}, allEntries = true)
     public void updateConfigFile(String filePath, Payload payload) {
         utilService.validateSafePath(filePath);
         utilService.validateEmail(payload.getEmail());
@@ -133,7 +98,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        try (Git git = openRepository(namespace)) {
+        gitOperationHelper.executeGitVoidOperation(namespace, git -> {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
@@ -144,19 +109,13 @@ public class GitBasedConfigService implements RepositoryService {
             Files.writeString(configFilePath, payload.getContent());
 
             git.add().addFilepattern(relativePath).call();
-            RevCommit commit = git.commit()
+            git.commit()
                     .setMessage(commitMessage)
                     .setAuthor(email.substring(0, email.indexOf('@')), email)
                     .call();
+            
             log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
-
-        } catch (IOException e) {
-            log.error("Error updating config file '{}': {}", filePath, e.getMessage(), e);
-            throw ConfigFileException.updateFailed(filePath, e);
-        } catch (GitAPIException e) {
-            log.error("Git error updating config file '{}': {}", filePath, e.getMessage(), e);
-            throw GitOperationException.commitFailed(filePath, e);
-        }
+        });
     }
 
     @Cacheable(value = "config-content", key = "#filePath")
@@ -166,7 +125,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        try (Git git = openRepository(namespace)) {
+        return gitOperationHelper.executeGitOperation(namespace, git -> {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
@@ -175,11 +134,7 @@ public class GitBasedConfigService implements RepositoryService {
             }
 
             return Files.readString(configFilePath);
-
-        } catch (IOException e) {
-            log.error("Error reading file '{}': {}", filePath, e.getMessage(), e);
-            throw ConfigFileException.readFailed(filePath, e);
-        }
+        });
     }
 
     @Override
@@ -190,7 +145,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        try (Git git = openRepository(namespace)) {
+        return gitOperationHelper.executeGitOperation(namespace, git -> {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
                     .add(git.getRepository().resolve(HEAD))
@@ -207,14 +162,7 @@ public class GitBasedConfigService implements RepositoryService {
             result.put("filePath", filePath);
             result.put("commits", commits);
             return result;
-
-        } catch (IOException e) {
-            log.error("Error getting commit history: {}", e.getMessage(), e);
-            throw GitOperationException.repositoryAccessFailed(namespace, e);
-        } catch (GitAPIException e) {
-            log.error("Git error getting commit history: {}", e.getMessage(), e);
-            throw GitOperationException.logFailed(filePath, e);
-        }
+        });
     }
 
     private Map<String, Object> formatCommitInfo(RevCommit commit) {
@@ -236,33 +184,32 @@ public class GitBasedConfigService implements RepositoryService {
         utilService.validateCommitId(commitId);
         utilService.validateNamespace(namespace);
 
-        Map<String, Object> result = new HashMap<>();
+        return gitOperationHelper.executeGitOperation(namespace, git -> {
+            Map<String, Object> result = new HashMap<>();
+            
+            try (Repository repository = git.getRepository();
+                 RevWalk revWalk = new RevWalk(repository)) {
 
-        try (Git git = openRepository(namespace);
-             Repository repository = git.getRepository();
-             RevWalk revWalk = new RevWalk(repository)) {
+                RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
+                result.put("commitId", commit.getName());
+                result.put("message", commit.getFullMessage());
+                result.put("author", commit.getAuthorIdent().getName());
+                result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
-            RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
-            result.put("commitId", commit.getName());
-            result.put("message", commit.getFullMessage());
-            result.put("author", commit.getAuthorIdent().getName());
-            result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
-
-            if (commit.getParentCount() > 0) {
-                try (ByteArrayOutputStream out = new ByteArrayOutputStream(); DiffFormatter df = new DiffFormatter(out)) {
-                    df.setRepository(repository);
-                    df.format(df.scan(commit.getParent(0), commit).getFirst());
-                    result.put("changes", out.toString());
+                if (commit.getParentCount() > 0) {
+                    try (ByteArrayOutputStream out = new ByteArrayOutputStream(); 
+                         DiffFormatter df = new DiffFormatter(out)) {
+                        df.setRepository(repository);
+                        df.format(df.scan(commit.getParent(0), commit).getFirst());
+                        result.put("changes", out.toString());
+                    }
+                } else {
+                    result.put("changes", "Initial commit - file created");
                 }
-            } else {
-                result.put("changes", "Initial commit - file created");
             }
-        } catch (IOException e) {
-            log.error("Error getting commit changes: {}", e.getMessage(), e);
-            throw GitOperationException.diffFailed(commitId, e);
-        }
-
-        return result;
+            
+            return result;
+        });
     }
 
     @Override
@@ -314,14 +261,57 @@ public class GitBasedConfigService implements RepositoryService {
             throw NamespaceException.notFound(namespace);
         }
 
-        // Clean and validate the path
+        String cleanPath = normalizeDirectoryPath(path);
+        File targetDir = resolveTargetDirectory(namespaceDir, cleanPath);
+        validateDirectoryAccess(targetDir, namespaceDir, cleanPath);
+
+        File[] files = targetDir.listFiles();
+        if (files == null) {
+            return Collections.emptyList();
+        }
+
+        List<String> fileNames = filterAndSortFiles(files);
+        log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
+        return fileNames;
+    }
+
+    private void createConfigFileWithContent(Git git, String relativePath, String appName, String filePath) throws IOException {
+        Path workTree = git.getRepository().getWorkTree().toPath();
+        Path newFilePath = workTree.resolve(relativePath);
+
+        if (Files.exists(newFilePath)) {
+            throw ConfigFileException.alreadyExists(filePath);
+        }
+
+        Files.createDirectories(newFilePath.getParent());
+        String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
+        utilService.validateYamlContent(configContent);
+        Files.writeString(newFilePath, configContent);
+        
+        log.info("Created file: '{}'", newFilePath);
+    }
+
+    private void commitNewFile(Git git, String relativePath, String appName, String email) throws GitAPIException {
+        git.add().addFilepattern(relativePath).call();
+        git.commit()
+                .setMessage("First commit ApplicationName - " + appName)
+                .setAuthor(email.substring(0, email.indexOf('@')), email)
+                .call();
+    }
+
+    private String normalizeDirectoryPath(String path) {
         String cleanPath = (path == null || path.trim().isEmpty()) ? "" : path.trim();
         if (cleanPath.startsWith("/")) {
             cleanPath = cleanPath.substring(1);
         }
+        return cleanPath;
+    }
 
-        File targetDir = cleanPath.isEmpty() ? namespaceDir : new File(namespaceDir, cleanPath);
+    private File resolveTargetDirectory(File namespaceDir, String cleanPath) {
+        return cleanPath.isEmpty() ? namespaceDir : new File(namespaceDir, cleanPath);
+    }
 
+    private void validateDirectoryAccess(File targetDir, File namespaceDir, String cleanPath) {
         if (!targetDir.exists()) {
             throw new RuntimeException("Directory not found: " + cleanPath);
         }
@@ -338,14 +328,10 @@ public class GitBasedConfigService implements RepositoryService {
         } catch (IOException e) {
             throw new RuntimeException("Failed to validate path security", e);
         }
+    }
 
-        File[] files = targetDir.listFiles();
-        if (files == null) {
-            return Collections.emptyList();
-        }
-
+    private List<String> filterAndSortFiles(File[] files) {
         List<String> fileNames = new ArrayList<>();
-
         for (File file : files) {
             if (file.getName().startsWith(".")) {
                 // Skip .git directory and other hidden files/directories
@@ -356,9 +342,7 @@ public class GitBasedConfigService implements RepositoryService {
             }
         }
 
-        fileNames.sort(String.CASE_INSENSITIVE_ORDER);  // Sort alphabetically
-
-        log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
+        fileNames.sort(String.CASE_INSENSITIVE_ORDER);
         return fileNames;
     }
 

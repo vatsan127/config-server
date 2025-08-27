@@ -38,62 +38,39 @@ public class ConfigurationController implements ConfigurationAPI {
 
     @Override
     public ResponseEntity<String> createConfig(@Valid @RequestBody Payload request) {
-        log.info("Creating config file for app: {} in namespace: {}", request.getAppName(), request.getNamespace());
-
         String filePath = validateAndGetFilePath(request, ActionType.create);
         repositoryService.initializeConfigFile(filePath, request.getAppName(), request.getEmail());
-
-        log.info("Successfully created config file: {}", filePath);
         return ResponseEntity.status(HttpStatus.CREATED).body(SUCCESS_MESSAGE);
     }
 
     @Override
     public ResponseEntity<Payload> fetchConfig(@Valid @RequestBody Payload payload) throws IOException {
-        log.info("Fetching config file for app: {} in namespace: {}", payload.getAppName(), payload.getNamespace());
-
         String filePath = validateAndGetFilePath(payload, ActionType.fetch);
         String content = repositoryService.getConfigFile(filePath);
-
         payload.setContent(content);
-
-        log.info("Successfully fetched config file: {}", filePath);
         return ResponseEntity.ok(payload);
     }
 
 
     @Override
     public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
-        log.info("Updating config file for app: {} in namespace: {}", payload.getAppName(), payload.getNamespace());
-
         String filePath = validateAndGetFilePath(payload, ActionType.update);
         repositoryService.updateConfigFile(filePath, payload);
-
-
-        log.info("Successfully updated config file: {} with message: {}", filePath, payload.getMessage());
         return ResponseEntity.ok(SUCCESS_MESSAGE);
     }
 
     @Override
     public ResponseEntity<Map<String, Object>> getCommitHistory(@Valid @RequestBody Payload payload) throws Exception {
-        log.info("Getting commit history for app: {} in namespace: {}", payload.getAppName(), payload.getNamespace());
-
         String filePath = validateAndGetFilePath(payload, ActionType.history);
         Map<String, Object> history = repositoryService.getConfigFileHistory(filePath);
-
-        log.info("Successfully retrieved commit history for: {}", filePath);
         return ResponseEntity.ok(history);
     }
 
     @Override
     public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody Payload payload) throws IOException {
-        log.info("Getting commit details for commit: {} in namespace: {}", payload.getCommitId(), payload.getNamespace());
-
         utilService.validateActionType(payload, ActionType.changes);
         utilService.validateCommitId(payload.getCommitId());
-
         Map<String, Object> commitDetails = repositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
-
-        log.info("Successfully retrieved commit details for: {}", payload.getCommitId());
         return ResponseEntity.ok(commitDetails);
     }
 }

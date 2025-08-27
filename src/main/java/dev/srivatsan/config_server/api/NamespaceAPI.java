@@ -67,20 +67,7 @@ public interface NamespaceAPI {
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     @PostMapping("/list")
-    ResponseEntity<List<String>> listNamespaces(
-            @Parameter(description = "Empty request to list all namespaces", required = false)
-            @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Optional empty request body (can be empty {})",
-                    required = false,
-                    content = @Content(
-                            mediaType = "application/json",
-                            examples = @ExampleObject(
-                                    name = "List Namespaces Example",
-                                    value = "{}"
-                            )
-                    )
-            )
-            @RequestBody(required = false) Map<String, String> request);
+    ResponseEntity<List<String>> listNamespaces();
 
     @Operation(
             summary = "List directory contents",

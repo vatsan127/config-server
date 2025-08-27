@@ -29,12 +29,8 @@ public class ChangeLogController implements ChangeLogAPI {
     @Override
     public ResponseEntity<List<ChangeEntry>> getCachedChanges(@RequestBody Map<String, String> request) {
         String namespace = request.get("namespace");
-        log.info("Getting cached changes for namespace: {}", namespace);
-
         utilService.validateNamespace(namespace);
         List<ChangeEntry> changes = changeLogService.getChanges(namespace);
-
-        log.info("Successfully retrieved {} cached changes for namespace: {}", changes.size(), namespace);
         return ResponseEntity.ok(changes);
     }
 }

@@ -26,65 +26,133 @@ import java.util.List;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
+/**
+ * Service responsible for managing and tracking changes in Git-based configuration repositories.
+ * 
+ * This service provides functionality to:
+ * - Retrieve change logs for specific namespaces
+ * - Create detailed change entries from Git commits
+ * - Generate Git diffs for commit changes
+ * - Cache change log data for performance optimization
+ * 
+ * The service integrates with JGit to access Git repository information and creates
+ * structured ChangeEntry objects that contain commit metadata, author information,
+ * file changes, and Git diffs.
+ * 
+ * @author Config Server Team
+ * @since 1.0.0
+ */
 @Slf4j
 @Service
 public class ChangeLogService {
 
+    /** Application configuration containing settings like commit history size and base path */
     private final ApplicationConfig applicationConfig;
+    
+    /** Utility service for validation and path operations */
     private final UtilService utilService;
 
+    /**
+     * Constructs a new ChangeLogService with required dependencies.
+     * 
+     * @param applicationConfig Configuration containing application settings
+     * @param utilService Utility service for validation and helper operations
+     */
     public ChangeLogService(ApplicationConfig applicationConfig, UtilService utilService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
     }
 
+    /**
+     * Retrieves a list of recent changes for a specific namespace.
+     * 
+     * This method:
+     * - Validates the namespace parameter
+     * - Opens the Git repository for the namespace
+     * - Retrieves recent commits up to the configured history size
+     * - Creates ChangeEntry objects with commit metadata and diffs
+     * - Caches results for improved performance
+     * 
+     * @param namespace The namespace to retrieve changes for
+     * @return List of ChangeEntry objects representing recent commits, or empty list if namespace doesn't exist or has no commits
+     * @throws IllegalArgumentException if namespace validation fails
+     */
     @Cacheable(value = "change-logs", key = "#namespace")
     public List<ChangeEntry> getChanges(String namespace) {
-        utilService.validateNamespace(namespace);
+        String originalThreadName = Thread.currentThread().getName();
+        Thread.currentThread().setName("ChangeLogSvc");
+        
+        try {
+            utilService.validateNamespace(namespace);
 
-        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
-        if (!namespaceDir.exists()) {
-            return Collections.emptyList();
-        }
-
-        try (Git git = Git.open(namespaceDir)) {
-            Repository repository = git.getRepository();
-
-            if (repository.resolve(HEAD) == null) {
-                log.debug("Repository '{}' has no commits yet", namespace);
+            File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
+            if (!namespaceDir.exists()) {
                 return Collections.emptyList();
             }
 
-            List<ChangeEntry> changes = new ArrayList<>();
+            try (Git git = Git.open(namespaceDir)) {
+                Repository repository = git.getRepository();
 
-            var logCommand = git.log()
-                    .setMaxCount(applicationConfig.getCommitHistorySize())
-                    .add(repository.resolve(HEAD));
-
-            for (RevCommit commit : logCommand.call()) {
-                try {
-                    ChangeEntry entry = createChangeEntry(repository, commit);
-                    changes.add(entry);
-                } catch (Exception e) {
-                    log.warn("Failed to create change entry for commit {} in namespace '{}': {}",
-                            commit.getId().getName(), namespace, e.getMessage());
+                if (repository.resolve(HEAD) == null) {
+                    log.debug("Repository '{}' has no commits yet", namespace);
+                    return Collections.emptyList();
                 }
+
+                List<ChangeEntry> changes = new ArrayList<>();
+
+                var logCommand = git.log()
+                        .setMaxCount(applicationConfig.getCommitHistorySize())
+                        .add(repository.resolve(HEAD));
+
+                for (RevCommit commit : logCommand.call()) {
+                    try {
+                        ChangeEntry entry = createChangeEntry(repository, commit);
+                        changes.add(entry);
+                    } catch (Exception e) {
+                        log.warn("Failed to create change entry for commit {} in namespace '{}': {}",
+                                commit.getId().getName(), namespace, e.getMessage());
+                    }
+                }
+
+                log.debug("Retrieved {} changes for namespace '{}'", changes.size(), namespace);
+                return changes;
+
+            } catch (IOException | GitAPIException e) {
+                log.error("Error retrieving changes for namespace '{}': {}", namespace, e.getMessage(), e);
+                return Collections.emptyList();
             }
-
-            log.debug("Retrieved {} changes for namespace '{}'", changes.size(), namespace);
-            return changes;
-
-        } catch (IOException | GitAPIException e) {
-            log.error("Error retrieving changes for namespace '{}': {}", namespace, e.getMessage(), e);
-            return Collections.emptyList();
+        } finally {
+            Thread.currentThread().setName(originalThreadName);
         }
     }
 
+    /**
+     * Invalidates the cached change log data for a specific namespace.
+     * 
+     * This method should be called whenever changes are made to a namespace
+     * that would affect the change log (e.g., new commits, repository updates).
+     * 
+     * @param namespace The namespace whose change log cache should be invalidated
+     */
     @CacheEvict(value = "change-logs", key = "#namespace")
     public void invalidateChanges(String namespace) {
         log.debug("Invalidated change log cache for namespace: {}", namespace);
     }
 
+    /**
+     * Creates a detailed ChangeEntry object from a Git commit.
+     * 
+     * This method extracts:
+     * - Commit ID and message
+     * - Author information (name, email, timestamp)
+     * - Modified file names from the commit diff
+     * - Git diff content showing the actual changes
+     * 
+     * @param repository The Git repository containing the commit
+     * @param commit The RevCommit object to process
+     * @return A fully populated ChangeEntry object
+     * @throws IOException if there are issues reading from the Git repository
+     */
     private ChangeEntry createChangeEntry(Repository repository, RevCommit commit) throws IOException {
         PersonIdent author = commit.getAuthorIdent();
 
@@ -124,6 +192,18 @@ public class ChangeLogService {
         return entry;
     }
 
+    /**
+     * Generates a Git diff string showing the changes made in a specific commit.
+     * 
+     * For commits with parents, this method compares the commit with its first parent
+     * to show the actual changes. For initial commits (no parents), it returns a
+     * descriptive message indicating file creation.
+     * 
+     * @param repository The Git repository containing the commit
+     * @param commit The commit to generate a diff for
+     * @return String representation of the Git diff, or "Initial commit - file created" for initial commits
+     * @throws IOException if there are issues reading from the Git repository or generating the diff
+     */
     private String generateGitDiff(Repository repository, RevCommit commit) throws IOException {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream();
              DiffFormatter diffFormatter = new DiffFormatter(out)) {

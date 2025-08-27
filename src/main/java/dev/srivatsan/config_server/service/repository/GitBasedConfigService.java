@@ -83,7 +83,7 @@ public class GitBasedConfigService implements RepositoryService {
         }
     }
 
-    @CacheEvict(value = {"config-content", "commit-history"}, key = "#filePath")
+    @CacheEvict(value = {"config-content", "commit-history", "directory-listing"}, allEntries = true)
     public void initializeConfigFile(String filePath, String appName, String email) {
         utilService.validateSafePath(filePath);
         utilService.validateAppName(appName);

@@ -19,15 +19,14 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/config")
-public class MainController implements ConfigurationAPI {
+public class ConfigurationController implements ConfigurationAPI {
 
     private static final String SUCCESS_MESSAGE = "success";
-    private static final String NAMESPACE_CREATED_MESSAGE = "Namespace created successfully";
 
     private final RepositoryService repositoryService;
     private final UtilService utilService;
 
-    public MainController(RepositoryService repositoryService, UtilService utilService) {
+    public ConfigurationController(RepositoryService repositoryService, UtilService utilService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
     }
@@ -97,6 +96,4 @@ public class MainController implements ConfigurationAPI {
         log.info("Successfully retrieved commit details for: {}", payload.getCommitId());
         return ResponseEntity.ok(commitDetails);
     }
-
-
 }

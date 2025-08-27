@@ -53,7 +53,7 @@ public class AspectService {
             String resultStr = formatResult(result);
 
             if (isController) {
-                log.info("{}:{} - EXIT | RequestId: {} | {}ms | Result: {}", className, methodName, requestId, executionTime, resultStr);
+                log.info("{}:{} - EXIT | RequestId: {} | {}ms", className, methodName, requestId, executionTime);
             } else {
                 log.debug("{}:{} - EXIT | RequestId: {} | {}ms | Result: {}", className, methodName, requestId, executionTime, resultStr);
             }

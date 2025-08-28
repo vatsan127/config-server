@@ -6,6 +6,7 @@ import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
+import dev.srivatsan.config_server.service.validation.ValidationService;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,14 +27,16 @@ public class ConfigurationController implements ConfigurationAPI {
 
     private final RepositoryService repositoryService;
     private final UtilService utilService;
+    private final ValidationService validationService;
 
-    public ConfigurationController(RepositoryService repositoryService, UtilService utilService) {
+    public ConfigurationController(RepositoryService repositoryService, UtilService utilService, ValidationService validationService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
+        this.validationService = validationService;
     }
 
     private String validateAndGetFilePath(Payload payload, ActionType expectedAction) {
-        utilService.validateActionType(payload, expectedAction);
+        validationService.validateActionType(payload, expectedAction);
         return utilService.getRelativeFilePath(payload);
     }
 
@@ -76,8 +79,8 @@ public class ConfigurationController implements ConfigurationAPI {
 
     @Override
     public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody Payload payload) throws IOException {
-        utilService.validateActionType(payload, ActionType.changes);
-        utilService.validateCommitId(payload.getCommitId());
+        validationService.validateActionType(payload, ActionType.changes);
+        validationService.validateCommitId(payload.getCommitId());
         Map<String, Object> commitDetails = repositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
         return ResponseEntity.ok(commitDetails);
     }

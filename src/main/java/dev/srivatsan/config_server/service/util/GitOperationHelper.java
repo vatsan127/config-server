@@ -3,6 +3,7 @@ package dev.srivatsan.config_server.service.util;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
+import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.stereotype.Component;
@@ -14,11 +15,11 @@ import java.io.IOException;
 public class GitOperationHelper {
 
     private final ApplicationConfig applicationConfig;
-    private final UtilService utilService;
+    private final ValidationService validationService;
 
-    public GitOperationHelper(ApplicationConfig applicationConfig, UtilService utilService) {
+    public GitOperationHelper(ApplicationConfig applicationConfig, ValidationService validationService) {
         this.applicationConfig = applicationConfig;
-        this.utilService = utilService;
+        this.validationService = validationService;
     }
 
     @FunctionalInterface
@@ -52,7 +53,7 @@ public class GitOperationHelper {
     }
 
     private Git openRepository(String namespace) throws IOException {
-        utilService.validateNamespace(namespace);
+        validationService.validateNamespace(namespace);
 
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
         if (!namespaceDir.exists()) {

@@ -3,6 +3,7 @@ package dev.srivatsan.config_server.controller;
 import dev.srivatsan.config_server.api.NamespaceAPI;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
+import dev.srivatsan.config_server.service.validation.ValidationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,16 +23,18 @@ public class NamespaceController implements NamespaceAPI {
 
     private final RepositoryService repositoryService;
     private final UtilService utilService;
+    private final ValidationService validationService;
 
-    public NamespaceController(RepositoryService repositoryService, UtilService utilService) {
+    public NamespaceController(RepositoryService repositoryService, UtilService utilService, ValidationService validationService) {
         this.repositoryService = repositoryService;
         this.utilService = utilService;
+        this.validationService = validationService;
     }
 
     @Override
     public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
-        utilService.validateNamespace(namespace);
+        validationService.validateNamespace(namespace);
         repositoryService.createNamespace(namespace.trim());
         return ResponseEntity.status(HttpStatus.CREATED).body(NAMESPACE_CREATED_MESSAGE);
     }
@@ -46,7 +49,7 @@ public class NamespaceController implements NamespaceAPI {
     public ResponseEntity<List<String>> listDirectoryContents(@RequestBody Map<String, String> request) {
         String namespace = request.get("namespace");
         String path = request.get("path");
-        utilService.validateNamespace(namespace);
+        validationService.validateNamespace(namespace);
         List<String> fileNames = utilService.listDirectoryContents(namespace, path);
         return ResponseEntity.ok(fileNames);
     }

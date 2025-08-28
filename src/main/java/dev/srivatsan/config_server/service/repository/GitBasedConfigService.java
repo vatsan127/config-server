@@ -9,6 +9,7 @@ import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.util.GitOperationHelper;
+import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffFormatter;
@@ -43,16 +44,18 @@ public class GitBasedConfigService implements RepositoryService {
     private final UtilService utilService;
     private final GitOperationHelper gitOperationHelper;
     private final CacheConfig.CacheEvictionService cacheEvictionService;
+    private final ValidationService validationService;
 
-    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper, CacheConfig.CacheEvictionService cacheEvictionService) {
+    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper, CacheConfig.CacheEvictionService cacheEvictionService, ValidationService validationService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationHelper = gitOperationHelper;
         this.cacheEvictionService = cacheEvictionService;
+        this.validationService = validationService;
     }
 
     public void createNamespace(String namespace) {
-        utilService.validateNamespace(namespace);
+        validationService.validateNamespace(namespace);
 
         File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
 
@@ -79,9 +82,9 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public void initializeConfigFile(String filePath, String appName, String email) {
-        utilService.validateSafePath(filePath);
-        utilService.validateAppName(appName);
-        utilService.validateEmail(email);
+        validationService.validateSafePath(filePath);
+        validationService.validateAppName(appName);
+        validationService.validateEmail(email);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
@@ -97,11 +100,11 @@ public class GitBasedConfigService implements RepositoryService {
     }
 
     public void updateConfigFile(String filePath, Payload payload) {
-        utilService.validateSafePath(filePath);
-        utilService.validateEmail(payload.getEmail());
-        utilService.validateYamlContent(payload.getContent());
-        utilService.validateCommitMessage(payload.getMessage());
-        utilService.validateCommitId(payload.getCommitId());
+        validationService.validateSafePath(filePath);
+        validationService.validateEmail(payload.getEmail());
+        validationService.validateYamlContent(payload.getContent());
+        validationService.validateCommitMessage(payload.getMessage());
+        validationService.validateCommitId(payload.getCommitId());
 
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
@@ -156,7 +159,7 @@ public class GitBasedConfigService implements RepositoryService {
 
     @Cacheable(value = "config-content", key = "#filePath")
     public String getConfigFile(String filePath) {
-        utilService.validateSafePath(filePath);
+        validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
@@ -175,7 +178,7 @@ public class GitBasedConfigService implements RepositoryService {
 
     @Cacheable(value = "latest-commit", key = "#filePath")
     public String getLatestCommitId(String filePath) {
-        utilService.validateSafePath(filePath);
+        validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
@@ -196,7 +199,7 @@ public class GitBasedConfigService implements RepositoryService {
     @Override
     @Cacheable(value = "commit-history", key = "#filePath")
     public Map<String, Object> getConfigFileHistory(String filePath) {
-        utilService.validateSafePath(filePath);
+        validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
@@ -237,8 +240,8 @@ public class GitBasedConfigService implements RepositoryService {
 
     @Cacheable(value = "commit-details", key = "#commitId + '_' + #namespace")
     public Map<String, Object> getCommitChanges(String commitId, String namespace) {
-        utilService.validateCommitId(commitId);
-        utilService.validateNamespace(namespace);
+        validationService.validateCommitId(commitId);
+        validationService.validateNamespace(namespace);
 
         return gitOperationHelper.executeGitOperation(namespace, git -> {
             Map<String, Object> result = new HashMap<>();
@@ -279,7 +282,7 @@ public class GitBasedConfigService implements RepositoryService {
 
         Files.createDirectories(newFilePath.getParent());
         String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
-        utilService.validateYamlContent(configContent);
+        validationService.validateYamlContent(configContent);
         Files.writeString(newFilePath, configContent);
         
         log.info("Created file: '{}'", newFilePath);

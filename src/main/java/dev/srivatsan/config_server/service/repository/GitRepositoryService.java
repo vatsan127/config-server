@@ -4,7 +4,6 @@ import dev.srivatsan.config_server.model.Payload;
 import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -14,7 +13,7 @@ import java.util.Map;
  *
  * @author srivatsan.n
  */
-public interface RepositoryService {
+public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
 
     String DEFAULT_CONFIG_TEMPLATE = "server:\n  port: 8080\n  servlet.context-path: /<app-name>\n\nspring:\n  application:\n    name: <app-name>\n\n";
 

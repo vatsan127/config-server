@@ -2,6 +2,48 @@
 
 A Git-based Configuration Management Server with multi-namespace support for application configuration files.
 
+## 🏗️ Architecture
+
+The application follows a clean, layered architecture with well-defined service boundaries:
+
+### Service Layer Structure
+```
+service/
+├── cache/           # Cache management operations
+│   ├── CacheManagerService
+│   └── CacheManagerServiceImpl
+├── operation/       # Git repository operations  
+│   ├── GitOperationService
+│   └── GitOperationServiceImpl
+├── repository/      # Configuration file management
+│   ├── GitRepositoryService  
+│   └── GitRepositoryServiceImpl
+├── validation/      # Input validation and security
+│   └── ValidationService
+├── util/           # Utility operations
+│   └── UtilService  
+└── environment/    # Environment-specific services
+    ├── KubernetesService (sealed interface)
+    └── KubernetesServiceImpl
+```
+
+### Key Features
+- **Multi-namespace isolation** - Each namespace has its own Git repository
+- **Version control** - Full Git history for all configuration changes  
+- **Optimistic locking** - Prevents concurrent update conflicts
+- **Intelligent caching** - Automatic cache preloading for performance
+- **Input validation** - Comprehensive security and format validation
+- **Audit trail** - Complete history of all configuration changes
+
+### Technical Highlights
+- **Modern Java 21** - Proper sealed interfaces with non-sealed implementations for Spring compatibility
+- **Clean Architecture** - SOLID principles with clear separation of concerns  
+- **Interface-based Design** - All services follow contract-first approach with sealed contracts
+- **Spring Boot 3.5.5** - Latest Spring ecosystem with enhanced performance
+- **Caffeine Caching** - High-performance caching with intelligent eviction
+- **AOP Logging** - Comprehensive request tracing and performance monitoring
+- **Git Integration** - Native JGit implementation for version control
+
 ## 📖 API Documentation
 
 Interactive API documentation is available via Swagger UI:
@@ -149,6 +191,10 @@ docker run --name config-server -p 8080:8080 config-server-image
    ```
 
 4. **Create your first configuration file** using the Swagger UI or API endpoints below.
+
+## Cache Management
+
+The application automatically preloads namespaces and directory listings on startup for better performance.
 
 ## Configuration
 

@@ -4,7 +4,7 @@ import dev.srivatsan.config_server.api.ConfigurationAPI;
 import dev.srivatsan.config_server.exception.ValidationException;
 import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.Payload;
-import dev.srivatsan.config_server.service.repository.RepositoryService;
+import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import jakarta.validation.Valid;
@@ -25,12 +25,12 @@ public class ConfigurationController implements ConfigurationAPI {
 
     private static final String SUCCESS_MESSAGE = "success";
 
-    private final RepositoryService repositoryService;
+    private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
     private final ValidationService validationService;
 
-    public ConfigurationController(RepositoryService repositoryService, UtilService utilService, ValidationService validationService) {
-        this.repositoryService = repositoryService;
+    public ConfigurationController(GitRepositoryService gitRepositoryService, UtilService utilService, ValidationService validationService) {
+        this.gitRepositoryService = gitRepositoryService;
         this.utilService = utilService;
         this.validationService = validationService;
     }
@@ -43,16 +43,16 @@ public class ConfigurationController implements ConfigurationAPI {
     @Override
     public ResponseEntity<String> createConfig(@Valid @RequestBody Payload payload) {
         String filePath = validateAndGetFilePath(payload, ActionType.create);
-        repositoryService.initializeConfigFile(filePath, payload.getAppName(), payload.getEmail());
+        gitRepositoryService.initializeConfigFile(filePath, payload.getAppName(), payload.getEmail());
         return ResponseEntity.status(HttpStatus.CREATED).body(SUCCESS_MESSAGE);
     }
 
     @Override
     public ResponseEntity<Payload> fetchConfig(@Valid @RequestBody Payload payload) throws IOException {
         String filePath = validateAndGetFilePath(payload, ActionType.fetch);
-        String content = repositoryService.getConfigFile(filePath);
-        String latestCommitId = repositoryService.getLatestCommitId(filePath);
-        
+        String content = gitRepositoryService.getConfigFile(filePath);
+        String latestCommitId = gitRepositoryService.getLatestCommitId(filePath);
+
         payload.setContent(content);
         payload.setCommitId(latestCommitId);
         return ResponseEntity.ok(payload);
@@ -61,19 +61,19 @@ public class ConfigurationController implements ConfigurationAPI {
     @Override
     public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
         String filePath = validateAndGetFilePath(payload, ActionType.update);
-        
+
         if (payload.getCommitId() == null || payload.getCommitId().trim().isEmpty()) {
             throw ValidationException.missingCommitId("Commit ID is required for update operations");
         }
-        
-        repositoryService.updateConfigFile(filePath, payload);
+
+        gitRepositoryService.updateConfigFile(filePath, payload);
         return ResponseEntity.ok(SUCCESS_MESSAGE);
     }
 
     @Override
     public ResponseEntity<Map<String, Object>> getCommitHistory(@Valid @RequestBody Payload payload) throws Exception {
         String filePath = validateAndGetFilePath(payload, ActionType.history);
-        Map<String, Object> history = repositoryService.getConfigFileHistory(filePath);
+        Map<String, Object> history = gitRepositoryService.getConfigFileHistory(filePath);
         return ResponseEntity.ok(history);
     }
 
@@ -81,7 +81,7 @@ public class ConfigurationController implements ConfigurationAPI {
     public ResponseEntity<Map<String, Object>> getCommitDetails(@Valid @RequestBody Payload payload) throws IOException {
         validationService.validateActionType(payload, ActionType.changes);
         validationService.validateCommitId(payload.getCommitId());
-        Map<String, Object> commitDetails = repositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
+        Map<String, Object> commitDetails = gitRepositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
         return ResponseEntity.ok(commitDetails);
     }
 }

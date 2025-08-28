@@ -11,14 +11,13 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
 public class UtilService {
 
     private static final Logger log = LoggerFactory.getLogger(UtilService.class);
-    
+
     private final ApplicationConfig applicationConfig;
     private final ValidationService validationService;
 
@@ -87,12 +86,6 @@ public class UtilService {
         }
         return filePath.substring(slashIndex + 1);
     }
-
-
-
-
-
-
 
 
     /**

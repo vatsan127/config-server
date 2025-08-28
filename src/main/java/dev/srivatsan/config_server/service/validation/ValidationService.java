@@ -28,7 +28,7 @@ public class ValidationService {
      */
     public void validateActionType(Payload request, ActionType actionType) {
         if (!actionType.equals(request.getAction())) {
-            throw ValidationException.invalidActionType(actionType.toString(), 
+            throw ValidationException.invalidActionType(actionType.toString(),
                     request.getAction() != null ? request.getAction().toString() : "null");
         }
     }
@@ -59,7 +59,7 @@ public class ValidationService {
 
         // Validate safe characters only
         if (!SAFE_PATH_PATTERN.matcher(cleanPath).matches()) {
-            throw ValidationException.invalidPath(filePath, 
+            throw ValidationException.invalidPath(filePath,
                     "Path contains unsafe characters. Only alphanumeric, dash, underscore, slash, and dot are allowed");
         }
     }
@@ -82,7 +82,7 @@ public class ValidationService {
         }
 
         if (!SAFE_NAME_PATTERN.matcher(cleanNamespace).matches()) {
-            throw ValidationException.invalidNamespace(namespace, 
+            throw ValidationException.invalidNamespace(namespace,
                     "Invalid format. Only alphanumeric, dash, and underscore are allowed");
         }
 
@@ -109,7 +109,7 @@ public class ValidationService {
         }
 
         if (!SAFE_NAME_PATTERN.matcher(cleanAppName).matches()) {
-            throw ValidationException.invalidAppName(appName, 
+            throw ValidationException.invalidAppName(appName,
                     "Invalid format. Only alphanumeric, dash, and underscore are allowed");
         }
     }
@@ -207,10 +207,10 @@ public class ValidationService {
      */
     private boolean isReservedNamespace(String namespace) {
         return "system".equalsIgnoreCase(namespace) ||
-               "admin".equalsIgnoreCase(namespace) ||
-               "dashboard".equalsIgnoreCase(namespace) ||
-               "default".equalsIgnoreCase(namespace) ||
-               "log".equalsIgnoreCase(namespace) ||
-               "root".equalsIgnoreCase(namespace);
+                "admin".equalsIgnoreCase(namespace) ||
+                "dashboard".equalsIgnoreCase(namespace) ||
+                "default".equalsIgnoreCase(namespace) ||
+                "log".equalsIgnoreCase(namespace) ||
+                "root".equalsIgnoreCase(namespace);
     }
 }

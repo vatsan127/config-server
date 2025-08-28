@@ -1,14 +1,14 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
-import dev.srivatsan.config_server.config.CacheConfig;
-import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.ConfigConflictException;
+import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.service.cache.CacheManagerService;
+import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
-import dev.srivatsan.config_server.service.util.GitOperationHelper;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -19,7 +19,6 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -32,25 +31,24 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
-@Service
-public class GitBasedConfigService implements RepositoryService {
+@Service  
+public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService {
 
-    private final Logger log = LoggerFactory.getLogger(GitBasedConfigService.class);
+    private final Logger log = LoggerFactory.getLogger(GitRepositoryServiceImpl.class);
     private final ApplicationConfig applicationConfig;
     private final UtilService utilService;
-    private final GitOperationHelper gitOperationHelper;
-    private final CacheConfig.CacheEvictionService cacheEvictionService;
+    private final GitOperationService gitOperationService;
+    private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
 
-    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper, CacheConfig.CacheEvictionService cacheEvictionService, ValidationService validationService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
-        this.gitOperationHelper = gitOperationHelper;
-        this.cacheEvictionService = cacheEvictionService;
+        this.gitOperationService = gitOperationService;
+        this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
     }
 
@@ -71,10 +69,10 @@ public class GitBasedConfigService implements RepositoryService {
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
-            
+
             // Clear namespace list cache and directory listings
-            cacheEvictionService.evictKey("namespaces", "all");
-            cacheEvictionService.evictAllFromCache("directory-listing");
+            cacheManagerService.evictKey("namespaces", "all");
+            cacheManagerService.evictAllFromCache("directory-listing");
         } catch (GitAPIException e) {
             log.error("Failed to initialize git repository for namespace '{}': {}", namespace, e.getMessage());
             throw GitOperationException.initFailed(namespace, e);
@@ -89,13 +87,13 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        gitOperationHelper.executeGitVoidOperation(namespace, git -> {
+        gitOperationService.executeGitVoidOperation(namespace, git -> {
             createConfigFileWithContent(git, relativePath, appName, filePath);
             commitNewFile(git, relativePath, appName, email);
-            
+
             // Clear directory listings for this namespace
             String directoryPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf("/")) : "/";
-            cacheEvictionService.evictKey("directory-listing", namespace + "_" + directoryPath);
+            cacheManagerService.evictKey("directory-listing", namespace + "_" + directoryPath);
         });
     }
 
@@ -112,7 +110,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        gitOperationHelper.executeGitVoidOperation(namespace, git -> {
+        gitOperationService.executeGitVoidOperation(namespace, git -> {
             // Optimistic lock check - validate current commit ID matches expected
             var logCommand = git.log()
                     .setMaxCount(1)
@@ -147,13 +145,13 @@ public class GitBasedConfigService implements RepositoryService {
                     .setMessage(commitMessage)
                     .setAuthor(email.substring(0, email.indexOf('@')), email)
                     .call();
-            
+
             log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
-            
+
             // Evict specific cache entries for this file
-            cacheEvictionService.evictKey("config-content", filePath);
-            cacheEvictionService.evictKey("commit-history", filePath);
-            cacheEvictionService.evictKey("latest-commit", filePath);
+            cacheManagerService.evictKey("config-content", filePath);
+            cacheManagerService.evictKey("commit-history", filePath);
+            cacheManagerService.evictKey("latest-commit", filePath);
         });
     }
 
@@ -164,7 +162,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationHelper.executeGitOperation(namespace, git -> {
+        return gitOperationService.executeGitOperation(namespace, git -> {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
@@ -183,7 +181,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationHelper.executeGitOperation(namespace, git -> {
+        return gitOperationService.executeGitOperation(namespace, git -> {
             var logCommand = git.log()
                     .setMaxCount(1)
                     .add(git.getRepository().resolve(HEAD))
@@ -204,7 +202,7 @@ public class GitBasedConfigService implements RepositoryService {
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationHelper.executeGitOperation(namespace, git -> {
+        return gitOperationService.executeGitOperation(namespace, git -> {
             var logCommand = git.log()
                     .setMaxCount(applicationConfig.getCommitHistorySize())
                     .add(git.getRepository().resolve(HEAD))
@@ -243,9 +241,9 @@ public class GitBasedConfigService implements RepositoryService {
         validationService.validateCommitId(commitId);
         validationService.validateNamespace(namespace);
 
-        return gitOperationHelper.executeGitOperation(namespace, git -> {
+        return gitOperationService.executeGitOperation(namespace, git -> {
             Map<String, Object> result = new HashMap<>();
-            
+
             try (Repository repository = git.getRepository();
                  RevWalk revWalk = new RevWalk(repository)) {
 
@@ -256,7 +254,7 @@ public class GitBasedConfigService implements RepositoryService {
                 result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
                 if (commit.getParentCount() > 0) {
-                    try (ByteArrayOutputStream out = new ByteArrayOutputStream(); 
+                    try (ByteArrayOutputStream out = new ByteArrayOutputStream();
                          DiffFormatter df = new DiffFormatter(out)) {
                         df.setRepository(repository);
                         df.format(df.scan(commit.getParent(0), commit).getFirst());
@@ -266,7 +264,7 @@ public class GitBasedConfigService implements RepositoryService {
                     result.put("changes", "Initial commit - file created");
                 }
             }
-            
+
             return result;
         });
     }
@@ -284,7 +282,7 @@ public class GitBasedConfigService implements RepositoryService {
         String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
         validationService.validateYamlContent(configContent);
         Files.writeString(newFilePath, configContent);
-        
+
         log.info("Created file: '{}'", newFilePath);
     }
 

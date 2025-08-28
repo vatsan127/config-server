@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.NamespaceAPI;
-import dev.srivatsan.config_server.service.repository.RepositoryService;
+import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import lombok.extern.slf4j.Slf4j;
@@ -21,12 +21,12 @@ public class NamespaceController implements NamespaceAPI {
 
     private static final String NAMESPACE_CREATED_MESSAGE = "Namespace created successfully";
 
-    private final RepositoryService repositoryService;
+    private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
     private final ValidationService validationService;
 
-    public NamespaceController(RepositoryService repositoryService, UtilService utilService, ValidationService validationService) {
-        this.repositoryService = repositoryService;
+    public NamespaceController(GitRepositoryService gitRepositoryService, UtilService utilService, ValidationService validationService) {
+        this.gitRepositoryService = gitRepositoryService;
         this.utilService = utilService;
         this.validationService = validationService;
     }
@@ -35,7 +35,7 @@ public class NamespaceController implements NamespaceAPI {
     public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
         validationService.validateNamespace(namespace);
-        repositoryService.createNamespace(namespace.trim());
+        gitRepositoryService.createNamespace(namespace.trim());
         return ResponseEntity.status(HttpStatus.CREATED).body(NAMESPACE_CREATED_MESSAGE);
     }
 

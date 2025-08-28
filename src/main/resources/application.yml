@@ -4,23 +4,9 @@ server:
     context-path: ${SERVER_SERVLET_CONTEXT_PATH:/config-server}
 
 spring:
-  application:
-    name: config-server
-    version: 1.0.0
-  profiles.active: dev
-  banner:
-    charset: UTF-8
-    location: classpath:banner.txt
-    mode: console
-
-  cache:
-    type: caffeine
-    cache-names: config-content,commit-history,commit-details,namespaces,directory-listing,latest-commit
+  application.name: config-server
+  cache.type: caffeine
 
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}
   commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
-
-logging:
-  level:
-    root: ${LOG_LEVEL:info}

@@ -14,7 +14,6 @@ public class ApplicationConfig {
 
     private int commitHistorySize;
     private String basePath;
-    private int cacheRefreshInterval;
 
     @PostConstruct
     public void init() {

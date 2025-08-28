@@ -89,18 +89,6 @@ The Swagger interface provides complete API documentation with request/response 
 ```
 
 
-## Change Log Management
-
-### Get Cached Changes
-
-**POST** localhost:8080/config-server/changelog
-
-```json
-{
-    "namespace": "test"
-}
-```
-
 ## Namespace Management
 
 ### Create Namespace

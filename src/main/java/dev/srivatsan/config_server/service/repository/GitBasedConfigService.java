@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.config.CacheConfig;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.ConfigConflictException;
 import dev.srivatsan.config_server.exception.GitOperationException;
@@ -41,14 +42,15 @@ public class GitBasedConfigService implements RepositoryService {
     private final ApplicationConfig applicationConfig;
     private final UtilService utilService;
     private final GitOperationHelper gitOperationHelper;
+    private final CacheConfig.CacheEvictionService cacheEvictionService;
 
-    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper) {
+    public GitBasedConfigService(ApplicationConfig applicationConfig, UtilService utilService, GitOperationHelper gitOperationHelper, CacheConfig.CacheEvictionService cacheEvictionService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationHelper = gitOperationHelper;
+        this.cacheEvictionService = cacheEvictionService;
     }
 
-    @CacheEvict(value = {"namespaces", "directory-listing"}, allEntries = true)
     public void createNamespace(String namespace) {
         utilService.validateNamespace(namespace);
 
@@ -66,13 +68,16 @@ public class GitBasedConfigService implements RepositoryService {
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
+            
+            // Clear namespace list cache and directory listings
+            cacheEvictionService.evictKey("namespaces", "all");
+            cacheEvictionService.evictAllFromCache("directory-listing");
         } catch (GitAPIException e) {
             log.error("Failed to initialize git repository for namespace '{}': {}", namespace, e.getMessage());
             throw GitOperationException.initFailed(namespace, e);
         }
     }
 
-    @CacheEvict(value = "directory-listing", allEntries = true)
     public void initializeConfigFile(String filePath, String appName, String email) {
         utilService.validateSafePath(filePath);
         utilService.validateAppName(appName);
@@ -84,10 +89,13 @@ public class GitBasedConfigService implements RepositoryService {
         gitOperationHelper.executeGitVoidOperation(namespace, git -> {
             createConfigFileWithContent(git, relativePath, appName, filePath);
             commitNewFile(git, relativePath, appName, email);
+            
+            // Clear directory listings for this namespace
+            String directoryPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf("/")) : "/";
+            cacheEvictionService.evictKey("directory-listing", namespace + "_" + directoryPath);
         });
     }
 
-    @CacheEvict(value = {"config-content", "commit-history", "change-logs", "latest-commit"}, allEntries = true)
     public void updateConfigFile(String filePath, Payload payload) {
         utilService.validateSafePath(filePath);
         utilService.validateEmail(payload.getEmail());
@@ -138,6 +146,11 @@ public class GitBasedConfigService implements RepositoryService {
                     .call();
             
             log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
+            
+            // Evict specific cache entries for this file
+            cacheEvictionService.evictKey("config-content", filePath);
+            cacheEvictionService.evictKey("commit-history", filePath);
+            cacheEvictionService.evictKey("latest-commit", filePath);
         });
     }
 

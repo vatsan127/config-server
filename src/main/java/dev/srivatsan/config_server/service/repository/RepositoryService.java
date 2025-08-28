@@ -59,6 +59,16 @@ public interface RepositoryService {
     Map<String, Object> getConfigFileHistory(String filePath) throws Exception;
 
     /**
+     * Retrieves the latest commit ID for a specific configuration file.
+     * Returns the commit ID of the most recent commit that affected the file.
+     *
+     * @param filePath the relative path of the configuration file
+     * @return the latest commit ID as a string
+     * @throws RuntimeException if the file is not found or repository cannot be accessed
+     */
+    String getLatestCommitId(String filePath);
+
+    /**
      * Creates and initializes a namespace directory with a git repository.
      * This should be called before creating configuration files in a new namespace.
      *
@@ -79,22 +89,4 @@ public interface RepositoryService {
      */
     Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException;
 
-    /**
-     * Retrieves a list of all available namespaces.
-     * Returns the names of all namespace directories that exist in the base path.
-     *
-     * @return a list of namespace names
-     */
-    List<String> listNamespaces();
-
-    /**
-     * Retrieves the contents of a directory within a namespace.
-     * Returns only .yml files and subdirectories in the specified path.
-     *
-     * @param namespace the namespace identifier
-     * @param path      the relative directory path within the namespace (empty string for root)
-     * @return a list of .yml file names and folder names
-     * @throws RuntimeException if the namespace or directory is not found or cannot be accessed
-     */
-    List<String> listDirectoryContents(String namespace, String path);
 }

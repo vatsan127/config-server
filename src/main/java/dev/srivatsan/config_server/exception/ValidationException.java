@@ -11,6 +11,7 @@ public class ValidationException extends ConfigServerException {
     public static final String INVALID_CONTENT = "INVALID_CONTENT";
     public static final String INVALID_YAML = "INVALID_YAML";
     public static final String INVALID_COMMIT_MESSAGE = "INVALID_COMMIT_MESSAGE";
+    public static final String MISSING_COMMIT_ID = "MISSING_COMMIT_ID";
 
     public ValidationException(String errorCode, String message) {
         super(errorCode, message);
@@ -56,5 +57,9 @@ public class ValidationException extends ConfigServerException {
 
     public static ValidationException invalidCommitMessage(String message) {
         return new ValidationException(INVALID_COMMIT_MESSAGE, message);
+    }
+
+    public static ValidationException missingCommitId(String message) {
+        return new ValidationException(MISSING_COMMIT_ID, message);
     }
 }

@@ -2,7 +2,7 @@ package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.ChangeLogAPI;
 import dev.srivatsan.config_server.model.ChangeEntry;
-import dev.srivatsan.config_server.service.ChangeLogService;
+import dev.srivatsan.config_server.service.changelog.ChangeLogService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

@@ -88,6 +88,21 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
+    @ExceptionHandler(ConfigConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConfigConflictException(ConfigConflictException ex) {
+        log.warn("Configuration conflict detected: {}", ex.getMessage());
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error("Configuration Conflict")
+                .message(ex.getMessage())
+                .errorCode(ex.getErrorCode())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
         log.error("Validation failed: {}", ex.getMessage());

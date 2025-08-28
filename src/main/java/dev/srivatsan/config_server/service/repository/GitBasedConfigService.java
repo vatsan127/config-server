@@ -2,6 +2,7 @@ package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.ConfigFileException;
+import dev.srivatsan.config_server.exception.ConfigConflictException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
@@ -86,19 +87,41 @@ public class GitBasedConfigService implements RepositoryService {
         });
     }
 
-    @CacheEvict(value = {"config-content", "commit-history", "change-logs"}, allEntries = true)
+    @CacheEvict(value = {"config-content", "commit-history", "change-logs", "latest-commit"}, allEntries = true)
     public void updateConfigFile(String filePath, Payload payload) {
         utilService.validateSafePath(filePath);
         utilService.validateEmail(payload.getEmail());
         utilService.validateYamlContent(payload.getContent());
         utilService.validateCommitMessage(payload.getMessage());
+        utilService.validateCommitId(payload.getCommitId());
 
         String commitMessage = payload.getMessage();
         String email = payload.getEmail();
+        String expectedCommitId = payload.getCommitId();
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         gitOperationHelper.executeGitVoidOperation(namespace, git -> {
+            // Optimistic lock check - validate current commit ID matches expected
+            var logCommand = git.log()
+                    .setMaxCount(1)
+                    .add(git.getRepository().resolve(HEAD))
+                    .addPath(relativePath);
+
+            String currentCommitId = null;
+            for (RevCommit commit : logCommand.call()) {
+                currentCommitId = commit.getId().getName();
+                break;
+            }
+
+            if (currentCommitId == null) {
+                throw ConfigFileException.notFound(filePath);
+            }
+
+            if (!expectedCommitId.equals(currentCommitId)) {
+                throw ConfigConflictException.conflictDetected(filePath);
+            }
+
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
@@ -134,6 +157,26 @@ public class GitBasedConfigService implements RepositoryService {
             }
 
             return Files.readString(configFilePath);
+        });
+    }
+
+    @Cacheable(value = "latest-commit", key = "#filePath")
+    public String getLatestCommitId(String filePath) {
+        utilService.validateSafePath(filePath);
+
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
+
+        return gitOperationHelper.executeGitOperation(namespace, git -> {
+            var logCommand = git.log()
+                    .setMaxCount(1)
+                    .add(git.getRepository().resolve(HEAD))
+                    .addPath(relativePath);
+
+            for (RevCommit commit : logCommand.call()) {
+                return commit.getId().getName();
+            }
+            throw ConfigFileException.notFound(filePath);
         });
     }
 
@@ -212,68 +255,6 @@ public class GitBasedConfigService implements RepositoryService {
         });
     }
 
-    @Override
-    @Cacheable(value = "namespaces", key = "'all'")
-    public List<String> listNamespaces() {
-        File baseDir = new File(applicationConfig.getBasePath());
-
-        if (!baseDir.exists() || !baseDir.isDirectory()) {
-            log.warn("Base directory does not exist: {}", baseDir.getAbsolutePath());
-            return Collections.emptyList();
-        }
-
-        File[] namespaceDirs = baseDir.listFiles(File::isDirectory);
-        if (namespaceDirs == null) {
-            return Collections.emptyList();
-        }
-
-        List<String> namespaces = Arrays.stream(namespaceDirs)
-                .map(File::getName)
-                .filter(name -> isValidNamespace(name))
-                .sorted()
-                .collect(Collectors.toList());
-
-        log.debug("Found {} namespaces in base directory", namespaces.size());
-        return namespaces;
-    }
-
-    private boolean isValidNamespace(String name) {
-        try {
-            utilService.validateNamespace(name);
-
-            // Check if it's a valid git repository
-            File namespaceDir = new File(applicationConfig.getBasePath(), name);
-            File gitDir = new File(namespaceDir, ".git");
-            return gitDir.exists() && gitDir.isDirectory();
-        } catch (Exception e) {
-            log.debug("Skipping invalid namespace directory: {}", name);
-            return false;
-        }
-    }
-
-    @Override
-    @Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
-    public List<String> listDirectoryContents(String namespace, String path) {
-        utilService.validateNamespace(namespace);
-
-        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
-        if (!namespaceDir.exists()) {
-            throw NamespaceException.notFound(namespace);
-        }
-
-        String cleanPath = normalizeDirectoryPath(path);
-        File targetDir = resolveTargetDirectory(namespaceDir, cleanPath);
-        validateDirectoryAccess(targetDir, namespaceDir, cleanPath);
-
-        File[] files = targetDir.listFiles();
-        if (files == null) {
-            return Collections.emptyList();
-        }
-
-        List<String> fileNames = filterAndSortFiles(files);
-        log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
-        return fileNames;
-    }
 
     private void createConfigFileWithContent(Git git, String relativePath, String appName, String filePath) throws IOException {
         Path workTree = git.getRepository().getWorkTree().toPath();
@@ -299,51 +280,5 @@ public class GitBasedConfigService implements RepositoryService {
                 .call();
     }
 
-    private String normalizeDirectoryPath(String path) {
-        String cleanPath = (path == null || path.trim().isEmpty()) ? "" : path.trim();
-        if (cleanPath.startsWith("/")) {
-            cleanPath = cleanPath.substring(1);
-        }
-        return cleanPath;
-    }
-
-    private File resolveTargetDirectory(File namespaceDir, String cleanPath) {
-        return cleanPath.isEmpty() ? namespaceDir : new File(namespaceDir, cleanPath);
-    }
-
-    private void validateDirectoryAccess(File targetDir, File namespaceDir, String cleanPath) {
-        if (!targetDir.exists()) {
-            throw new RuntimeException("Directory not found: " + cleanPath);
-        }
-
-        if (!targetDir.isDirectory()) {
-            throw new RuntimeException("Path is not a directory: " + cleanPath);
-        }
-
-        // Security check: ensure target directory is within namespace
-        try {
-            if (!targetDir.getCanonicalPath().startsWith(namespaceDir.getCanonicalPath())) {
-                throw new RuntimeException("Invalid path: access denied");
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to validate path security", e);
-        }
-    }
-
-    private List<String> filterAndSortFiles(File[] files) {
-        List<String> fileNames = new ArrayList<>();
-        for (File file : files) {
-            if (file.getName().startsWith(".")) {
-                // Skip .git directory and other hidden files/directories
-            } else if (file.getName().toLowerCase().endsWith(".yml")) {
-                fileNames.add(file.getName().split("\\.")[0]);
-            } else if (file.isDirectory()) {
-                fileNames.add(file.getName() + "/");
-            }
-        }
-
-        fileNames.sort(String.CASE_INSENSITIVE_ORDER);
-        return fileNames;
-    }
 
 }

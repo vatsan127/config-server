@@ -15,7 +15,7 @@ spring:
 
   cache:
     type: caffeine
-    cache-names: config-content,commit-history,commit-details,change-logs,namespaces,directory-listing
+    cache-names: config-content,commit-history,commit-details,change-logs,namespaces,directory-listing,latest-commit
 
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}

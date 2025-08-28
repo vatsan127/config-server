@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.ConfigurationAPI;
+import dev.srivatsan.config_server.exception.ValidationException;
 import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.repository.RepositoryService;
@@ -47,14 +48,21 @@ public class ConfigurationController implements ConfigurationAPI {
     public ResponseEntity<Payload> fetchConfig(@Valid @RequestBody Payload payload) throws IOException {
         String filePath = validateAndGetFilePath(payload, ActionType.fetch);
         String content = repositoryService.getConfigFile(filePath);
+        String latestCommitId = repositoryService.getLatestCommitId(filePath);
+        
         payload.setContent(content);
+        payload.setCommitId(latestCommitId);
         return ResponseEntity.ok(payload);
     }
-
 
     @Override
     public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
         String filePath = validateAndGetFilePath(payload, ActionType.update);
+        
+        if (payload.getCommitId() == null || payload.getCommitId().trim().isEmpty()) {
+            throw ValidationException.missingCommitId("Commit ID is required for update operations");
+        }
+        
         repositoryService.updateConfigFile(filePath, payload);
         return ResponseEntity.ok(SUCCESS_MESSAGE);
     }

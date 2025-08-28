@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.service;
+package dev.srivatsan.config_server.service.changelog;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.model.ChangeEntry;

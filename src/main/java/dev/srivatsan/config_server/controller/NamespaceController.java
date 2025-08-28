@@ -38,7 +38,7 @@ public class NamespaceController implements NamespaceAPI {
 
     @Override
     public ResponseEntity<List<String>> listNamespaces() {
-        List<String> namespaces = repositoryService.listNamespaces();
+        List<String> namespaces = utilService.listNamespaces();
         return ResponseEntity.ok(namespaces);
     }
 
@@ -47,7 +47,7 @@ public class NamespaceController implements NamespaceAPI {
         String namespace = request.get("namespace");
         String path = request.get("path");
         utilService.validateNamespace(namespace);
-        List<String> fileNames = repositoryService.listDirectoryContents(namespace, path);
+        List<String> fileNames = utilService.listDirectoryContents(namespace, path);
         return ResponseEntity.ok(fileNames);
     }
 }

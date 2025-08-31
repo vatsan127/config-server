@@ -23,7 +23,8 @@ import java.util.Map;
 @RequestMapping("/config")
 public class ConfigurationController implements ConfigurationAPI {
 
-    private static final String SUCCESS_MESSAGE = "success";
+    private static final String CONFIG_CREATED_MESSAGE = "Configuration file has been created successfully";
+    private static final String CONFIG_UPDATED_MESSAGE = "Configuration file has been updated successfully";
 
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
@@ -41,10 +42,10 @@ public class ConfigurationController implements ConfigurationAPI {
     }
 
     @Override
-    public ResponseEntity<String> createConfig(@Valid @RequestBody Payload payload) {
+    public ResponseEntity<Map<String, Object>> createConfig(@Valid @RequestBody Payload payload) {
         String filePath = validateAndGetFilePath(payload, ActionType.create);
         gitRepositoryService.initializeConfigFile(filePath, payload.getAppName(), payload.getEmail());
-        return ResponseEntity.status(HttpStatus.CREATED).body(SUCCESS_MESSAGE);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", CONFIG_CREATED_MESSAGE));
     }
 
     @Override
@@ -59,7 +60,7 @@ public class ConfigurationController implements ConfigurationAPI {
     }
 
     @Override
-    public ResponseEntity<String> updateConfig(@Valid @RequestBody Payload payload) {
+    public ResponseEntity<Map<String, Object>> updateConfig(@Valid @RequestBody Payload payload) {
         String filePath = validateAndGetFilePath(payload, ActionType.update);
 
         if (payload.getCommitId() == null || payload.getCommitId().trim().isEmpty()) {
@@ -67,7 +68,7 @@ public class ConfigurationController implements ConfigurationAPI {
         }
 
         gitRepositoryService.updateConfigFile(filePath, payload);
-        return ResponseEntity.ok(SUCCESS_MESSAGE);
+        return ResponseEntity.ok(Map.of("message", CONFIG_UPDATED_MESSAGE));
     }
 
     @Override

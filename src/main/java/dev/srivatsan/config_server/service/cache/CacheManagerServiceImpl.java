@@ -23,6 +23,7 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
 
     @Override
     public void evictKey(String cacheName, String key) {
+        log.info("Evicting key '{}' from cache '{}'", key, cacheName);
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.evict(key);
@@ -34,6 +35,7 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
 
     @Override
     public void evictAllFromCache(String cacheName) {
+        log.info("Clearing all entries from cache '{}'", cacheName);
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.clear();

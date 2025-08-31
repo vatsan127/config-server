@@ -6,6 +6,9 @@ server:
 spring:
   application.name: config-server
   cache.type: caffeine
+  web.cors.allowed-origins: http://localhost:3000
+  web.cors.allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  web.cors.allowed-headers: "*"
 
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}

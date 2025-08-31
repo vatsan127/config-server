@@ -31,7 +31,7 @@ public interface ConfigurationAPI {
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     @PostMapping("/create")
-    ResponseEntity<String> createConfig(
+    ResponseEntity<Map<String, Object>> createConfig(
             @Parameter(description = "Configuration creation request", required = true)
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Request to create a new configuration file",
@@ -94,14 +94,14 @@ public interface ConfigurationAPI {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Configuration updated successfully",
-                    content = @Content(mediaType = "text/plain",
-                            examples = @ExampleObject(value = "success"))),
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Configuration file has been updated successfully\"}"))),
             @ApiResponse(responseCode = "400", description = "Invalid request or YAML content"),
             @ApiResponse(responseCode = "404", description = "Configuration file not found"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     @PostMapping("/update")
-    ResponseEntity<String> updateConfig(
+    ResponseEntity<Map<String, Object>> updateConfig(
             @Parameter(description = "Configuration update request with content and commit message", required = true)
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Request to update configuration file with new content",

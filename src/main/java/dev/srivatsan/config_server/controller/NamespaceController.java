@@ -19,7 +19,7 @@ import java.util.Map;
 @RequestMapping("/namespace")
 public class NamespaceController implements NamespaceAPI {
 
-    private static final String NAMESPACE_CREATED_MESSAGE = "Namespace created successfully";
+    private static final String NAMESPACE_CREATED_MESSAGE = "Namespace has been created successfully and is ready for configuration files";
 
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
@@ -32,11 +32,11 @@ public class NamespaceController implements NamespaceAPI {
     }
 
     @Override
-    public ResponseEntity<String> createNamespace(@RequestBody Map<String, String> request) throws Exception {
+    public ResponseEntity<Map<String, Object>> createNamespace(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
         validationService.validateNamespace(namespace);
         gitRepositoryService.createNamespace(namespace.trim());
-        return ResponseEntity.status(HttpStatus.CREATED).body(NAMESPACE_CREATED_MESSAGE);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("message", NAMESPACE_CREATED_MESSAGE));
     }
 
     @Override

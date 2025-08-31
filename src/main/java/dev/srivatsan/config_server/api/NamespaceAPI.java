@@ -23,14 +23,14 @@ public interface NamespaceAPI {
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Namespace created successfully",
-                    content = @Content(mediaType = "text/plain",
-                            examples = @ExampleObject(value = "Namespace created successfully"))),
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Namespace has been created successfully and is ready for configuration files\"}"))),
             @ApiResponse(responseCode = "400", description = "Invalid namespace name"),
             @ApiResponse(responseCode = "409", description = "Namespace already exists"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     @PostMapping("/create")
-    ResponseEntity<String> createNamespace(
+    ResponseEntity<Map<String, Object>> createNamespace(
             @Parameter(description = "Namespace creation request", required = true)
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Request to create a new namespace",

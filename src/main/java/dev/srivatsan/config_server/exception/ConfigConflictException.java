@@ -12,8 +12,8 @@ public class ConfigConflictException extends ConfigServerException {
         super(errorCode, message, cause);
     }
 
-    public static ConfigConflictException conflictDetected(String filePath) {
+    public static ConfigConflictException conflictDetected(String fileName) {
         return new ConfigConflictException(CONFIG_CONFLICT,
-                String.format("Configuration file '%s' was modified by another user. Please refresh the page and try again.", filePath));
+                String.format("Configuration file '%s' was modified!. Please refresh the page and try again.", fileName));
     }
 }

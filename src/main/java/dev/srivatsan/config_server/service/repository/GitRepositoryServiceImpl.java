@@ -128,7 +128,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             }
 
             if (!expectedCommitId.equals(currentCommitId)) {
-                throw ConfigConflictException.conflictDetected(filePath);
+                throw ConfigConflictException.conflictDetected(payload.getAppName());
             }
 
             Path workTree = git.getRepository().getWorkTree().toPath();

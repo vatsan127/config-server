@@ -127,7 +127,7 @@ public class UtilService {
      * @return a list of .yml file names and folder names
      * @throws RuntimeException if the namespace or directory is not found or cannot be accessed
      */
-    @org.springframework.cache.annotation.Cacheable(value = "directory-listing", key = "#namespace")
+    @org.springframework.cache.annotation.Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
     public List<String> listDirectoryContents(String namespace, String path) {
         validationService.validateNamespace(namespace);
 

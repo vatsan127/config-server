@@ -93,7 +93,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear directory listings for this namespace
             String directoryPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf("/")) : "/";
-            cacheManagerService.evictKey("directory-listing", namespace);
+            cacheManagerService.evictKey("directory-listing", namespace + "_" + directoryPath);
         });
     }
 

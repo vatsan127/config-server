@@ -62,20 +62,4 @@ public sealed interface GitOperationService permits GitOperationServiceImpl {
      * @throws dev.srivatsan.config_server.exception.GitOperationException if the repository cannot be opened
      */
     Git openRepository(String namespace) throws IOException;
-
-    /**
-     * Checks if a Git repository exists for the specified namespace.
-     *
-     * @param namespace the namespace identifier to check
-     * @return true if the repository exists and is accessible, false otherwise
-     */
-    boolean repositoryExists(String namespace);
-
-    /**
-     * Validates that a namespace has a properly initialized Git repository.
-     *
-     * @param namespace the namespace to validate
-     * @throws dev.srivatsan.config_server.exception.NamespaceException if the namespace is invalid or repository is not properly initialized
-     */
-    void validateRepositoryHealth(String namespace);
 }

@@ -34,9 +34,10 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
      *
      * @param filePath the relative path of the configuration file to update
      * @param payload  the payload containing the new configuration content and metadata
+     * @return
      * @throws RuntimeException if the file update or git operations fail
      */
-    void updateConfigFile(String filePath, Payload payload);
+    String updateConfigFile(String filePath, Payload payload);
 
     /**
      * Retrieves the current content of a configuration file from the repository.

@@ -34,7 +34,7 @@ import java.util.*;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
-@Service  
+@Service
 public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService {
 
     private final Logger log = LoggerFactory.getLogger(GitRepositoryServiceImpl.class);
@@ -93,11 +93,11 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear directory listings for this namespace
             String directoryPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf("/")) : "/";
-            cacheManagerService.evictKey("directory-listing", namespace + "_" + directoryPath);
+            cacheManagerService.evictKey("directory-listing", namespace);
         });
     }
 
-    public void updateConfigFile(String filePath, Payload payload) {
+    public String updateConfigFile(String filePath, Payload payload) {
         validationService.validateSafePath(filePath);
         validationService.validateEmail(payload.getEmail());
         validationService.validateYamlContent(payload.getContent());
@@ -110,49 +110,48 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        gitOperationService.executeGitVoidOperation(namespace, git -> {
-            // Optimistic lock check - validate current commit ID matches expected
-            var logCommand = git.log()
-                    .setMaxCount(1)
-                    .add(git.getRepository().resolve(HEAD))
-                    .addPath(relativePath);
+        return gitOperationService.executeGitOperation(namespace, git -> {
+                    // Optimistic lock check - validate current commit ID matches expected
+                    var logCommand = git.log()
+                            .setMaxCount(1)
+                            .add(git.getRepository().resolve(HEAD))
+                            .addPath(relativePath);
 
-            String currentCommitId = null;
-            for (RevCommit commit : logCommand.call()) {
-                currentCommitId = commit.getId().getName();
-                break;
-            }
+                    String currentCommitId = null;
+                    for (RevCommit commit : logCommand.call()) {
+                        currentCommitId = commit.getId().getName();
+                        break;
+                    }
 
-            if (currentCommitId == null) {
-                throw ConfigFileException.notFound(filePath);
-            }
+                    if (!expectedCommitId.equals(currentCommitId)) {
+                        throw ConfigConflictException.conflictDetected(payload.getAppName());
+                    }
 
-            if (!expectedCommitId.equals(currentCommitId)) {
-                throw ConfigConflictException.conflictDetected(payload.getAppName());
-            }
+                    Path workTree = git.getRepository().getWorkTree().toPath();
+                    Path configFilePath = workTree.resolve(relativePath);
 
-            Path workTree = git.getRepository().getWorkTree().toPath();
-            Path configFilePath = workTree.resolve(relativePath);
+                    if (!Files.exists(configFilePath)) {
+                        throw ConfigFileException.notFound(filePath);
+                    }
 
-            if (!Files.exists(configFilePath)) {
-                throw ConfigFileException.notFound(filePath);
-            }
+                    Files.writeString(configFilePath, payload.getContent());
 
-            Files.writeString(configFilePath, payload.getContent());
+                    git.add().addFilepattern(relativePath).call();
+                    RevCommit revCommit = git.commit()
+                            .setMessage(commitMessage)
+                            .setAuthor(email.substring(0, email.indexOf('@')), email)
+                            .call();
 
-            git.add().addFilepattern(relativePath).call();
-            git.commit()
-                    .setMessage(commitMessage)
-                    .setAuthor(email.substring(0, email.indexOf('@')), email)
-                    .call();
+                    log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
 
-            log.info("Updated file: '{}', with message: '{}'", configFilePath, commitMessage);
+                    // Evict specific cache entries for this file
+                    cacheManagerService.evictKey("config-content", filePath);
+                    cacheManagerService.evictKey("commit-history", filePath);
+                    cacheManagerService.evictKey("latest-commit", filePath);
+                    return revCommit.getId().getName();
+                }
+        );
 
-            // Evict specific cache entries for this file
-            cacheManagerService.evictKey("config-content", filePath);
-            cacheManagerService.evictKey("commit-history", filePath);
-            cacheManagerService.evictKey("latest-commit", filePath);
-        });
     }
 
     @Cacheable(value = "config-content", key = "#filePath")
@@ -280,7 +279,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
         Files.createDirectories(newFilePath.getParent());
         String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
-        validationService.validateYamlContent(configContent);
         Files.writeString(newFilePath, configContent);
 
         log.info("Created file: '{}'", newFilePath);

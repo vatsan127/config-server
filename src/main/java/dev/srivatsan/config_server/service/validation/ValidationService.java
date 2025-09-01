@@ -171,8 +171,8 @@ public class ValidationService {
             Yaml yaml = new Yaml();
             yaml.load(content);
         } catch (YAMLException e) {
-            log.warn("Invalid YAML content: {}", e.getMessage());
-            throw ValidationException.invalidYaml("Invalid YAML syntax: " + e.getMessage());
+            log.error("Invalid YAML content: {}", e.getMessage());
+            throw ValidationException.invalidYaml("Invalid YAML syntax");
         }
     }
 

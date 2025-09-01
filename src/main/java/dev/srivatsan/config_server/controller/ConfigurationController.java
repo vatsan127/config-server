@@ -67,8 +67,8 @@ public class ConfigurationController implements ConfigurationAPI {
             throw ValidationException.missingCommitId("Commit ID is required for update operations");
         }
 
-        gitRepositoryService.updateConfigFile(filePath, payload);
-        return ResponseEntity.ok(Map.of("message", CONFIG_UPDATED_MESSAGE));
+        String commitId = gitRepositoryService.updateConfigFile(filePath, payload);
+        return ResponseEntity.ok(Map.of("message", CONFIG_UPDATED_MESSAGE, "commitId", commitId));
     }
 
     @Override

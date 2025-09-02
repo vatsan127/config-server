@@ -16,7 +16,7 @@ public class ValidationService {
 
     private static final Logger log = LoggerFactory.getLogger(ValidationService.class);
     private static final Pattern SAFE_PATH_PATTERN = Pattern.compile("^[a-zA-Z0-9/_.-]+$");
-    private static final Pattern SAFE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9-_]+$");
+    private static final Pattern SAFE_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9]([a-zA-Z0-9_-]*[a-zA-Z0-9])?$");
 
     /**
      * Validates that the action type in the payload matches the expected action type.

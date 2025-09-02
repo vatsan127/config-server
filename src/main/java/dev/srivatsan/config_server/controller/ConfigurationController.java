@@ -25,6 +25,7 @@ public class ConfigurationController implements ConfigurationAPI {
 
     private static final String CONFIG_CREATED_MESSAGE = "Configuration file has been created successfully";
     private static final String CONFIG_UPDATED_MESSAGE = "Configuration file has been updated successfully";
+    private static final String CONFIG_DELETED_MESSAGE = "Configuration file has been deleted successfully";
 
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
@@ -84,5 +85,12 @@ public class ConfigurationController implements ConfigurationAPI {
         validationService.validateCommitId(payload.getCommitId());
         Map<String, Object> commitDetails = gitRepositoryService.getCommitChanges(payload.getCommitId(), payload.getNamespace());
         return ResponseEntity.ok(commitDetails);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> deleteConfig(@Valid @RequestBody Payload payload) {
+        String filePath = validateAndGetFilePath(payload, ActionType.delete);
+        gitRepositoryService.deleteConfigFile(filePath, payload);
+        return ResponseEntity.ok(Map.of("message", CONFIG_DELETED_MESSAGE));
     }
 }

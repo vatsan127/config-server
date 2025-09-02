@@ -39,5 +39,12 @@ public enum ActionType {
      * Shows the diff information and commit metadata for a given commit ID.
      * Used by: POST /config/changes
      */
-    changes
+    changes,
+
+    /**
+     * Deletes an existing configuration file.
+     * Removes the file from the filesystem and commits the change to Git.
+     * Used by: POST /config/delete
+     */
+    delete
 }

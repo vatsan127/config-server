@@ -91,9 +91,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             createConfigFileWithContent(git, relativePath, appName, filePath);
             commitNewFile(git, relativePath, appName, email);
 
-            // Clear directory listings for this namespace
-            String directoryPath = relativePath.contains("/") ? relativePath.substring(0, relativePath.lastIndexOf("/")) : "/";
-            cacheManagerService.evictKey("directory-listing", namespace + "_" + directoryPath);
+            // Clear all directory listings for this namespace
+            cacheManagerService.evictAllFromCache("directory-listing");
         });
     }
 
@@ -210,7 +209,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {
                 Map<String, Object> commitInfo = formatCommitInfo(commit);
-                commitInfo.put("message", commit.getShortMessage());
+                commitInfo.put("commitMessage", commit.getShortMessage());
                 commits.add(commitInfo);
             }
 
@@ -248,7 +247,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
                 RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
                 result.put("commitId", commit.getName());
-                result.put("message", commit.getFullMessage());
+                result.put("commitMessage", commit.getFullMessage());
                 result.put("author", commit.getAuthorIdent().getName());
                 result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
@@ -290,6 +289,94 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 .setMessage("First commit ApplicationName - " + appName)
                 .setAuthor(email.substring(0, email.indexOf('@')), email)
                 .call();
+    }
+
+    @Override
+    public void deleteConfigFile(String filePath, Payload payload) {
+        validationService.validateSafePath(filePath);
+        validationService.validateEmail(payload.getEmail());
+        validationService.validateCommitMessage(payload.getMessage());
+
+        String namespace = utilService.extractNamespaceFromFilePath(filePath);
+        String relativePath = utilService.getRelativePathWithinNamespace(filePath);
+
+        gitOperationService.executeGitVoidOperation(namespace, git -> {
+            Path workTree = git.getRepository().getWorkTree().toPath();
+            Path configFilePath = workTree.resolve(relativePath);
+
+            if (!Files.exists(configFilePath)) {
+                throw ConfigFileException.notFound(filePath);
+            }
+
+            // Delete the file from filesystem
+            Files.delete(configFilePath);
+            log.info("Deleted file: '{}'", configFilePath);
+
+            // Stage the deletion for commit
+            git.rm().addFilepattern(relativePath).call();
+
+            // Commit the deletion
+            git.commit()
+                    .setMessage(payload.getMessage())
+                    .setAuthor(payload.getEmail().substring(0, payload.getEmail().indexOf('@')), payload.getEmail())
+                    .call();
+
+            log.info("Committed deletion of file: '{}' with message: '{}'", filePath, payload.getMessage());
+
+            // Clear relevant caches
+            cacheManagerService.evictKey("config-content", filePath);
+            cacheManagerService.evictKey("commit-history", filePath);
+            cacheManagerService.evictKey("latest-commit", filePath);
+            cacheManagerService.evictAllFromCache("directory-listing");
+        });
+    }
+
+    @Override
+    public void deleteNamespace(String namespace) {
+        validationService.validateNamespace(namespace);
+
+        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
+
+        if (!namespaceDir.exists()) {
+            throw NamespaceException.notFound(namespace);
+        }
+
+        if (!namespaceDir.isDirectory()) {
+            throw new RuntimeException("Namespace path is not a directory: " + namespace);
+        }
+
+        try {
+            // Recursively delete the entire namespace directory
+            deleteDirectoryRecursively(namespaceDir.toPath());
+            log.info("Successfully deleted namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
+
+            // Clear all related caches
+            cacheManagerService.evictKey("namespaces", "all");
+            cacheManagerService.evictAllFromCache("directory-listing");
+            cacheManagerService.evictAllFromCache("config-content");
+            cacheManagerService.evictAllFromCache("commit-history");
+            cacheManagerService.evictAllFromCache("latest-commit");
+            cacheManagerService.evictAllFromCache("commit-details");
+
+        } catch (IOException e) {
+            log.error("Failed to delete namespace '{}': {}", namespace, e.getMessage());
+            throw new RuntimeException("Failed to delete namespace: " + namespace, e);
+        }
+    }
+
+    /**
+     * Recursively deletes a directory and all its contents.
+     *
+     * @param dirPath the path of the directory to delete
+     * @throws IOException if deletion fails
+     */
+    private void deleteDirectoryRecursively(Path dirPath) throws IOException {
+        if (Files.exists(dirPath)) {
+            Files.walk(dirPath)
+                    .sorted(java.util.Comparator.reverseOrder())
+                    .map(Path::toFile)
+                    .forEach(File::delete);
+        }
     }
 
 

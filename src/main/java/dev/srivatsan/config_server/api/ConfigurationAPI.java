@@ -221,4 +221,41 @@ public interface ConfigurationAPI {
             )
             @Valid @RequestBody Payload payload) throws IOException;
 
+    @Operation(
+            summary = "Delete configuration file",
+            description = "Deletes an existing configuration file and commits the change to Git"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Configuration file deleted successfully",
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Configuration file has been deleted successfully\"}"))),
+            @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
+            @ApiResponse(responseCode = "404", description = "Configuration file not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/delete")
+    ResponseEntity<Map<String, Object>> deleteConfig(
+            @Parameter(description = "Configuration delete request", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Request to delete a configuration file",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Delete Config Example",
+                                    value = """
+                                            {
+                                                "action": "delete",
+                                                "appName": "sample",
+                                                "namespace": "test",
+                                                "path": "/",
+                                                "message": "Remove obsolete configuration",
+                                                "email": "test@gmail.com"
+                                            }
+                                            """
+                            )
+                    )
+            )
+            @Valid @RequestBody Payload payload);
+
 }

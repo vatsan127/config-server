@@ -107,4 +107,36 @@ public interface NamespaceAPI {
                     )
             )
             @RequestBody Map<String, String> request);
+
+    @Operation(
+            summary = "Delete namespace",
+            description = "Deletes an existing namespace directory and all its contents permanently"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Namespace deleted successfully",
+                    content = @Content(mediaType = "application/json",
+                            examples = @ExampleObject(value = "{\"message\": \"Namespace has been deleted successfully\"}"))),
+            @ApiResponse(responseCode = "400", description = "Invalid namespace name"),
+            @ApiResponse(responseCode = "404", description = "Namespace not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    @PostMapping("/delete")
+    ResponseEntity<Map<String, Object>> deleteNamespace(
+            @Parameter(description = "Namespace deletion request", required = true)
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Request to delete a namespace",
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/json",
+                            examples = @ExampleObject(
+                                    name = "Delete Namespace Example",
+                                    value = """
+                                            {
+                                                "namespace": "test"
+                                            }
+                                            """
+                            )
+                    )
+            )
+            @RequestBody Map<String, String> request);
 }

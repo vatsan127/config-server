@@ -20,6 +20,7 @@ import java.util.Map;
 public class NamespaceController implements NamespaceAPI {
 
     private static final String NAMESPACE_CREATED_MESSAGE = "Namespace has been created successfully and is ready for configuration files";
+    private static final String NAMESPACE_DELETED_MESSAGE = "Namespace has been deleted successfully";
 
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
@@ -52,5 +53,13 @@ public class NamespaceController implements NamespaceAPI {
         validationService.validateNamespace(namespace);
         List<String> fileNames = utilService.listDirectoryContents(namespace, path);
         return ResponseEntity.ok(fileNames);
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> deleteNamespace(@RequestBody Map<String, String> request) {
+        String namespace = request.get("namespace");
+        validationService.validateNamespace(namespace);
+        gitRepositoryService.deleteNamespace(namespace.trim());
+        return ResponseEntity.ok(Map.of("message", NAMESPACE_DELETED_MESSAGE));
     }
 }

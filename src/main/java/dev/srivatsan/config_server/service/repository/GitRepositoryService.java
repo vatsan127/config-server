@@ -89,4 +89,23 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
      */
     Map<String, Object> getCommitChanges(String commitId, String namespace) throws IOException;
 
+    /**
+     * Deletes an existing configuration file and commits the change to the repository.
+     * The commit includes author information and a custom commit message.
+     *
+     * @param filePath the relative path of the configuration file to delete
+     * @param payload  the payload containing metadata including commit message and author email
+     * @throws RuntimeException if the file deletion or git operations fail
+     */
+    void deleteConfigFile(String filePath, Payload payload);
+
+    /**
+     * Deletes an entire namespace directory and all its contents.
+     * This operation permanently removes the namespace and cannot be undone.
+     *
+     * @param namespace the namespace identifier to delete
+     * @throws RuntimeException if the namespace deletion fails or namespace doesn't exist
+     */
+    void deleteNamespace(String namespace);
+
 }

@@ -259,7 +259,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                         result.put("changes", out.toString());
                     }
                 } else {
-                    result.put("changes", "Initial commit - file created");
+                    result.put("changes", "");
                 }
             }
 

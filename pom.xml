@@ -48,6 +48,12 @@
             <version>20231013</version>
         </dependency>
 
+        <!-- YAML Parser -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
+
         <!-- Spring AOP -->
         <dependency>
             <groupId>org.springframework</groupId>

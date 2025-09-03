@@ -14,6 +14,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import java.io.File;
 
 @EnableCaching
+@EnableConfigServer
 @EnableAspectJAutoProxy
 @EnableConfigServer
 @SpringBootApplication

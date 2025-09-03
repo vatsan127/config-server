@@ -6,6 +6,8 @@ server:
 spring:
   application.name: config-server
   cache.type: caffeine
+  cloud:
+    config.server.git.uri: ${global.base-path}
   web.cors.allowed-origins: http://localhost:3000
   web.cors.allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   web.cors.allowed-headers: "*"
@@ -14,6 +16,7 @@ spring:
       server:
         # Use our custom EnvironmentRepository
         # No specific Git configuration needed as we handle it dynamically
+
 
 global:
   base-path: ${CONFIG_BASE_PATH:/config/}

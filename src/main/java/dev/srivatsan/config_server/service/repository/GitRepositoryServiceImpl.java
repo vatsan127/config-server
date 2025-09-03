@@ -93,6 +93,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear all directory listings for this namespace
             cacheManagerService.evictAllFromCache("directory-listing");
+            
         });
     }
 
@@ -147,6 +148,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("config-content", filePath);
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
+                    
                     return revCommit.getId().getName();
                 }
         );
@@ -328,6 +330,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             cacheManagerService.evictKey("commit-history", filePath);
             cacheManagerService.evictKey("latest-commit", filePath);
             cacheManagerService.evictAllFromCache("directory-listing");
+            
         });
     }
 

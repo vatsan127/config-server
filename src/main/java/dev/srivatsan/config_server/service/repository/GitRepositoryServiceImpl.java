@@ -258,7 +258,11 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                          DiffFormatter df = new DiffFormatter(out)) {
                         df.setRepository(repository);
                         df.format(df.scan(commit.getParent(0), commit).getFirst());
-                        result.put("changes", out.toString());
+                        
+                        // Filter out git metadata and keep only content lines
+                        String rawDiff = out.toString();
+                        String cleanedDiff = filterGitDiffMetadata(rawDiff);
+                        result.put("changes", cleanedDiff);
                     }
                 } else {
                     result.put("changes", "");
@@ -382,5 +386,40 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         }
     }
 
+    /**
+     * Filters out git diff metadata headers while preserving content and hunk information.
+     * Removes only the specific git metadata lines but keeps hunk headers (@@ lines) and all content.
+     * 
+     * @param rawDiff the raw diff output from git
+     * @return cleaned diff with metadata headers removed but content and line numbers preserved
+     */
+    private String filterGitDiffMetadata(String rawDiff) {
+        if (rawDiff == null || rawDiff.trim().isEmpty()) {
+            return rawDiff;
+        }
+        
+        StringBuilder cleanedDiff = new StringBuilder();
+        String[] lines = rawDiff.split("\\r?\\n");
+        
+        for (String line : lines) {
+            // Only filter out specific git metadata headers, keep everything else including @@ hunk lines
+            if (!line.startsWith("diff --git") &&
+                !line.startsWith("index ") &&
+                !line.startsWith("--- ") &&
+                !line.startsWith("+++ ") &&
+                !line.startsWith("new file mode") &&
+                !line.startsWith("deleted file mode") &&
+                !line.startsWith("similarity index") &&
+                !line.startsWith("rename from") &&
+                !line.startsWith("rename to") &&
+                !line.startsWith("copy from") &&
+                !line.startsWith("copy to")) {
+                
+                cleanedDiff.append(line).append("\n");
+            }
+        }
+        
+        return cleanedDiff.toString().trim();
+    }
 
 }

@@ -55,7 +55,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
             // Validate namespace
             validationService.validateNamespace(namespace);
             
-            // Try to load profile-specific configuration first (e.g., application-dev.yml)
+            // Try to load profile-specific configuration first (e.g., application-dev.enc)
             List<PropertySource> propertySources = loadConfigurationFiles(namespace, path, application, profile);
             
             for (PropertySource propertySource : propertySources) {
@@ -109,7 +109,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
     private List<PropertySource> loadConfigurationFiles(String namespace, String path, String application, String profile) throws Exception {
         List<PropertySource> propertySources = new ArrayList<>();
         
-        // Load main application configuration (application.yml)
+        // Load main application configuration (application.enc)
         String mainFilePath = constructFilePathFromLabel(namespace, path, application, null);
         try {
             String mainContent = gitRepositoryService.getConfigFile(mainFilePath);
@@ -119,7 +119,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
             log.debug("Main configuration file not found: {}", mainFilePath);
         }
         
-        // Load profile-specific configuration if profile is specified (application-{profile}.yml)
+        // Load profile-specific configuration if profile is specified (application-{profile}.enc)
         if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
             String profileFilePath = constructFilePathFromLabel(namespace, path, application, profile);
             try {
@@ -180,10 +180,10 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
     /**
      * Construct the complete file path using label-based namespace/path and application name.
      * Examples:
-     * - namespace="production", path="config", application="user-service", profile=null -> "production/config/user-service.yml"
-     * - namespace="production", path="config", application="user-service", profile="dev" -> "production/config/user-service-dev.yml"
-     * - namespace="test", path="", application="api-service", profile=null -> "test/api-service.yml"
-     * - namespace="dev", path="api/v1", application="gateway", profile="staging" -> "dev/api/v1/gateway-staging.yml"
+     * - namespace="production", path="config", application="user-service", profile=null -> "production/config/user-service.enc"
+     * - namespace="production", path="config", application="user-service", profile="dev" -> "production/config/user-service-dev.enc"
+     * - namespace="test", path="", application="api-service", profile=null -> "test/api-service.enc"
+     * - namespace="dev", path="api/v1", application="gateway", profile="staging" -> "dev/api/v1/gateway-staging.enc"
      */
     private String constructFilePathFromLabel(String namespace, String path, String application, String profile) {
         StringBuilder filePath = new StringBuilder();
@@ -205,7 +205,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         }
         
         // Add extension
-        filePath.append(".yml");
+        filePath.append(".enc");
         
         return filePath.toString();
     }

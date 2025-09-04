@@ -120,11 +120,11 @@ public class UtilService {
 
     /**
      * Retrieves the contents of a directory within a namespace.
-     * Returns only .yml files and subdirectories in the specified path.
+     * Returns only .enc files and subdirectories in the specified path.
      *
      * @param namespace the namespace identifier
      * @param path      the relative directory path within the namespace (empty string for root)
-     * @return a list of .yml file names and folder names
+     * @return a list of .enc file names and folder names
      * @throws RuntimeException if the namespace or directory is not found or cannot be accessed
      */
     @org.springframework.cache.annotation.Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
@@ -200,7 +200,7 @@ public class UtilService {
         for (File file : files) {
             if (file.getName().startsWith(".")) {
                 // Skip .git directory and other hidden files/directories
-            } else if (file.getName().toLowerCase().endsWith(".yml")) {
+            } else if (file.getName().toLowerCase().endsWith(".enc")) {
                 fileNames.add(file.getName().split("\\.")[0]);
             } else if (file.isDirectory()) {
                 fileNames.add(file.getName() + "/");

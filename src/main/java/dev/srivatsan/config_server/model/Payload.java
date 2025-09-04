@@ -53,6 +53,6 @@ public class Payload {
     private String fileName;
 
     public String getFileName() {
-        return this.appName + ".yml";
+        return this.appName + ".enc";
     }
 }

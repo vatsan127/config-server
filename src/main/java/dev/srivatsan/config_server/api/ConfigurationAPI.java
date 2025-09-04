@@ -136,7 +136,7 @@ public interface ConfigurationAPI {
                     content = @Content(mediaType = "application/json",
                             examples = @ExampleObject(value = """
                                     {
-                                      "filePath": "production/config/user-service.yml",
+                                      "filePath": "production/config/user-service.enc",
                                       "commits": [
                                         {
                                           "commitId": "abc123def456",
@@ -189,7 +189,7 @@ public interface ConfigurationAPI {
                                       "message": "Update user service port configuration",
                                       "author": "developer",
                                       "commitTime": "2024-01-15T10:30:00Z",
-                                      "changes": "--- a/config/user-service.yml\\n+++ b/config/user-service.yml\\n@@ -1,4 +1,4 @@\\n server:\\n-  port: 8080\\n+  port: 8081"
+                                      "changes": "--- a/config/user-service.enc\\n+++ b/config/user-service.enc\\n@@ -1,4 +1,4 @@\\n server:\\n-  port: 8080\\n+  port: 8081"
                                     }
                                     """))),
             @ApiResponse(responseCode = "400", description = "Invalid commit ID"),

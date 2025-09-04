@@ -7,6 +7,7 @@ import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
+import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -31,6 +32,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
 
@@ -43,13 +45,15 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final GitOperationService gitOperationService;
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
+    private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, EncryptionService encryptionService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
+        this.encryptionService = encryptionService;
     }
 
     public void createNamespace(String namespace) {
@@ -134,7 +138,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                         throw ConfigFileException.notFound(filePath);
                     }
 
-                    Files.writeString(configFilePath, payload.getContent());
+                    // Encrypt the content line by line before writing to file
+                    String encryptedContent = encryptionService.encryptContent(payload.getContent());
+                    Files.writeString(configFilePath, encryptedContent);
 
                     git.add().addFilepattern(relativePath).call();
                     RevCommit revCommit = git.commit()
@@ -170,7 +176,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 throw ConfigFileException.notFound(filePath);
             }
 
-            return Files.readString(configFilePath);
+            String encryptedContent = Files.readString(configFilePath);
+            // Decrypt the content line by line before returning
+            return encryptionService.decryptContent(encryptedContent);
         });
     }
 
@@ -258,7 +266,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                          DiffFormatter df = new DiffFormatter(out)) {
                         df.setRepository(repository);
                         df.format(df.scan(commit.getParent(0), commit).getFirst());
-                        result.put("changes", out.toString());
+                        String rawChanges = out.toString();
+                        String decryptedChanges = decryptDiffContent(rawChanges);
+                        result.put("changes", decryptedChanges);
                     }
                 } else {
                     result.put("changes", "");
@@ -280,9 +290,12 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
         Files.createDirectories(newFilePath.getParent());
         String configContent = DEFAULT_CONFIG_TEMPLATE.replace("<app-name>", appName);
-        Files.writeString(newFilePath, configContent);
+        
+        // Encrypt the content line by line before writing to file
+        String encryptedContent = encryptionService.encryptContent(configContent);
+        Files.writeString(newFilePath, encryptedContent);
 
-        log.info("Created file: '{}'", newFilePath);
+        log.info("Created and encrypted file: '{}'", newFilePath);
     }
 
     private void commitNewFile(Git git, String relativePath, String appName, String email) throws GitAPIException {
@@ -381,6 +394,63 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     .forEach(File::delete);
         }
     }
+
+    /**
+     * Decrypts any encrypted content found in diff output using sequential processing.
+     * Looks for {cipher} prefixed content and decrypts it for readable diffs.
+     *
+     * @param diffContent the raw diff content that may contain encrypted text
+     * @return the diff with encrypted content decrypted
+     */
+    private String decryptDiffContent(String diffContent) {
+        log.info("diffContent - {}", diffContent);
+        if (diffContent == null || diffContent.isEmpty()) {
+            return diffContent;
+        }
+        
+        // Split into lines and process sequentially for thread safety and reliability
+        String[] lines = diffContent.split("\n");
+        List<String> linesList = Arrays.asList(lines);
+        
+        // Use sequential stream for thread safety and predictable behavior
+        List<String> processedLines = linesList.stream()
+            .map(this::decryptDiffLine)
+            .collect(Collectors.toList());
+        
+        return String.join("\n", processedLines);
+    }
+    
+    /**
+     * Decrypts a single diff line if it contains encrypted content.
+     *
+     * @param line the diff line to process
+     * @return the line with decrypted content if applicable
+     */
+    private String decryptDiffLine(String line) {
+        // Check if line contains encrypted content (starting with +, -, or space followed by {cipher})
+        if ((line.startsWith("+") || line.startsWith("-") || line.startsWith(" ")) && 
+            line.contains("{cipher}")) {
+            
+            try {
+                // Extract the prefix (+ - or space) and the rest
+                String prefix = line.substring(0, 1);
+                String content = line.substring(1);
+                
+                // Decrypt if it's encrypted
+                if (encryptionService.isEncrypted(content)) {
+                    String decrypted = encryptionService.decrypt(content);
+                    return prefix + decrypted;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to decrypt line in diff: {}", e.getMessage());
+                // Keep original line if decryption fails
+            }
+        }
+        
+        return line; // Return original line if no encryption found or decryption failed
+    }
+
+
 
 
 }

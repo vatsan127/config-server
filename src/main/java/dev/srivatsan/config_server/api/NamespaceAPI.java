@@ -71,7 +71,7 @@ public interface NamespaceAPI {
 
     @Operation(
             summary = "List directory contents",
-            description = "Retrieves the list of .yml files and subdirectories within a specified directory path in a namespace"
+            description = "Retrieves the list of .enc files and subdirectories within a specified directory path in a namespace"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Directory contents retrieved successfully",
@@ -91,7 +91,7 @@ public interface NamespaceAPI {
     ResponseEntity<List<String>> listDirectoryContents(
             @Parameter(description = "Directory listing request", required = true)
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
-                    description = "Request to list .yml files and directories in a namespace",
+                    description = "Request to list .enc files and directories in a namespace",
                     required = true,
                     content = @Content(
                             mediaType = "application/json",

@@ -12,13 +12,9 @@ spring:
 
 encrypt:
   key: ${ENCRYPT_KEY:config-server-secret-key-2024}
-#  cloud:
-#    config:
-#      server:
-        # Use our custom EnvironmentRepository
-        # No specific Git configuration needed as we handle it dynamically
 
-
-global:
+configserver:
   base-path: ${CONFIG_BASE_PATH:/config/}
   commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
+  refreshURL: 
+#    - "http://localhost:8080/actuator/refresh"

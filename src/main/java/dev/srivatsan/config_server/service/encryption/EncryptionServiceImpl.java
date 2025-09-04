@@ -27,20 +27,6 @@ public class EncryptionServiceImpl implements EncryptionService {
     }
 
     @Override
-    public String encrypt(String plainText) {
-        if (plainText == null || plainText.isEmpty()) {
-            return plainText;
-        }
-        
-        if (isEncrypted(plainText)) {
-            return plainText; // Already encrypted
-        }
-        
-        String encrypted = textEncryptor.encrypt(plainText);
-        return ENCRYPTION_PREFIX + encrypted;
-    }
-
-    @Override
     public String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return encryptedText;
@@ -66,7 +52,7 @@ public class EncryptionServiceImpl implements EncryptionService {
         }
         
         List<String> lines = Arrays.asList(content.split("\n", -1));
-        List<String> encryptedLines = encryptLines(lines);
+        List<String> encryptedLines = lines.stream().map(this::encryptLine).collect(Collectors.toList());
         return String.join("\n", encryptedLines);
     }
     
@@ -77,28 +63,8 @@ public class EncryptionServiceImpl implements EncryptionService {
         }
         
         List<String> lines = Arrays.asList(encryptedContent.split("\n", -1));
-        List<String> decryptedLines = decryptLines(lines);
+        List<String> decryptedLines = lines.stream().map(this::decryptLine).collect(Collectors.toList());
         return String.join("\n", decryptedLines);
-    }
-    
-    @Override
-    public List<String> encryptLines(List<String> lines) {
-        if (lines == null || lines.isEmpty()) {
-            return lines;
-        }
-        
-        // Use sequential stream for thread safety and reliability
-        return lines.stream().map(this::encryptLine).collect(Collectors.toList());
-    }
-    
-    @Override
-    public List<String> decryptLines(List<String> encryptedLines) {
-        if (encryptedLines == null || encryptedLines.isEmpty()) {
-            return encryptedLines;
-        }
-        
-        // Use sequential stream for thread safety and reliability
-        return encryptedLines.stream().map(this::decryptLine).collect(Collectors.toList());
     }
     
     private String encryptLine(String line) {

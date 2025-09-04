@@ -8,6 +8,7 @@ import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
+import dev.srivatsan.config_server.service.notification.RefreshNotificationService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -46,14 +47,16 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
     private final EncryptionService encryptionService;
+    private final RefreshNotificationService refreshNotificationService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, EncryptionService encryptionService, RefreshNotificationService refreshNotificationService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
         this.encryptionService = encryptionService;
+        this.refreshNotificationService = refreshNotificationService;
     }
 
     public void createNamespace(String namespace) {
@@ -114,7 +117,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationService.executeGitOperation(namespace, git -> {
+        String commitId = gitOperationService.executeGitOperation(namespace, git -> {
                     // Optimistic lock check - validate current commit ID matches expected
                     var logCommand = git.log()
                             .setMaxCount(1)
@@ -159,6 +162,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 }
         );
 
+        // Send refresh notifications asynchronously using virtual threads
+        refreshNotificationService.sendRefreshNotifications(namespace, payload.getAppName());
+
+        return commitId;
     }
 
     @Cacheable(value = "config-content", key = "#filePath")
@@ -403,7 +410,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
      * @return the diff with encrypted content decrypted
      */
     private String decryptDiffContent(String diffContent) {
-        log.info("diffContent - {}", diffContent);
         if (diffContent == null || diffContent.isEmpty()) {
             return diffContent;
         }
@@ -412,14 +418,44 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String[] lines = diffContent.split("\n");
         List<String> linesList = Arrays.asList(lines);
         
-        // Use sequential stream for thread safety and predictable behavior
+        // Filter out Git metadata and process only content lines
         List<String> processedLines = linesList.stream()
+            .filter(this::isContentLine)
             .map(this::decryptDiffLine)
             .collect(Collectors.toList());
         
         return String.join("\n", processedLines);
     }
     
+    /**
+     * Checks if a line is actual content (not Git metadata).
+     * Filters out diff headers, file paths, hunk headers, etc.
+     *
+     * @param line the diff line to check
+     * @return true if it's a content line (starts with +, -, or space)
+     */
+    private boolean isContentLine(String line) {
+        if (line == null || line.isEmpty()) {
+            return false;
+        }
+        
+        // Skip Git metadata lines
+        return !line.startsWith("diff --git") &&
+               !line.startsWith("index ") &&
+               !line.startsWith("--- ") &&
+               !line.startsWith("+++ ") &&
+               !line.startsWith("@@ ") &&
+               !line.startsWith("new file mode") &&
+               !line.startsWith("deleted file mode") &&
+               !line.startsWith("similarity index") &&
+               !line.startsWith("rename from") &&
+               !line.startsWith("rename to") &&
+               !line.startsWith("copy from") &&
+               !line.startsWith("copy to") &&
+               // Keep actual content lines that start with +, -, or space
+               (line.startsWith("+") || line.startsWith("-") || line.startsWith(" "));
+    }
+
     /**
      * Decrypts a single diff line if it contains encrypted content.
      *

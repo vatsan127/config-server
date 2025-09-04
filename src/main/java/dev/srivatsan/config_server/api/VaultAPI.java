@@ -15,6 +15,43 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+/**
+ * Vault Management API Interface
+ * 
+ * <p>Provides REST API endpoints for managing encrypted secrets in Git-based vaults with complete namespace isolation.
+ * This interface defines the contract for all vault operations including secret storage, retrieval, updates, and 
+ * audit trail management.</p>
+ * 
+ * <h2>Key Features</h2>
+ * <ul>
+ *   <li><strong>Namespace Isolation</strong> - Each namespace has its own encrypted vault with separate encryption keys</li>
+ *   <li><strong>AES-256-GCM Encryption</strong> - Military-grade encryption for all secrets at rest</li>
+ *   <li><strong>Git Versioning</strong> - Complete audit trail with commit history for compliance</li>
+ *   <li><strong>Bulk Operations</strong> - Efficient batch processing for multiple secrets</li>
+ *   <li><strong>Caching</strong> - Intelligent caching for improved performance</li>
+ * </ul>
+ * 
+ * <h2>Security Model</h2>
+ * <ul>
+ *   <li>Each namespace has its own encryption key stored in {@code /{namespace}/.vault-keys/}</li>
+ *   <li>Secrets are encrypted using AES-256-GCM with randomly generated IVs</li>
+ *   <li>All operations require proper authentication and authorization</li>
+ *   <li>Git commits provide complete audit trail with author attribution</li>
+ * </ul>
+ * 
+ * <h2>Data Storage</h2>
+ * <ul>
+ *   <li>Encrypted secrets stored in {@code /{namespace}/.vault-secrets.json}</li>
+ *   <li>Encryption keys stored in {@code /{namespace}/.vault-keys/{namespace}.key}</li>
+ *   <li>Git repository maintains complete version history</li>
+ * </ul>
+ * 
+ * @author Config Server Team
+ * @version 1.0.0
+ * @since 1.0.0
+ * @see dev.srivatsan.config_server.service.vault.GitVaultService
+ * @see dev.srivatsan.config_server.service.encryption.EncryptionService
+ */
 @Tag(name = "Vault Management", description = "APIs for managing encrypted secrets in Git-based vaults with namespace isolation")
 public interface VaultAPI {
 
@@ -43,6 +80,19 @@ public interface VaultAPI {
                                     """))),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
+    /**
+     * Store a new encrypted secret in the specified namespace vault.
+     * 
+     * <p>Creates a new secret entry in the namespace's vault with AES-256-GCM encryption.
+     * The operation is atomic and creates a Git commit for audit trail.</p>
+     * 
+     * @param namespace The namespace identifier containing the vault (must exist)
+     * @param request The secret creation request containing key, value, email, and commit message
+     * @return ResponseEntity containing operation result with namespace, key, and success message
+     * @throws dev.srivatsan.config_server.exception.VaultException if secret already exists or operation fails
+     * @throws dev.srivatsan.config_server.exception.NamespaceException if namespace doesn't exist
+     * @since 1.0.0
+     */
     @PostMapping("/{namespace}/secrets")
     ResponseEntity<Map<String, Object>> storeSecret(
             @Parameter(description = "Namespace identifier containing the vault", required = true)

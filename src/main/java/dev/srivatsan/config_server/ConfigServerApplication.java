@@ -32,20 +32,15 @@ public class ConfigServerApplication {
 
     @PostConstruct
     public void init() {
+        // Validate that the base directory exists (should be created by Dockerfile)
         File baseDir = new File(applicationConfig.getBasePath());
+        log.info("Using base directory at: {}", baseDir.getAbsolutePath());
+        
         if (!baseDir.exists()) {
-            boolean created = baseDir.mkdirs();
-            if (created) {
-                log.info("Created base directory at: {}", baseDir.getAbsolutePath());
-            } else {
-                log.error("Failed to create base directory at: {}", baseDir.getAbsolutePath());
-                throw NamespaceException.creationFailed("base",
-                        new RuntimeException("Failed to create base directory"));
-            }
-        } else {
-            log.info("Base directory already exists at: {}", baseDir.getAbsolutePath());
+            log.error("Base directory does not exist at: {}. Ensure the directory is created in the container.", baseDir.getAbsolutePath());
+            throw NamespaceException.creationFailed("base",
+                    new RuntimeException("Base directory does not exist. Check container configuration."));
         }
-
     }
 
 }

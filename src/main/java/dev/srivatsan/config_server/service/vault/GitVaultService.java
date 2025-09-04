@@ -3,14 +3,49 @@ package dev.srivatsan.config_server.service.vault;
 import java.util.Map;
 
 /**
- * Service interface for managing encrypted secrets stored in a Git-based vault system.
+ * Git-Based Vault Service Interface
  * 
- * This service provides operations to securely store, retrieve, and manage secrets
- * using Git as the underlying storage mechanism with AES encryption. Each namespace
- * represents a separate vault with its own encryption key and storage location.
+ * <p>Service interface for managing encrypted secrets stored in a Git-based vault system with complete
+ * namespace isolation and enterprise-grade security features.</p>
  * 
- * All vault operations are version-controlled through Git commits, providing
- * complete audit trails and rollback capabilities.
+ * <h2>Core Features</h2>
+ * <ul>
+ *   <li><strong>Namespace Isolation</strong> - Each namespace operates as an independent vault</li>
+ *   <li><strong>AES-256-GCM Encryption</strong> - Military-grade encryption for all secrets</li>
+ *   <li><strong>Git Version Control</strong> - Complete audit trail with commit history</li>
+ *   <li><strong>Atomic Operations</strong> - All operations are atomic and consistent</li>
+ *   <li><strong>Caching Layer</strong> - Intelligent caching for improved performance</li>
+ *   <li><strong>Bulk Operations</strong> - Efficient batch processing capabilities</li>
+ * </ul>
+ * 
+ * <h2>Security Architecture</h2>
+ * <ul>
+ *   <li>Each namespace has its own encryption key stored securely</li>
+ *   <li>Keys are stored in {@code /{namespace}/.vault-keys/} with 700 permissions</li>
+ *   <li>Encrypted secrets stored in {@code /{namespace}/.vault-secrets.json}</li>
+ *   <li>All operations require authentication and authorization</li>
+ *   <li>Git commits provide complete audit trail with author attribution</li>
+ * </ul>
+ * 
+ * <h2>Data Flow</h2>
+ * <pre>
+ * 1. Client Request → Validation → Encryption → Git Storage → Response
+ * 2. Git Storage ← Decryption ← Retrieval ← Client Request
+ * </pre>
+ * 
+ * <h2>Caching Strategy</h2>
+ * <ul>
+ *   <li><strong>Individual Secrets</strong> - Cached per namespace+key combination</li>
+ *   <li><strong>Secret Existence</strong> - Cached to avoid unnecessary Git operations</li>
+ *   <li><strong>Vault History</strong> - Cached commit history for audit purposes</li>
+ *   <li><strong>Cache Eviction</strong> - Automatic eviction on modifications</li>
+ * </ul>
+ * 
+ * @author Config Server Team
+ * @version 1.0.0
+ * @since 1.0.0
+ * @see dev.srivatsan.config_server.service.vault.GitVaultServiceImpl
+ * @see dev.srivatsan.config_server.service.encryption.EncryptionService
  */
 public interface GitVaultService {
     

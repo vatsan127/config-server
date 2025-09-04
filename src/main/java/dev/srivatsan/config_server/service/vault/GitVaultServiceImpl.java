@@ -49,19 +49,9 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = "vault-secrets", key = "#namespace")
+    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
     public void storeSecret(String namespace, String key, String value, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
-        
-        if (key == null || key.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
-        }
-        
-        if (value == null || value.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret value cannot be null or empty");
-        }
+        validateSecretOperation(namespace, key, value, email, commitMessage);
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
@@ -123,19 +113,9 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = "vault-secrets", key = "#namespace")
+    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
     public void updateSecret(String namespace, String key, String value, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
-        
-        if (key == null || key.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
-        }
-        
-        if (value == null || value.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret value cannot be null or empty");
-        }
+        validateSecretOperation(namespace, key, value, email, commitMessage);
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
@@ -166,11 +146,9 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = "vault-secrets", key = "#namespace")
+    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
     public void deleteSecret(String namespace, String key, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
+        validateBasicSecretOperation(namespace, email, commitMessage);
         
         if (key == null || key.trim().isEmpty()) {
             throw VaultException.secretNotFound(key);
@@ -231,11 +209,9 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = "vault-secrets", key = "#namespace")
+    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
     public void storeBulkSecrets(String namespace, Map<String, String> secrets, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
+        validateBasicSecretOperation(namespace, email, commitMessage);
         
         if (secrets == null || secrets.isEmpty()) {
             throw VaultException.vaultOperationFailed("Secrets map cannot be null or empty");
@@ -247,24 +223,23 @@ public class GitVaultServiceImpl implements GitVaultService {
                     applicationConfig.getVault().getMaxSecretsPerOperation(), secrets.size()));
         }
 
+        // Pre-validate all keys and values to fail fast
+        for (Map.Entry<String, String> entry : secrets.entrySet()) {
+            if (entry.getKey() == null || entry.getKey().trim().isEmpty()) {
+                throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
+            }
+            if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
+                throw VaultException.vaultOperationFailed("Secret value cannot be null or empty for key: " + entry.getKey());
+            }
+        }
+
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
 
                 Map<String, String> existingSecrets = loadVaultSecrets(namespace, git);
                 for (Map.Entry<String, String> entry : secrets.entrySet()) {
-                    String key = entry.getKey();
-                    String value = entry.getValue();
-                    
-                    if (key == null || key.trim().isEmpty()) {
-                        throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
-                    }
-                    
-                    if (value == null || value.trim().isEmpty()) {
-                        throw VaultException.vaultOperationFailed("Secret value cannot be null or empty for key: " + key);
-                    }
-                    
-                    String encryptedValue = encryptionService.encrypt(value, namespace);
-                    existingSecrets.put(key, encryptedValue);
+                    String encryptedValue = encryptionService.encrypt(entry.getValue(), namespace);
+                    existingSecrets.put(entry.getKey(), encryptedValue);
                 }
 
                 saveVaultSecrets(namespace, existingSecrets, git);
@@ -287,6 +262,7 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
+    @Cacheable(value = "vault-exists", key = "#namespace + '_' + #key")
     public boolean secretExists(String namespace, String key) {
         validationService.validateNamespace(namespace);
         
@@ -373,4 +349,28 @@ public class GitVaultServiceImpl implements GitVaultService {
         }
     }
 
+    private void validateSecretOperation(String namespace, String key, String value, String email, String commitMessage) {
+        validationService.validateNamespace(namespace);
+        validationService.validateEmail(email);
+        validationService.validateCommitMessage(commitMessage);
+        
+        if (key == null || key.trim().isEmpty()) {
+            throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
+        }
+        
+        if (value == null || value.trim().isEmpty()) {
+            throw VaultException.vaultOperationFailed("Secret value cannot be null or empty");
+        }
+        
+        // Sanitize key to prevent path traversal or special character issues
+        if (key.contains("..") || key.contains("/") || key.contains("\\") || key.contains("\n") || key.contains("\r")) {
+            throw VaultException.vaultOperationFailed("Secret key contains invalid characters");
+        }
+    }
+
+    private void validateBasicSecretOperation(String namespace, String email, String commitMessage) {
+        validationService.validateNamespace(namespace);
+        validationService.validateEmail(email);
+        validationService.validateCommitMessage(commitMessage);
+    }
 }

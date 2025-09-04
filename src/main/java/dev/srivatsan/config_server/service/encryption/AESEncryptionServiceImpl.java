@@ -5,6 +5,7 @@ import dev.srivatsan.config_server.exception.VaultException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PreDestroy;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -15,10 +16,16 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.Set;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class AESEncryptionServiceImpl implements EncryptionService {
@@ -34,10 +41,16 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     
     private final ApplicationConfig applicationConfig;
     private final ConcurrentHashMap<String, SecretKey> namespaceKeys = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Long> lastAccessTime = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    
+    private static final long KEY_EXPIRY_TIME_MS = TimeUnit.HOURS.toMillis(1); // 1 hour
 
     public AESEncryptionServiceImpl(ApplicationConfig applicationConfig) {
         this.applicationConfig = applicationConfig;
+        // Schedule periodic cleanup of unused keys
+        scheduler.scheduleAtFixedRate(this::cleanupUnusedKeys, 1, 1, TimeUnit.HOURS);
     }
 
     @Override
@@ -118,11 +131,30 @@ public class AESEncryptionServiceImpl implements EncryptionService {
             keyGenerator.init(KEY_LENGTH);
             SecretKey secretKey = keyGenerator.generateKey();
             
-            // Create directory if it doesn't exist
-            Files.createDirectories(keyPath.getParent());
+            // Create directory if it doesn't exist with secure permissions
+            Path vaultKeysDir = keyPath.getParent();
+            Files.createDirectories(vaultKeysDir);
             
-            // Save key to file
+            // Set secure permissions on the .vault-keys directory (owner-only access)
+            try {
+                Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rwx------");
+                Files.setPosixFilePermissions(vaultKeysDir, perms);
+                log.debug("Set secure permissions on vault keys directory: {}", vaultKeysDir);
+            } catch (UnsupportedOperationException e) {
+                log.debug("POSIX permissions not supported on this filesystem, skipping permission setting");
+            }
+            
+            // Save key to file with secure permissions
             Files.write(keyPath, secretKey.getEncoded());
+            
+            // Set secure permissions on the key file (owner read/write only)
+            try {
+                Set<PosixFilePermission> keyPerms = PosixFilePermissions.fromString("rw-------");
+                Files.setPosixFilePermissions(keyPath, keyPerms);
+                log.debug("Set secure permissions on key file: {}", keyPath);
+            } catch (UnsupportedOperationException e) {
+                log.debug("POSIX permissions not supported on this filesystem, skipping permission setting");
+            }
             
             // Cache the key
             namespaceKeys.put(namespace, secretKey);
@@ -141,28 +173,68 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     }
     
     private SecretKey getOrCreateNamespaceKey(String namespace) {
+        // Track access time for cleanup
+        lastAccessTime.put(namespace, System.currentTimeMillis());
+        
         return namespaceKeys.computeIfAbsent(namespace, ns -> {
-            try {
-                Path keyPath = getNamespaceKeyPath(ns);
-                
-                if (!Files.exists(keyPath)) {
-                    initializeNamespaceKey(ns);
+            synchronized (this) {
+                try {
+                    Path keyPath = getNamespaceKeyPath(ns);
+                    
+                    if (!Files.exists(keyPath)) {
+                        initializeNamespaceKey(ns);
+                    }
+                    
+                    byte[] keyBytes = Files.readAllBytes(keyPath);
+                    return new SecretKeySpec(keyBytes, ENCRYPTION_ALGORITHM);
+                    
+                } catch (IOException e) {
+                    log.error("Failed to load key for namespace: {}", ns, e);
+                    throw VaultException.keyLoadFailed("Failed to load encryption key: " + e.getMessage());
                 }
-                
-                byte[] keyBytes = Files.readAllBytes(keyPath);
-                return new SecretKeySpec(keyBytes, ENCRYPTION_ALGORITHM);
-                
-            } catch (IOException e) {
-                log.error("Failed to load key for namespace: {}", ns, e);
-                throw VaultException.keyLoadFailed("Failed to load encryption key: " + e.getMessage());
             }
         });
     }
     
+    private void cleanupUnusedKeys() {
+        try {
+            long currentTime = System.currentTimeMillis();
+            lastAccessTime.entrySet().removeIf(entry -> {
+                if (currentTime - entry.getValue() > KEY_EXPIRY_TIME_MS) {
+                    namespaceKeys.remove(entry.getKey());
+                    log.debug("Cleaned up unused encryption key for namespace: {}", entry.getKey());
+                    return true;
+                }
+                return false;
+            });
+        } catch (Exception e) {
+            log.error("Error during key cleanup: {}", e.getMessage());
+        }
+    }
+    
     private Path getNamespaceKeyPath(String namespace) {
-        return new File(applicationConfig.getBasePath())
+        return new File(applicationConfig.getBasePath(), namespace)
                 .toPath()
                 .resolve(".vault-keys")
                 .resolve(namespace + ".key");
+    }
+    
+    @PreDestroy
+    public void shutdown() {
+        if (scheduler != null && !scheduler.isShutdown()) {
+            scheduler.shutdown();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                scheduler.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        
+        // Clear sensitive key material from memory
+        namespaceKeys.clear();
+        lastAccessTime.clear();
     }
 }

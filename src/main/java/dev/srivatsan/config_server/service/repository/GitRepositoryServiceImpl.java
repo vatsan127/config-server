@@ -9,6 +9,7 @@ import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.api.RefreshApiService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
+import dev.srivatsan.config_server.service.processor.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
@@ -45,14 +46,16 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
     private final RefreshApiService refreshApiService;
+    private final SecretProcessor secretProcessor;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService, SecretProcessor secretProcessor) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
         this.refreshApiService = refreshApiService;
+        this.secretProcessor = secretProcessor;
     }
 
     public void createNamespace(String namespace) {
@@ -162,6 +165,12 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     @Cacheable(value = "config-content", key = "#filePath")
     public String getConfigFile(String filePath) {
+        // Default behavior - for internal use, keep secrets as #ENCODED
+        return getConfigFile(filePath, false);
+    }
+
+    @Override
+    public String getConfigFile(String filePath, boolean forClient) {
         validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
@@ -175,7 +184,16 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 throw ConfigFileException.notFound(filePath);
             }
 
-            return Files.readString(configFilePath);
+            String content = Files.readString(configFilePath);
+            
+            // Process secrets based on context
+            if (forClient) {
+                // For client requests, decrypt secrets
+                return secretProcessor.processConfigurationForClient(content, namespace);
+            } else {
+                // For internal operations, keep secrets as #ENCODED
+                return secretProcessor.processConfigurationForInternal(content);
+            }
         });
     }
 

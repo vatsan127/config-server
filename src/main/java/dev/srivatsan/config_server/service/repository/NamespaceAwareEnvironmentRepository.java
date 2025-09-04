@@ -112,7 +112,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         // Load main application configuration (application.yml)
         String mainFilePath = constructFilePathFromLabel(namespace, path, application, null);
         try {
-            String mainContent = gitRepositoryService.getConfigFile(mainFilePath);
+            String mainContent = gitRepositoryService.getConfigFile(mainFilePath, true);
             Map<String, Object> mainProperties = parseYamlContent(mainContent, mainFilePath);
             propertySources.add(new PropertySource(mainFilePath, mainProperties));
         } catch (Exception e) {
@@ -123,7 +123,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
             String profileFilePath = constructFilePathFromLabel(namespace, path, application, profile);
             try {
-                String profileContent = gitRepositoryService.getConfigFile(profileFilePath);
+                String profileContent = gitRepositoryService.getConfigFile(profileFilePath, true);
                 Map<String, Object> profileProperties = parseYamlContent(profileContent, profileFilePath);
                 propertySources.add(new PropertySource(profileFilePath, profileProperties));
             } catch (Exception e) {

@@ -18,12 +18,18 @@ import java.util.concurrent.TimeUnit;
 @Configuration
 public class ApplicationBeanConfig {
 
+    private final ApplicationConfig applicationConfig;
+
+    public ApplicationBeanConfig(ApplicationConfig applicationConfig) {
+        this.applicationConfig = applicationConfig;
+    }
+
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(500)
-                .expireAfterWrite(10, TimeUnit.MINUTES));
+                .expireAfterWrite(applicationConfig.getVault().getCacheTtl(), TimeUnit.SECONDS));
         return cacheManager;
     }
 

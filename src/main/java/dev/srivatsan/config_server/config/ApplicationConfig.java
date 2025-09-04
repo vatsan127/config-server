@@ -17,10 +17,17 @@ public class ApplicationConfig {
     private int commitHistorySize;
     private String basePath;
     private List<String> refreshNotifyUrl;
+    private VaultConfig vault = new VaultConfig();
 
     @PostConstruct
     public void init() {
         log.info("Global config loaded -> {}", this);
     }
 
+    @Data
+    public static class VaultConfig {
+        private boolean enabled = true;
+        private long cacheTtl = 600; // 10 minutes in seconds
+        private int maxSecretsPerOperation = 100;
+    }
 }

@@ -103,6 +103,29 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
+    @ExceptionHandler(VaultException.class)
+    public ResponseEntity<ErrorResponse> handleVaultException(VaultException ex) {
+        log.error("Vault operation error: {}", ex.getMessage());
+
+        HttpStatus status = switch (ex.getErrorCode()) {
+            case VaultException.VAULT_FILE_NOT_FOUND, VaultException.SECRET_NOT_FOUND -> HttpStatus.NOT_FOUND;
+            case VaultException.ENCRYPTION_FAILED, VaultException.DECRYPTION_FAILED, 
+                 VaultException.KEY_INITIALIZATION_FAILED, VaultException.KEY_LOAD_FAILED,
+                 VaultException.VAULT_OPERATION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
+            default -> HttpStatus.INTERNAL_SERVER_ERROR;
+        };
+
+        ErrorResponse error = ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(status.value())
+                .error("Vault Error")
+                .message(ex.getMessage())
+                .errorCode(ex.getErrorCode())
+                .build();
+
+        return ResponseEntity.status(status).body(error);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
         log.error("Validation failed: {}", ex.getMessage());

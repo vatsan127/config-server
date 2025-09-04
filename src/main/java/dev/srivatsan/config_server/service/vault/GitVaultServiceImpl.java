@@ -6,8 +6,8 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.VaultException;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
+import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +18,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
@@ -35,16 +32,19 @@ public class GitVaultServiceImpl implements GitVaultService {
     private final EncryptionService encryptionService;
     private final GitOperationService gitOperationService;
     private final ValidationService validationService;
+    private final UtilService utilService;
     private final ObjectMapper objectMapper;
 
     public GitVaultServiceImpl(ApplicationConfig applicationConfig,
                                EncryptionService encryptionService,
                                GitOperationService gitOperationService,
-                               ValidationService validationService) {
+                               ValidationService validationService,
+                               UtilService utilService) {
         this.applicationConfig = applicationConfig;
         this.encryptionService = encryptionService;
         this.gitOperationService = gitOperationService;
         this.validationService = validationService;
+        this.utilService = utilService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -65,8 +65,6 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
-                encryptionService.initializeNamespaceKey(namespace); // ToDO: lets do this when the namespace is created
-                
                 Map<String, String> secrets = loadVaultSecrets(namespace, git);
                 if (secrets.containsKey(key)) {
                     throw VaultException.vaultOperationFailed("Secret already exists: " + key + ". Use update instead.");
@@ -289,7 +287,7 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    public boolean secretExists(String namespace, String key) { // ToDo: THis is not requied as secret cannot deleted
+    public boolean secretExists(String namespace, String key) {
         validationService.validateNamespace(namespace);
         
         if (key == null || key.trim().isEmpty()) {
@@ -310,7 +308,7 @@ public class GitVaultServiceImpl implements GitVaultService {
 
     @Override
     @Cacheable(value = "vault-history", key = "#namespace")
-    public Map<String, Object> getVaultHistory(String namespace) { // ToDO: why can't we reuse the existing method to retrieve
+    public Map<String, Object> getVaultHistory(String namespace) {
         validationService.validateNamespace(namespace);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
@@ -322,7 +320,7 @@ public class GitVaultServiceImpl implements GitVaultService {
 
                 List<Map<String, Object>> commits = new ArrayList<>();
                 for (RevCommit commit : logCommand.call()) {
-                    Map<String, Object> commitInfo = formatCommitInfo(commit);
+                    Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
                     commitInfo.put("commitMessage", commit.getShortMessage());
                     commits.add(commitInfo);
                 }
@@ -355,7 +353,7 @@ public class GitVaultServiceImpl implements GitVaultService {
                 return new HashMap<>();
             }
             
-            return objectMapper.readValue(jsonContent, new TypeReference<Map<String, String>>() {}); // ToDO: we can use org.json?
+            return objectMapper.readValue(jsonContent, new TypeReference<Map<String, String>>() {});
         } catch (Exception e) {
             log.error("Failed to parse vault file for namespace '{}': {}", namespace, e.getMessage());
             throw VaultException.vaultOperationFailed("Failed to parse vault file: " + e.getMessage());
@@ -375,17 +373,4 @@ public class GitVaultServiceImpl implements GitVaultService {
         }
     }
 
-    private Map<String, Object> formatCommitInfo(RevCommit commit) { // Existing methods can be used
-        PersonIdent author = commit.getAuthorIdent();
-        String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
-                .atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-
-        Map<String, Object> commitInfo = new HashMap<>();
-        commitInfo.put("commitId", commit.getId().getName());
-        commitInfo.put("author", author.getName());
-        commitInfo.put("email", author.getEmailAddress());
-        commitInfo.put("date", commitDate);
-        return commitInfo;
-    }
 }

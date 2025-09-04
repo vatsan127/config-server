@@ -8,6 +8,7 @@ import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.api.RefreshApiService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
+import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.processor.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
@@ -47,8 +48,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final ValidationService validationService;
     private final RefreshApiService refreshApiService;
     private final SecretProcessor secretProcessor;
+    private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService, SecretProcessor secretProcessor) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
@@ -56,6 +58,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         this.validationService = validationService;
         this.refreshApiService = refreshApiService;
         this.secretProcessor = secretProcessor;
+        this.encryptionService = encryptionService;
     }
 
     public void createNamespace(String namespace) {
@@ -74,6 +77,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
+            // Initialize encryption key for the namespace
+            encryptionService.initializeNamespaceKey(namespace);
+            
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
 
             // Clear namespace list cache and directory listings
@@ -168,13 +174,13 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     }
 
     @Override
-    public String getConfigFile(String filePath, boolean forClient) { // ToDo decrypt the keys outside this method so only where is required decrption will happen
+    public String getConfigFile(String filePath, boolean forClient) {
         validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationService.executeGitOperation(namespace, git -> {
+        String rawContent = gitOperationService.executeGitOperation(namespace, git -> {
             Path workTree = git.getRepository().getWorkTree().toPath();
             Path configFilePath = workTree.resolve(relativePath);
 
@@ -182,17 +188,18 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 throw ConfigFileException.notFound(filePath);
             }
 
-            String content = Files.readString(configFilePath);
-
-            // Process secrets based on context
-            if (forClient) {
-                // For client requests, decrypt secrets
-                return secretProcessor.processConfigurationForClient(content, namespace);
-            } else {
-                // For internal operations, keep secrets as #ENCODED
-                return secretProcessor.processConfigurationForInternal(content);
-            }
+            return Files.readString(configFilePath);
         });
+
+        return processConfigContent(rawContent, namespace, forClient);
+    }
+
+    private String processConfigContent(String content, String namespace, boolean forClient) {
+        if (forClient) {
+            return secretProcessor.processConfigurationForClient(content, namespace);
+        } else {
+            return secretProcessor.processConfigurationForInternal(content);
+        }
     }
 
     @Cacheable(value = "latest-commit", key = "#filePath")
@@ -231,7 +238,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             List<Map<String, Object>> commits = new ArrayList<>();
             for (RevCommit commit : logCommand.call()) {
-                Map<String, Object> commitInfo = formatCommitInfo(commit);
+                Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
                 commitInfo.put("commitMessage", commit.getShortMessage());
                 commits.add(commitInfo);
             }
@@ -243,19 +250,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         });
     }
 
-    private Map<String, Object> formatCommitInfo(RevCommit commit) {
-        PersonIdent author = commit.getAuthorIdent();
-        String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
-                .atZone(ZoneId.systemDefault())
-                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-
-        Map<String, Object> commitInfo = new HashMap<>();
-        commitInfo.put("commitId", commit.getId().getName());
-        commitInfo.put("author", author.getName());
-        commitInfo.put("email", author.getEmailAddress());
-        commitInfo.put("date", commitDate);
-        return commitInfo;
-    }
 
     @Cacheable(value = "commit-details", key = "#commitId + '_' + #namespace")
     public Map<String, Object> getCommitChanges(String commitId, String namespace) {

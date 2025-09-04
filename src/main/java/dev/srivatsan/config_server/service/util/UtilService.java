@@ -4,12 +4,17 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.validation.ValidationService;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -209,6 +214,27 @@ public class UtilService {
 
         fileNames.sort(String.CASE_INSENSITIVE_ORDER);
         return fileNames;
+    }
+
+    /**
+     * Formats git commit information into a standardized map structure.
+     * Extracts commit details including ID, author, email, and formatted date.
+     *
+     * @param commit the RevCommit object to format
+     * @return a map containing formatted commit information
+     */
+    public Map<String, Object> formatCommitInfo(RevCommit commit) {
+        PersonIdent author = commit.getAuthorIdent();
+        String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
+                .atZone(ZoneId.systemDefault())
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        Map<String, Object> commitInfo = new HashMap<>();
+        commitInfo.put("commitId", commit.getId().getName());
+        commitInfo.put("author", author.getName());
+        commitInfo.put("email", author.getEmailAddress());
+        commitInfo.put("date", commitDate);
+        return commitInfo;
     }
 
 }

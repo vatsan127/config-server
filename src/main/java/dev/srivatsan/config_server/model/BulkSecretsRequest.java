@@ -1,5 +1,6 @@
 package dev.srivatsan.config_server.model;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -14,19 +15,25 @@ import java.util.Map;
  * secrets in a single vault operation. It includes validation constraints to ensure
  * data integrity and proper Git commit attribution for batch operations.
  */
+@Schema(description = "Request payload for bulk vault secret operations")
 public class BulkSecretsRequest {
     
     /** Map of secret keys to their plain text values to be encrypted and stored */
+    @Schema(description = "Map of secret keys to their plain text values (will be encrypted when stored)", 
+            example = "{\"db_host\": \"prod-db.company.com\", \"db_password\": \"secure_password_123\"}", 
+            required = true)
     @NotEmpty(message = "Secrets map cannot be empty")
     @Size(min = 1, message = "At least one secret is required")
     private Map<String, String> secrets;
     
     /** Email address of the user performing the operation for Git commit attribution */
+    @Schema(description = "Email address for Git commit attribution", example = "devops@company.com", required = true)
     @NotBlank(message = "Email is required")
     @Email(message = "Email should be valid")
     private String email;
     
     /** Message to be used for the Git commit when storing the bulk secrets */
+    @Schema(description = "Git commit message for the bulk vault operation", example = "Initial database configuration setup", required = true)
     @NotBlank(message = "Commit message is required")
     @Size(min = 1, max = 500, message = "Commit message must be between 1 and 500 characters")
     private String commitMessage;

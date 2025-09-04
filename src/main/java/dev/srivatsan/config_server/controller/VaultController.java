@@ -1,11 +1,9 @@
 package dev.srivatsan.config_server.controller;
 
+import dev.srivatsan.config_server.api.VaultAPI;
 import dev.srivatsan.config_server.model.SecretRequest;
 import dev.srivatsan.config_server.model.BulkSecretsRequest;
 import dev.srivatsan.config_server.service.vault.GitVaultService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,8 +15,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/vault")
-@Tag(name = "Vault Management", description = "APIs for managing encrypted secrets in the vault")
-public class VaultController {
+public class VaultController implements VaultAPI {
 
     private static final Logger log = LoggerFactory.getLogger(VaultController.class);
     
@@ -28,10 +25,9 @@ public class VaultController {
         this.gitVaultService = gitVaultService;
     }
 
-    @PostMapping("/{namespace}/secrets")
-    @Operation(summary = "Store a secret", description = "Store a new secret in the specified namespace vault")
+    @Override
     public ResponseEntity<Map<String, Object>> storeSecret(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
+            @PathVariable String namespace,
             @Valid @RequestBody SecretRequest request) {
         
         log.info("Storing secret '{}' in namespace '{}'", request.getKey(), namespace);
@@ -47,11 +43,10 @@ public class VaultController {
                 ));
     }
 
-    @GetMapping("/{namespace}/secrets/{key}")
-    @Operation(summary = "Get a secret", description = "Retrieve a decrypted secret value from the vault")
+    @Override
     public ResponseEntity<Map<String, Object>> getSecret(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
-            @Parameter(description = "Secret key") @PathVariable String key) {
+            @PathVariable String namespace,
+            @PathVariable String key) {
         
         log.info("Getting secret '{}' from namespace '{}'", key, namespace);
         
@@ -64,11 +59,10 @@ public class VaultController {
         ));
     }
 
-    @PutMapping("/{namespace}/secrets/{key}")
-    @Operation(summary = "Update a secret", description = "Update an existing secret in the vault")
+    @Override
     public ResponseEntity<Map<String, Object>> updateSecret(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
-            @Parameter(description = "Secret key") @PathVariable String key,
+            @PathVariable String namespace,
+            @PathVariable String key,
             @Valid @RequestBody SecretRequest request) {
         
         log.info("Updating secret '{}' in namespace '{}'", key, namespace);
@@ -82,11 +76,10 @@ public class VaultController {
         ));
     }
 
-    @DeleteMapping("/{namespace}/secrets/{key}")
-    @Operation(summary = "Delete a secret", description = "Delete a secret from the vault")
+    @Override
     public ResponseEntity<Map<String, Object>> deleteSecret(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
-            @Parameter(description = "Secret key") @PathVariable String key,
+            @PathVariable String namespace,
+            @PathVariable String key,
             @Valid @RequestBody SecretRequest request) {
         gitVaultService.deleteSecret(namespace, key, request.getEmail(), request.getCommitMessage());
         return ResponseEntity.ok(Map.of(
@@ -96,10 +89,9 @@ public class VaultController {
         ));
     }
 
-    @GetMapping("/{namespace}/secrets")
-    @Operation(summary = "Get all secrets", description = "Retrieve all decrypted secrets from the namespace vault")
+    @Override
     public ResponseEntity<Map<String, Object>> getAllSecrets(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace) {
+            @PathVariable String namespace) {
         Map<String, String> secrets = gitVaultService.getAllSecrets(namespace);
         return ResponseEntity.ok(Map.of(
             "namespace", namespace,
@@ -108,10 +100,9 @@ public class VaultController {
         ));
     }
 
-    @PostMapping("/{namespace}/secrets/bulk")
-    @Operation(summary = "Store bulk secrets", description = "Store multiple secrets in a single operation")
+    @Override
     public ResponseEntity<Map<String, Object>> storeBulkSecrets(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
+            @PathVariable String namespace,
             @Valid @RequestBody BulkSecretsRequest request) {
         
         log.info("Storing {} secrets in namespace '{}'", request.getSecrets().size(), namespace);
@@ -127,11 +118,10 @@ public class VaultController {
                 ));
     }
 
-    @GetMapping("/{namespace}/secrets/{key}/exists")
-    @Operation(summary = "Check if secret exists", description = "Check if a secret exists in the vault")
+    @Override
     public ResponseEntity<Map<String, Object>> secretExists(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace,
-            @Parameter(description = "Secret key") @PathVariable String key) {
+            @PathVariable String namespace,
+            @PathVariable String key) {
         
         boolean exists = gitVaultService.secretExists(namespace, key);
         
@@ -142,10 +132,9 @@ public class VaultController {
         ));
     }
 
-    @GetMapping("/{namespace}/history")
-    @Operation(summary = "Get vault history", description = "Get the commit history of vault changes")
+    @Override
     public ResponseEntity<Map<String, Object>> getVaultHistory(
-            @Parameter(description = "Namespace identifier") @PathVariable String namespace) {
+            @PathVariable String namespace) {
         
         log.info("Getting vault history for namespace '{}'", namespace);
         

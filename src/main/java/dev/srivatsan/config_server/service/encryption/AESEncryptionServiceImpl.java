@@ -104,7 +104,7 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     }
 
     @Override
-    public void initializeNamespaceKey(String namespace) { // TODO: lets use this one when the namespace is create and reuse the same
+    public void initializeNamespaceKey(String namespace) {
         try {
             Path keyPath = getNamespaceKeyPath(namespace);
             

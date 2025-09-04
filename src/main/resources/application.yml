@@ -9,13 +9,8 @@ spring:
   web.cors.allowed-origins: http://localhost:3000
   web.cors.allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   web.cors.allowed-headers: "*"
-#  cloud:
-#    config:
-#      server:
-        # Use our custom EnvironmentRepository
-        # No specific Git configuration needed as we handle it dynamically
 
-
-global:
+configserver:
   base-path: ${CONFIG_BASE_PATH:/config/}
   commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
+  refreshNotifyUrl:

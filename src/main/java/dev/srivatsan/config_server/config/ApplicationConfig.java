@@ -9,11 +9,12 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 @Data
 @Configuration
-@ConfigurationProperties(prefix = "global")
+@ConfigurationProperties(prefix = "configserver")
 public class ApplicationConfig {
 
     private int commitHistorySize;
     private String basePath;
+    private String refreshNotifyUrl;
 
     @PostConstruct
     public void init() {

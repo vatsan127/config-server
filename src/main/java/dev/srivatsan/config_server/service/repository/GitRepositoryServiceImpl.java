@@ -6,6 +6,7 @@ import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.service.api.RefreshApiService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
@@ -43,13 +44,15 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final GitOperationService gitOperationService;
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
+    private final RefreshApiService refreshApiService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
+        this.refreshApiService = refreshApiService;
     }
 
     public void createNamespace(String namespace) {
@@ -110,7 +113,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        return gitOperationService.executeGitOperation(namespace, git -> {
+        String commitId =  gitOperationService.executeGitOperation(namespace, git -> {
                     // Optimistic lock check - validate current commit ID matches expected
                     var logCommand = git.log()
                             .setMaxCount(1)
@@ -152,6 +155,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     return revCommit.getId().getName();
                 }
         );
+        refreshApiService.sendRefreshNotifications(namespace, payload.getAppName());
+        return commitId;
 
     }
 

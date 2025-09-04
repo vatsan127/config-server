@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 @Slf4j
 @Data
 @Configuration
@@ -14,7 +16,7 @@ public class ApplicationConfig {
 
     private int commitHistorySize;
     private String basePath;
-    private String refreshNotifyUrl;
+    private List<String> refreshNotifyUrl;
 
     @PostConstruct
     public void init() {

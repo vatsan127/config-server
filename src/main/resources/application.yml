@@ -13,4 +13,4 @@ spring:
 configserver:
   base-path: ${CONFIG_BASE_PATH:/config/}
   commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
-  refreshNotifyUrl:
+  refreshNotifyUrl: http://localhost:8085/config-client/actuator/refresh

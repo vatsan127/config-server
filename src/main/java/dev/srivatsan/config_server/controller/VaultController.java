@@ -72,7 +72,6 @@ public class VaultController {
             @Valid @RequestBody SecretRequest request) {
         
         log.info("Updating secret '{}' in namespace '{}'", key, namespace);
-        
         gitVaultService.updateSecret(namespace, key, request.getValue(), 
                                     request.getEmail(), request.getCommitMessage());
         
@@ -89,11 +88,7 @@ public class VaultController {
             @Parameter(description = "Namespace identifier") @PathVariable String namespace,
             @Parameter(description = "Secret key") @PathVariable String key,
             @Valid @RequestBody SecretRequest request) {
-        
-        log.info("Deleting secret '{}' from namespace '{}'", key, namespace);
-        
         gitVaultService.deleteSecret(namespace, key, request.getEmail(), request.getCommitMessage());
-        
         return ResponseEntity.ok(Map.of(
             "message", "Secret deleted successfully",
             "namespace", namespace,
@@ -105,11 +100,7 @@ public class VaultController {
     @Operation(summary = "Get all secrets", description = "Retrieve all decrypted secrets from the namespace vault")
     public ResponseEntity<Map<String, Object>> getAllSecrets(
             @Parameter(description = "Namespace identifier") @PathVariable String namespace) {
-        
-        log.info("Getting all secrets from namespace '{}'", namespace);
-        
         Map<String, String> secrets = gitVaultService.getAllSecrets(namespace);
-        
         return ResponseEntity.ok(Map.of(
             "namespace", namespace,
             "secrets", secrets,

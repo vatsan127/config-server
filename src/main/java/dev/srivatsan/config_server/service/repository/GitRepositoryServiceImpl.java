@@ -99,7 +99,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear all directory listings for this namespace
             cacheManagerService.evictAllFromCache("directory-listing");
-            
+
         });
     }
 
@@ -116,8 +116,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
-        String commitId =  gitOperationService.executeGitOperation(namespace, git -> {
-                    // Optimistic lock check - validate current commit ID matches expected
+        String commitId = gitOperationService.executeGitOperation(namespace, git -> {
                     var logCommand = git.log()
                             .setMaxCount(1)
                             .add(git.getRepository().resolve(HEAD))
@@ -154,7 +153,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("config-content", filePath);
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
-                    
+
                     return revCommit.getId().getName();
                 }
         );
@@ -165,12 +164,11 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     @Cacheable(value = "config-content", key = "#filePath")
     public String getConfigFile(String filePath) {
-        // Default behavior - for internal use, keep secrets as #ENCODED
         return getConfigFile(filePath, false);
     }
 
     @Override
-    public String getConfigFile(String filePath, boolean forClient) {
+    public String getConfigFile(String filePath, boolean forClient) { // ToDo decrypt the keys outside this method so only where is required decrption will happen
         validationService.validateSafePath(filePath);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
@@ -185,7 +183,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             }
 
             String content = Files.readString(configFilePath);
-            
+
             // Process secrets based on context
             if (forClient) {
                 // For client requests, decrypt secrets
@@ -281,8 +279,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                          DiffFormatter df = new DiffFormatter(out)) {
                         df.setRepository(repository);
                         df.format(df.scan(commit.getParent(0), commit).getFirst());
-                        
-                        // Filter out git metadata and keep only content lines
                         String rawDiff = out.toString();
                         String cleanedDiff = filterGitDiffMetadata(rawDiff);
                         result.put("changes", cleanedDiff);
@@ -336,15 +332,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             if (!Files.exists(configFilePath)) {
                 throw ConfigFileException.notFound(filePath);
             }
-
-            // Delete the file from filesystem
             Files.delete(configFilePath);
-            log.info("Deleted file: '{}'", configFilePath);
 
-            // Stage the deletion for commit
             git.rm().addFilepattern(relativePath).call();
-
-            // Commit the deletion
             git.commit()
                     .setMessage(payload.getMessage())
                     .setAuthor(payload.getEmail().substring(0, payload.getEmail().indexOf('@')), payload.getEmail())
@@ -357,7 +347,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             cacheManagerService.evictKey("commit-history", filePath);
             cacheManagerService.evictKey("latest-commit", filePath);
             cacheManagerService.evictAllFromCache("directory-listing");
-            
+
         });
     }
 
@@ -412,7 +402,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     /**
      * Filters out git diff metadata headers while preserving content and hunk information.
      * Removes only the specific git metadata lines but keeps hunk headers (@@ lines) and all content.
-     * 
+     *
      * @param rawDiff the raw diff output from git
      * @return cleaned diff with metadata headers removed but content and line numbers preserved
      */
@@ -420,28 +410,26 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         if (rawDiff == null || rawDiff.trim().isEmpty()) {
             return rawDiff;
         }
-        
+
         StringBuilder cleanedDiff = new StringBuilder();
         String[] lines = rawDiff.split("\\r?\\n");
-        
+
         for (String line : lines) {
-            // Only filter out specific git metadata headers, keep everything else including @@ hunk lines
             if (!line.startsWith("diff --git") &&
-                !line.startsWith("index ") &&
-                !line.startsWith("--- ") &&
-                !line.startsWith("+++ ") &&
-                !line.startsWith("new file mode") &&
-                !line.startsWith("deleted file mode") &&
-                !line.startsWith("similarity index") &&
-                !line.startsWith("rename from") &&
-                !line.startsWith("rename to") &&
-                !line.startsWith("copy from") &&
-                !line.startsWith("copy to")) {
-                
+                    !line.startsWith("index ") &&
+                    !line.startsWith("--- ") &&
+                    !line.startsWith("+++ ") &&
+                    !line.startsWith("new file mode") &&
+                    !line.startsWith("deleted file mode") &&
+                    !line.startsWith("similarity index") &&
+                    !line.startsWith("rename from") &&
+                    !line.startsWith("rename to") &&
+                    !line.startsWith("copy from") &&
+                    !line.startsWith("copy to")) {
                 cleanedDiff.append(line).append("\n");
             }
         }
-        
+
         return cleanedDiff.toString().trim();
     }
 

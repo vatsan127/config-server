@@ -65,24 +65,17 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
-                // Initialize encryption key for namespace if not exists
-                encryptionService.initializeNamespaceKey(namespace);
+                encryptionService.initializeNamespaceKey(namespace); // ToDO: lets do this when the namespace is created
                 
                 Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                
-                // Check if secret already exists
                 if (secrets.containsKey(key)) {
                     throw VaultException.vaultOperationFailed("Secret already exists: " + key + ". Use update instead.");
                 }
-                
-                // Encrypt and store the secret
+
                 String encryptedValue = encryptionService.encrypt(value, namespace);
                 secrets.put(key, encryptedValue);
-                
-                // Save to vault file
+
                 saveVaultSecrets(namespace, secrets, git);
-                
-                // Commit changes
                 git.add().addFilepattern(VAULT_FILE_NAME).call();
                 git.commit()
                         .setMessage(commitMessage)
@@ -149,20 +142,13 @@ public class GitVaultServiceImpl implements GitVaultService {
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
                 Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                
-                // Check if secret exists
                 if (!secrets.containsKey(key)) {
                     throw VaultException.secretNotFound(key);
                 }
-                
-                // Encrypt and update the secret
+
                 String encryptedValue = encryptionService.encrypt(value, namespace);
                 secrets.put(key, encryptedValue);
-                
-                // Save to vault file
                 saveVaultSecrets(namespace, secrets, git);
-                
-                // Commit changes
                 git.add().addFilepattern(VAULT_FILE_NAME).call();
                 git.commit()
                         .setMessage(commitMessage)
@@ -195,19 +181,12 @@ public class GitVaultServiceImpl implements GitVaultService {
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
                 Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                
-                // Check if secret exists
                 if (!secrets.containsKey(key)) {
                     throw VaultException.secretNotFound(key);
                 }
-                
-                // Remove the secret
+
                 secrets.remove(key);
-                
-                // Save to vault file
                 saveVaultSecrets(namespace, secrets, git);
-                
-                // Commit changes
                 git.add().addFilepattern(VAULT_FILE_NAME).call();
                 git.commit()
                         .setMessage(commitMessage)
@@ -272,12 +251,8 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
-                // Initialize encryption key for namespace if not exists
-                encryptionService.initializeNamespaceKey(namespace);
-                
+
                 Map<String, String> existingSecrets = loadVaultSecrets(namespace, git);
-                
-                // Encrypt and add all new secrets
                 for (Map.Entry<String, String> entry : secrets.entrySet()) {
                     String key = entry.getKey();
                     String value = entry.getValue();
@@ -293,11 +268,8 @@ public class GitVaultServiceImpl implements GitVaultService {
                     String encryptedValue = encryptionService.encrypt(value, namespace);
                     existingSecrets.put(key, encryptedValue);
                 }
-                
-                // Save to vault file
+
                 saveVaultSecrets(namespace, existingSecrets, git);
-                
-                // Commit changes
                 git.add().addFilepattern(VAULT_FILE_NAME).call();
                 git.commit()
                         .setMessage(commitMessage)
@@ -317,7 +289,7 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    public boolean secretExists(String namespace, String key) {
+    public boolean secretExists(String namespace, String key) { // ToDo: THis is not requied as secret cannot deleted
         validationService.validateNamespace(namespace);
         
         if (key == null || key.trim().isEmpty()) {
@@ -338,7 +310,7 @@ public class GitVaultServiceImpl implements GitVaultService {
 
     @Override
     @Cacheable(value = "vault-history", key = "#namespace")
-    public Map<String, Object> getVaultHistory(String namespace) {
+    public Map<String, Object> getVaultHistory(String namespace) { // ToDO: why can't we reuse the existing method to retrieve
         validationService.validateNamespace(namespace);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
@@ -383,7 +355,7 @@ public class GitVaultServiceImpl implements GitVaultService {
                 return new HashMap<>();
             }
             
-            return objectMapper.readValue(jsonContent, new TypeReference<Map<String, String>>() {});
+            return objectMapper.readValue(jsonContent, new TypeReference<Map<String, String>>() {}); // ToDO: we can use org.json?
         } catch (Exception e) {
             log.error("Failed to parse vault file for namespace '{}': {}", namespace, e.getMessage());
             throw VaultException.vaultOperationFailed("Failed to parse vault file: " + e.getMessage());
@@ -403,7 +375,7 @@ public class GitVaultServiceImpl implements GitVaultService {
         }
     }
 
-    private Map<String, Object> formatCommitInfo(RevCommit commit) {
+    private Map<String, Object> formatCommitInfo(RevCommit commit) { // Existing methods can be used
         PersonIdent author = commit.getAuthorIdent();
         String commitDate = Instant.ofEpochSecond(commit.getCommitTime())
                 .atZone(ZoneId.systemDefault())

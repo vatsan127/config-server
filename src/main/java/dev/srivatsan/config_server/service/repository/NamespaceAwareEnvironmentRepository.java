@@ -41,28 +41,20 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
     @Override
     public Environment findOne(String application, String profile, String label) {
         log.info("Finding configuration for application: {}, profile: {}, label: {}", application, profile, label);
-        
-        // Input validation
+
         validateInputs(application, profile, label);
-        
         Environment environment = new Environment(application, profile);
         
         try {
-            // Extract namespace and path from label: "production/config" or "test" or "dev/api"
             String namespace = extractNamespaceFromLabel(label);
-            String path = extractPathFromLabel(label);
-            
-            // Validate namespace
             validationService.validateNamespace(namespace);
-            
-            // Try to load profile-specific configuration first (e.g., application-dev.yml)
+            String path = extractPathFromLabel(label);
+
             List<PropertySource> propertySources = loadConfigurationFiles(namespace, path, application, profile);
-            
             for (PropertySource propertySource : propertySources) {
                 environment.add(propertySource);
             }
-            
-            // Set version (latest commit ID for the main application file)
+
             String mainFilePath = constructFilePathFromLabel(namespace, path, application, null);
             String version = gitRepositoryService.getLatestCommitId(mainFilePath);
             environment.setVersion(version);
@@ -72,7 +64,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
             
         } catch (ConfigFileException | GitOperationException | ValidationException e) {
             log.error("Failed to load configuration for application: {}, profile: {}, label: {}", application, profile, label, e);
-            throw e; // Re-throw specific exceptions
+            throw e;
         } catch (Exception e) {
             log.error("Unexpected error loading configuration for application: {}, profile: {}, label: {}", application, profile, label, e);
             throw new ConfigFileException("CONFIG_LOAD_FAILED", 
@@ -91,8 +83,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         if (application.contains("../") || application.contains("..\\")) {
             throw ValidationException.invalidAppName(application, "Application name contains invalid path characters");
         }
-        
-        // Profile can be null (will default to "default")
+
         if (profile != null && (profile.contains("../") || profile.contains("..\\"))) {
             throw ValidationException.invalidPath(profile, "Profile contains invalid path characters");
         }
@@ -107,6 +98,7 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
      * Loads configuration files including profile-specific configurations.
      */
     private List<PropertySource> loadConfigurationFiles(String namespace, String path, String application, String profile) throws Exception {
+        log.info("configuration for application: {}, profile: {}", application, profile);
         List<PropertySource> propertySources = new ArrayList<>();
         
         // Load main application configuration (application.yml)
@@ -187,26 +179,17 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
      */
     private String constructFilePathFromLabel(String namespace, String path, String application, String profile) {
         StringBuilder filePath = new StringBuilder();
-        
-        // Add namespace
         filePath.append(namespace);
-        
-        // Add path if present
+
         if (!path.isEmpty()) {
             filePath.append("/").append(path);
         }
-        
-        // Add application name
         filePath.append("/").append(application);
-        
-        // Add profile suffix if specified
+
         if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
             filePath.append("-").append(profile);
         }
-        
-        // Add extension
         filePath.append(".yml");
-        
         return filePath.toString();
     }
 
@@ -223,30 +206,13 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         
         try {
             Map<String, Object> yamlData = yaml.load(content);
-            return yamlData != null ? flattenProperties("", yamlData, new LinkedHashMap<>()) : new LinkedHashMap<>();
+            return yamlData != null ? yamlData : new LinkedHashMap<>();
         } catch (Exception e) {
             log.error("Failed to parse YAML content for file: {} - {}", filePath, e.getMessage());
             return new LinkedHashMap<>();
         }
     }
 
-    /**
-     * Flatten nested YAML properties into dot notation.
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> flattenProperties(String prefix, Map<String, Object> source, Map<String, Object> result) {
-        for (Map.Entry<String, Object> entry : source.entrySet()) {
-            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
-            Object value = entry.getValue();
-            
-            if (value instanceof Map) {
-                flattenProperties(key, (Map<String, Object>) value, result);
-            } else {
-                result.put(key, value);
-            }
-        }
-        return result;
-    }
 
     @Override
     public int getOrder() {

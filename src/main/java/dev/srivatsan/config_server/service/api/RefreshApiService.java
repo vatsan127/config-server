@@ -38,7 +38,7 @@ public class RefreshApiService {
     }
 
     private void sendRefreshRequest(String url, String payload) {
-        try {
+        try { // ToDo: Add retry functionality with interval. use both values from configuration file
             log.info("sendRefreshNotifications :: URL - '{}', payload - '{}'", url, payload);
             String response = restClient
                     .post()

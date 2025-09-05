@@ -449,9 +449,9 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 **Response Model:**
 ```json
 [
-  "user-service.yml",
-  "payment-service.yml", 
-  "api-gateway.yml",
+  "user-service",
+  "payment-service", 
+  "api-gateway",
   "services/",
   "config/"
 ]
@@ -481,10 +481,7 @@ Deletes an existing namespace directory and all its contents permanently.
 **Response Model:**
 ```json
 {
-  "message": "Namespace has been deleted successfully",
-  "namespace": "old-environment",
-  "filesDeleted": 15,
-  "status": "deleted"
+  "message": "Namespace has been deleted successfully"
 }
 ```
 

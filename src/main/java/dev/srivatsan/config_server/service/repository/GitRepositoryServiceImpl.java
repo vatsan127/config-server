@@ -259,8 +259,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         return gitOperationService.executeGitOperation(namespace, git -> {
             Map<String, Object> result = new HashMap<>();
 
-            try (Repository repository = git.getRepository();
-                 RevWalk revWalk = new RevWalk(repository)) {
+            Repository repository = git.getRepository();
+            try (RevWalk revWalk = new RevWalk(repository)) {
 
                 RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
                 result.put("commitId", commit.getName());
@@ -268,17 +268,20 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                 result.put("author", commit.getAuthorIdent().getName());
                 result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
-                if (commit.getParentCount() > 0) {
-                    try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-                         DiffFormatter df = new DiffFormatter(out)) {
-                        df.setRepository(repository);
-                        df.format(df.scan(commit.getParent(0), commit).getFirst());
-                        String rawDiff = out.toString();
-                        String cleanedDiff = filterGitDiffMetadata(rawDiff);
-                        result.put("changes", cleanedDiff);
+                // Use DiffFormatter to show changes (equivalent to 'git show')
+                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                     DiffFormatter df = new DiffFormatter(out)) {
+                    df.setRepository(repository);
+                    
+                    // Get the tree changes for this commit
+                    var diffs = df.scan(commit.getParentCount() > 0 ? commit.getParent(0) : null, commit);
+                    for (var diff : diffs) {
+                        df.format(diff);
                     }
-                } else {
-                    result.put("changes", "");
+                    
+                    String rawDiff = out.toString();
+                    String cleanedDiff = filterGitDiffMetadata(rawDiff);
+                    result.put("changes", cleanedDiff);
                 }
             }
 

@@ -25,10 +25,7 @@ public class VaultController implements VaultAPI {
 
     @Override
     public ResponseEntity<Map<String, Object>> getVault(@PathVariable String namespace) {
-        log.info("Getting vault for namespace '{}'", namespace);
-        
         Map<String, String> secrets = gitVaultService.getVault(namespace);
-        
         return ResponseEntity.ok(Map.of(
             "namespace", namespace,
             "secrets", secrets,
@@ -37,9 +34,7 @@ public class VaultController implements VaultAPI {
     }
 
     @Override
-    public ResponseEntity<Map<String, Object>> updateVault(
-            @PathVariable String namespace,
-            @RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, Object>> updateVault(@PathVariable String namespace, @RequestBody Map<String, String> request) {
         
         // Extract secrets, email, and commitMessage from request
         Map<String, String> secrets = new HashMap<>(request);

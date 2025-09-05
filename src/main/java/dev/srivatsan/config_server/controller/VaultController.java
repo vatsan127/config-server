@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/vault")
+@RequestMapping("/api/vault/{namespace}/secrets")
 public class VaultController implements VaultAPI {
 
     private static final Logger log = LoggerFactory.getLogger(VaultController.class);
@@ -46,7 +46,8 @@ public class VaultController implements VaultAPI {
     @Override
     public ResponseEntity<Map<String, Object>> getSecret(
             @PathVariable String namespace,
-            @PathVariable String key) {
+            @PathVariable String key,
+            @RequestBody Map<String, String> request) {
         
         log.info("Getting secret '{}' from namespace '{}'", key, namespace);
         
@@ -91,7 +92,8 @@ public class VaultController implements VaultAPI {
 
     @Override
     public ResponseEntity<Map<String, Object>> getAllSecrets(
-            @PathVariable String namespace) {
+            @PathVariable String namespace,
+            @RequestBody Map<String, String> request) {
         Map<String, String> secrets = gitVaultService.getAllSecrets(namespace);
         return ResponseEntity.ok(Map.of(
             "namespace", namespace,
@@ -121,7 +123,8 @@ public class VaultController implements VaultAPI {
     @Override
     public ResponseEntity<Map<String, Object>> secretExists(
             @PathVariable String namespace,
-            @PathVariable String key) {
+            @PathVariable String key,
+            @RequestBody Map<String, String> request) {
         
         boolean exists = gitVaultService.secretExists(namespace, key);
         
@@ -134,7 +137,8 @@ public class VaultController implements VaultAPI {
 
     @Override
     public ResponseEntity<Map<String, Object>> getVaultHistory(
-            @PathVariable String namespace) {
+            @PathVariable String namespace,
+            @RequestBody Map<String, String> request) {
         
         log.info("Getting vault history for namespace '{}'", namespace);
         

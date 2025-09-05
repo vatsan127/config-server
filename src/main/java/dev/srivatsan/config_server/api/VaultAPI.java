@@ -16,4 +16,7 @@ public interface VaultAPI {
 
     @PostMapping("/history")
     ResponseEntity<Map<String, Object>> getVaultHistory(@RequestBody Map<String, String> request) throws Exception;
+
+    @PostMapping("/changes")
+    ResponseEntity<Map<String, Object>> getVaultChanges(@RequestBody Map<String, String> request) throws Exception;
 }

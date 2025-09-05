@@ -9,4 +9,6 @@ public interface GitVaultService {
     void updateVault(String namespace, Map<String, String> secrets, String email, String commitMessage);
 
     Map<String, Object> getVaultHistory(String namespace);
+
+    Map<String, Object> getVaultChanges(String commitId, String namespace);
 }

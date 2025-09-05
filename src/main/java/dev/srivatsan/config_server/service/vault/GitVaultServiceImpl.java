@@ -6,6 +6,7 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.VaultException;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
+import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
@@ -33,6 +34,7 @@ public class GitVaultServiceImpl implements GitVaultService {
     private final ApplicationConfig applicationConfig;
     private final EncryptionService encryptionService;
     private final GitOperationService gitOperationService;
+    private final GitRepositoryService gitRepositoryService;
     private final ValidationService validationService;
     private final UtilService utilService;
     private final ObjectMapper objectMapper;
@@ -40,11 +42,13 @@ public class GitVaultServiceImpl implements GitVaultService {
     public GitVaultServiceImpl(ApplicationConfig applicationConfig,
                                EncryptionService encryptionService,
                                GitOperationService gitOperationService,
+                               GitRepositoryService gitRepositoryService,
                                ValidationService validationService,
                                UtilService utilService) {
         this.applicationConfig = applicationConfig;
         this.encryptionService = encryptionService;
         this.gitOperationService = gitOperationService;
+        this.gitRepositoryService = gitRepositoryService;
         this.validationService = validationService;
         this.utilService = utilService;
         this.objectMapper = new ObjectMapper();
@@ -187,6 +191,17 @@ public class GitVaultServiceImpl implements GitVaultService {
         } catch (Exception e) {
             log.error("Failed to save vault file for namespace '{}': {}", namespace, e.getMessage());
             throw VaultException.vaultOperationFailed("Failed to save vault file: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public Map<String, Object> getVaultChanges(String commitId, String namespace) {
+        try {
+            // GitRepositoryService.getCommitChanges() already handles validation
+            return gitRepositoryService.getCommitChanges(commitId, namespace);
+        } catch (Exception e) {
+            log.error("Failed to get vault changes for commit '{}' in namespace '{}': {}", commitId, namespace, e.getMessage());
+            throw VaultException.vaultOperationFailed("Failed to get vault changes: " + e.getMessage());
         }
     }
 }

@@ -526,7 +526,7 @@ Deletes an existing namespace directory and all its contents permanently.
 
 ## 3. Vault Management API (Simplified)
 
-**Base URL:** `/api/vault`
+**Base URL:** `/vault`
 
 🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets
 are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
@@ -535,7 +535,7 @@ are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
 
 ### 3.1 Get Vault Secrets
 
-**Endpoint:** `POST /api/vault/get`
+**Endpoint:** `POST /vault/get`
 
 Retrieve all decrypted secrets from the namespace vault.
 
@@ -567,7 +567,7 @@ Retrieve all decrypted secrets from the namespace vault.
 
 ### 3.2 Update Vault Secrets (Complete Replacement)
 
-**Endpoint:** `POST /api/vault/update`
+**Endpoint:** `POST /vault/update`
 
 Update vault secrets using complete replacement approach. All existing secrets are replaced with the provided ones.
 
@@ -605,7 +605,7 @@ Update vault secrets using complete replacement approach. All existing secrets a
 
 ### 3.3 Get Vault History
 
-**Endpoint:** `POST /api/vault/history`
+**Endpoint:** `POST /vault/history`
 
 Retrieve the Git commit history of vault changes for audit purposes.
 
@@ -639,6 +639,42 @@ Retrieve the Git commit history of vault changes for audit purposes.
 
 - `200` - Vault history retrieved successfully
 - `404` - Namespace not found
+- `500` - Internal server error
+
+---
+
+### 3.4 Get Vault Changes
+
+**Endpoint:** `POST /vault/changes`
+
+Retrieve detailed changes for a specific commit in the vault, showing what secrets were added, modified, or removed.
+
+**Request Model:**
+
+```json
+{
+  "namespace": "production",
+  "commitId": "abc123def456789"
+}
+```
+
+**Response Model:**
+
+```json
+{
+  "commitId": "abc123def456789",
+  "commitMessage": "Update database secrets",
+  "author": "admin@company.com",
+  "commitTime": "2024-01-15T14:30:00Z",
+  "changes": "@@ -1,3 +1,4 @@\n {\n   \"database.password\": \"encrypted_value_1\",\n-  \"old.secret\": \"encrypted_value_2\"\n+  \"new.secret\": \"encrypted_value_3\",\n+  \"api.token\": \"encrypted_value_4\"\n }"
+}
+```
+
+**Status Codes:**
+
+- `200` - Vault changes retrieved successfully
+- `400` - Invalid request parameters (missing namespace/commitId)
+- `404` - Namespace or commit not found
 - `500` - Internal server error
 
 ---
@@ -735,9 +771,9 @@ The application automatically preloads namespaces and directory listings on star
 
 **Migration Guide:**
 
-- Old bulk operations → Use new `POST /api/vault/update` with complete replacement
-- Old individual secret gets → Use `POST /api/vault/get` and extract needed keys
-- Old vault history → Use new `POST /api/vault/history`
+- Old bulk operations → Use new `POST /vault/update` with complete replacement
+- Old individual secret gets → Use `POST /vault/get` and extract needed keys
+- Old vault history → Use new `POST /vault/history`
 
 ### 🔄 Namespace Changes (v2.0)
 

@@ -31,28 +31,26 @@ public class SecretProcessorImpl implements SecretProcessor {
 
     @Override
     public String processConfigurationForClient(String configContent, String namespace) {
-        if (!containsSecrets(configContent)) {
-            return configContent;
-        }
-
         try {
-            // Parse YAML to identify secret placeholders
+            // Get vault secrets for this namespace
+            Map<String, String> vaultSecrets = gitVaultService.getVault(namespace);
+            if (vaultSecrets.isEmpty()) {
+                return configContent; // No vault secrets, return as-is
+            }
+            
+            // Parse YAML content
             Map<String, Object> yamlData = yaml.load(configContent);
             if (yamlData == null) {
                 return configContent;
             }
-
-            // Flatten to find all secret placeholders
-            Map<String, Object> flattenedData = new LinkedHashMap<>();
-            flattenProperties("", yamlData, flattenedData);
-
-            // Replace secret placeholders with actual decrypted values
+            
+            // Process the YAML to replace vault keys or <ENCRYPTED_VALUE> with actual decrypted values
             Map<String, Object> processedData = new LinkedHashMap<>(yamlData);
-            replaceSecretsInMap("", processedData, namespace);
-
+            replaceWithVaultSecrets(processedData, vaultSecrets, "");
+            
             // Convert back to YAML
             return yaml.dump(processedData);
-
+            
         } catch (Exception e) {
             log.error("Failed to process configuration for client in namespace '{}': {}", namespace, e.getMessage());
             // Return original content if processing fails to avoid breaking client
@@ -62,8 +60,38 @@ public class SecretProcessorImpl implements SecretProcessor {
 
     @Override
     public String processConfigurationForInternal(String configContent) {
-        // For internal operations, return content as-is (with #ENCODED placeholders)
+        // For backward compatibility - return as-is
         return configContent;
+    }
+    
+    @Override
+    public String processConfigurationForInternal(String configContent, String namespace) {
+        // For management UI - replace vault keys with <ENCRYPTED_VALUE>
+        try {
+            // Get vault secrets for this namespace
+            Map<String, String> vaultSecrets = gitVaultService.getVault(namespace);
+            if (vaultSecrets.isEmpty()) {
+                return configContent; // No vault secrets, return as-is
+            }
+            
+            // Parse YAML content
+            Map<String, Object> yamlData = yaml.load(configContent);
+            if (yamlData == null) {
+                return configContent;
+            }
+            
+            // Process the YAML to replace vault keys with <ENCRYPTED_VALUE>
+            Map<String, Object> processedData = new LinkedHashMap<>(yamlData);
+            replaceVaultKeysWithPlaceholder(processedData, vaultSecrets, "");
+            
+            // Convert back to YAML
+            return yaml.dump(processedData);
+            
+        } catch (Exception e) {
+            log.error("Failed to process configuration for internal use in namespace '{}': {}", namespace, e.getMessage());
+            // Return original content if processing fails
+            return configContent;
+        }
     }
 
     @Override
@@ -168,9 +196,14 @@ public class SecretProcessorImpl implements SecretProcessor {
             } else if (SECRET_PLACEHOLDER.equals(value)) {
                 try {
                     // Get actual secret value from vault
-                    String secretValue = gitVaultService.getSecret(namespace, key);
-                    entry.setValue(secretValue);
-                    log.debug("Replaced secret placeholder for key: {}", key);
+                    Map<String, String> vaultSecrets = gitVaultService.getVault(namespace);
+                    String secretValue = vaultSecrets.get(key);
+                    if (secretValue != null) {
+                        entry.setValue(secretValue);
+                        log.debug("Replaced secret placeholder for key: {}", key);
+                    } else {
+                        log.warn("Secret not found in vault for key: {}", key);
+                    }
                 } catch (Exception e) {
                     log.warn("Failed to resolve secret for key '{}' in namespace '{}': {}", key, namespace, e.getMessage());
                     // Leave placeholder if secret cannot be resolved
@@ -221,5 +254,57 @@ public class SecretProcessorImpl implements SecretProcessor {
 
         // Set the value
         currentMap.put(keys[keys.length - 1], value);
+    }
+    
+    /**
+     * Replaces vault keys in YAML with <ENCRYPTED_VALUE> placeholder for management UI
+     */
+    private void replaceVaultKeysWithPlaceholder(Map<String, Object> yamlData, Map<String, String> vaultSecrets, String prefix) {
+        for (Map.Entry<String, Object> entry : yamlData.entrySet()) {
+            String currentKey = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            Object value = entry.getValue();
+            
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nestedMap = (Map<String, Object>) value;
+                replaceVaultKeysWithPlaceholder(nestedMap, vaultSecrets, currentKey);
+            } else {
+                // Check if this key exists in vault (try both full path and just the key name)
+                if (vaultSecrets.containsKey(currentKey) || vaultSecrets.containsKey(entry.getKey())) {
+                    entry.setValue("<ENCRYPTED_VALUE>");
+                    log.debug("Replaced vault key '{}' with <ENCRYPTED_VALUE> for management UI", currentKey);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Replaces vault keys or <ENCRYPTED_VALUE> placeholders with actual decrypted values for client apps
+     */
+    private void replaceWithVaultSecrets(Map<String, Object> yamlData, Map<String, String> vaultSecrets, String prefix) {
+        for (Map.Entry<String, Object> entry : yamlData.entrySet()) {
+            String currentKey = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            Object value = entry.getValue();
+            
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nestedMap = (Map<String, Object>) value;
+                replaceWithVaultSecrets(nestedMap, vaultSecrets, currentKey);
+            } else {
+                // Check if this key exists in vault (try both full path and just the key name)
+                String secretValue = vaultSecrets.get(currentKey);
+                if (secretValue == null) {
+                    secretValue = vaultSecrets.get(entry.getKey());
+                }
+                
+                if (secretValue != null) {
+                    entry.setValue(secretValue);
+                    log.debug("Replaced vault key '{}' with actual secret for client", currentKey);
+                } else if ("<ENCRYPTED_VALUE>".equals(value)) {
+                    // If we find <ENCRYPTED_VALUE> placeholder but no corresponding vault secret, log warning
+                    log.warn("Found <ENCRYPTED_VALUE> placeholder for key '{}' but no corresponding vault secret", currentKey);
+                }
+            }
+        }
     }
 }

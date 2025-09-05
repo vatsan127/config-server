@@ -144,11 +144,11 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
      * - "production/config" -> "production"
      * - "production" -> "production"  
      * - "test/api" -> "test"
-     * - null/empty -> "default"
+     * - null/empty -> "main"
      */
     private String extractNamespaceFromLabel(String label) {
         if (label == null || label.trim().isEmpty()) {
-            return "default";
+            return "main";
         }
         
         if (label.contains("/")) {

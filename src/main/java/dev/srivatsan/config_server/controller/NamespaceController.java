@@ -19,9 +19,6 @@ import java.util.Map;
 @RequestMapping("/namespace")
 public class NamespaceController implements NamespaceAPI {
 
-    private static final String NAMESPACE_CREATED_MESSAGE = "Namespace has been created successfully and is ready for configuration files";
-    private static final String NAMESPACE_DELETED_MESSAGE = "Namespace has been deleted successfully";
-
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
     private final ValidationService validationService;

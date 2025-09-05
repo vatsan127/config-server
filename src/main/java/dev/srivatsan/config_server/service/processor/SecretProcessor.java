@@ -9,6 +9,8 @@ public interface SecretProcessor {
     
     String processConfigurationForInternal(String configContent);
     
+    String processConfigurationForInternal(String configContent, String namespace);
+    
     Set<String> detectSecretKeys(String yamlContent);
     
     Map<String, String> extractSecretsFromYaml(String yamlContent);

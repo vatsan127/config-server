@@ -26,7 +26,8 @@ import static org.eclipse.jgit.lib.Constants.HEAD;
 public class GitVaultServiceImpl implements GitVaultService {
 
     private static final Logger log = LoggerFactory.getLogger(GitVaultServiceImpl.class);
-    private static final String VAULT_FILE_NAME = ".vault-secrets.json";
+    private static final String VAULT_DIR = ".vault";
+    private static final String VAULT_FILE_SUFFIX = "-vault.json";
 
     private final ApplicationConfig applicationConfig;
     private final EncryptionService encryptionService;
@@ -49,141 +50,8 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
-    public void storeSecret(String namespace, String key, String value, String email, String commitMessage) {
-        validateSecretOperation(namespace, key, value, email, commitMessage);
-
-        gitOperationService.executeGitVoidOperation(namespace, git -> {
-            try {
-                Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                if (secrets.containsKey(key)) {
-                    throw VaultException.vaultOperationFailed("Secret already exists: " + key + ". Use update instead.");
-                }
-
-                String encryptedValue = encryptionService.encrypt(value, namespace);
-                secrets.put(key, encryptedValue);
-
-                saveVaultSecrets(namespace, secrets, git);
-                git.add().addFilepattern(VAULT_FILE_NAME).call();
-                git.commit()
-                        .setMessage(commitMessage)
-                        .setAuthor(email.substring(0, email.indexOf('@')), email)
-                        .call();
-                
-                log.info("Stored secret '{}' in namespace '{}' vault", key, namespace);
-                
-            } catch (Exception e) {
-                log.error("Failed to store secret '{}' in namespace '{}': {}", key, namespace, e.getMessage());
-                if (e instanceof VaultException) {
-                    throw e;
-                }
-                throw VaultException.vaultOperationFailed("Failed to store secret: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    @Cacheable(value = "vault-secrets", key = "#namespace + '_' + #key")
-    public String getSecret(String namespace, String key) {
-        validationService.validateNamespace(namespace);
-        
-        if (key == null || key.trim().isEmpty()) {
-            throw VaultException.secretNotFound(key);
-        }
-
-        return gitOperationService.executeGitOperation(namespace, git -> {
-            try {
-                Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                String encryptedValue = secrets.get(key);
-                
-                if (encryptedValue == null) {
-                    throw VaultException.secretNotFound(key);
-                }
-                
-                return encryptionService.decrypt(encryptedValue, namespace);
-                
-            } catch (Exception e) {
-                log.error("Failed to get secret '{}' from namespace '{}': {}", key, namespace, e.getMessage());
-                if (e instanceof VaultException) {
-                    throw e;
-                }
-                throw VaultException.vaultOperationFailed("Failed to get secret: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
-    public void updateSecret(String namespace, String key, String value, String email, String commitMessage) {
-        validateSecretOperation(namespace, key, value, email, commitMessage);
-
-        gitOperationService.executeGitVoidOperation(namespace, git -> {
-            try {
-                Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                if (!secrets.containsKey(key)) {
-                    throw VaultException.secretNotFound(key);
-                }
-
-                String encryptedValue = encryptionService.encrypt(value, namespace);
-                secrets.put(key, encryptedValue);
-                saveVaultSecrets(namespace, secrets, git);
-                git.add().addFilepattern(VAULT_FILE_NAME).call();
-                git.commit()
-                        .setMessage(commitMessage)
-                        .setAuthor(email.substring(0, email.indexOf('@')), email)
-                        .call();
-                
-                log.info("Updated secret '{}' in namespace '{}' vault", key, namespace);
-                
-            } catch (Exception e) {
-                log.error("Failed to update secret '{}' in namespace '{}': {}", key, namespace, e.getMessage());
-                if (e instanceof VaultException) {
-                    throw e;
-                }
-                throw VaultException.vaultOperationFailed("Failed to update secret: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
-    public void deleteSecret(String namespace, String key, String email, String commitMessage) {
-        validateBasicSecretOperation(namespace, email, commitMessage);
-        
-        if (key == null || key.trim().isEmpty()) {
-            throw VaultException.secretNotFound(key);
-        }
-
-        gitOperationService.executeGitVoidOperation(namespace, git -> {
-            try {
-                Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                if (!secrets.containsKey(key)) {
-                    throw VaultException.secretNotFound(key);
-                }
-
-                secrets.remove(key);
-                saveVaultSecrets(namespace, secrets, git);
-                git.add().addFilepattern(VAULT_FILE_NAME).call();
-                git.commit()
-                        .setMessage(commitMessage)
-                        .setAuthor(email.substring(0, email.indexOf('@')), email)
-                        .call();
-                
-                log.info("Deleted secret '{}' from namespace '{}' vault", key, namespace);
-                
-            } catch (Exception e) {
-                log.error("Failed to delete secret '{}' from namespace '{}': {}", key, namespace, e.getMessage());
-                if (e instanceof VaultException) {
-                    throw e;
-                }
-                throw VaultException.vaultOperationFailed("Failed to delete secret: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    @Cacheable(value = "vault-secrets", key = "#namespace + '_all'")
-    public Map<String, String> getAllSecrets(String namespace) {
+    @Cacheable(value = "vault-secrets", key = "#namespace")
+    public Map<String, String> getVault(String namespace) {
         validationService.validateNamespace(namespace);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
@@ -199,85 +67,54 @@ public class GitVaultServiceImpl implements GitVaultService {
                 return decryptedSecrets;
                 
             } catch (Exception e) {
-                log.error("Failed to get all secrets from namespace '{}': {}", namespace, e.getMessage());
+                log.error("Failed to get vault from namespace '{}': {}", namespace, e.getMessage());
                 if (e instanceof VaultException) {
                     throw e;
                 }
-                throw VaultException.vaultOperationFailed("Failed to get all secrets: " + e.getMessage());
+                throw VaultException.vaultOperationFailed("Failed to get vault: " + e.getMessage());
             }
         });
     }
 
     @Override
-    @CacheEvict(value = {"vault-secrets", "vault-exists"}, key = "#namespace")
-    public void storeBulkSecrets(String namespace, Map<String, String> secrets, String email, String commitMessage) {
-        validateBasicSecretOperation(namespace, email, commitMessage);
+    @CacheEvict(value = "vault-secrets", key = "#namespace")
+    public void updateVault(String namespace, Map<String, String> secrets, String email, String commitMessage) {
+        validationService.validateNamespace(namespace);
+        validationService.validateEmail(email);
+        validationService.validateCommitMessage(commitMessage);
         
         if (secrets == null || secrets.isEmpty()) {
             throw VaultException.vaultOperationFailed("Secrets map cannot be null or empty");
         }
-        
-        if (secrets.size() > applicationConfig.getVault().getMaxSecretsPerOperation()) {
-            throw VaultException.vaultOperationFailed(
-                String.format("Cannot store more than %d secrets in a single operation. Provided: %d",
-                    applicationConfig.getVault().getMaxSecretsPerOperation(), secrets.size()));
-        }
-
-        // Pre-validate all keys and values to fail fast
-        for (Map.Entry<String, String> entry : secrets.entrySet()) {
-            if (entry.getKey() == null || entry.getKey().trim().isEmpty()) {
-                throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
-            }
-            if (entry.getValue() == null || entry.getValue().trim().isEmpty()) {
-                throw VaultException.vaultOperationFailed("Secret value cannot be null or empty for key: " + entry.getKey());
-            }
-        }
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
-
+                // Load existing secrets and merge with new ones
                 Map<String, String> existingSecrets = loadVaultSecrets(namespace, git);
+                
+                // Encrypt and merge new secrets
                 for (Map.Entry<String, String> entry : secrets.entrySet()) {
                     String encryptedValue = encryptionService.encrypt(entry.getValue(), namespace);
                     existingSecrets.put(entry.getKey(), encryptedValue);
                 }
 
                 saveVaultSecrets(namespace, existingSecrets, git);
-                git.add().addFilepattern(VAULT_FILE_NAME).call();
+                
+                String vaultFileName = namespace + VAULT_FILE_SUFFIX;
+                git.add().addFilepattern(VAULT_DIR + "/" + vaultFileName).call();
                 git.commit()
                         .setMessage(commitMessage)
                         .setAuthor(email.substring(0, email.indexOf('@')), email)
                         .call();
                 
-                log.info("Stored {} secrets in namespace '{}' vault", secrets.size(), namespace);
+                log.info("Updated {} secrets in namespace '{}' vault", secrets.size(), namespace);
                 
             } catch (Exception e) {
-                log.error("Failed to store bulk secrets in namespace '{}': {}", namespace, e.getMessage());
+                log.error("Failed to update vault in namespace '{}': {}", namespace, e.getMessage());
                 if (e instanceof VaultException) {
                     throw e;
                 }
-                throw VaultException.vaultOperationFailed("Failed to store bulk secrets: " + e.getMessage());
-            }
-        });
-    }
-
-    @Override
-    @Cacheable(value = "vault-exists", key = "#namespace + '_' + #key")
-    public boolean secretExists(String namespace, String key) {
-        validationService.validateNamespace(namespace);
-        
-        if (key == null || key.trim().isEmpty()) {
-            return false;
-        }
-
-        return gitOperationService.executeGitOperation(namespace, git -> {
-            try {
-                Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                return secrets.containsKey(key);
-                
-            } catch (Exception e) {
-                log.debug("Error checking if secret exists '{}' in namespace '{}': {}", key, namespace, e.getMessage());
-                return false;
+                throw VaultException.vaultOperationFailed("Failed to update vault: " + e.getMessage());
             }
         });
     }
@@ -289,10 +126,13 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         return gitOperationService.executeGitOperation(namespace, git -> {
             try {
+                String vaultFileName = namespace + VAULT_FILE_SUFFIX;
+                String vaultFilePath = VAULT_DIR + "/" + vaultFileName;
+                
                 var logCommand = git.log()
                         .setMaxCount(applicationConfig.getCommitHistorySize())
                         .add(git.getRepository().resolve(HEAD))
-                        .addPath(VAULT_FILE_NAME);
+                        .addPath(vaultFilePath);
 
                 List<Map<String, Object>> commits = new ArrayList<>();
                 for (RevCommit commit : logCommand.call()) {
@@ -303,7 +143,7 @@ public class GitVaultServiceImpl implements GitVaultService {
 
                 Map<String, Object> result = new HashMap<>();
                 result.put("namespace", namespace);
-                result.put("vaultFile", VAULT_FILE_NAME);
+                result.put("vaultFile", vaultFilePath);
                 result.put("commits", commits);
                 return result;
 
@@ -316,7 +156,9 @@ public class GitVaultServiceImpl implements GitVaultService {
 
     private Map<String, String> loadVaultSecrets(String namespace, org.eclipse.jgit.api.Git git) throws IOException {
         Path workTree = git.getRepository().getWorkTree().toPath();
-        Path vaultFilePath = workTree.resolve(VAULT_FILE_NAME);
+        String vaultFileName = namespace + VAULT_FILE_SUFFIX;
+        Path vaultDirPath = workTree.resolve(VAULT_DIR);
+        Path vaultFilePath = vaultDirPath.resolve(vaultFileName);
 
         if (!Files.exists(vaultFilePath)) {
             log.debug("Vault file does not exist for namespace '{}', returning empty map", namespace);
@@ -338,39 +180,22 @@ public class GitVaultServiceImpl implements GitVaultService {
 
     private void saveVaultSecrets(String namespace, Map<String, String> secrets, org.eclipse.jgit.api.Git git) throws IOException {
         Path workTree = git.getRepository().getWorkTree().toPath();
-        Path vaultFilePath = workTree.resolve(VAULT_FILE_NAME);
+        String vaultFileName = namespace + VAULT_FILE_SUFFIX;
+        Path vaultDirPath = workTree.resolve(VAULT_DIR);
+        Path vaultFilePath = vaultDirPath.resolve(vaultFileName);
 
         try {
+            // Create vault directory if it doesn't exist
+            if (!Files.exists(vaultDirPath)) {
+                Files.createDirectories(vaultDirPath);
+                log.info("Created vault directory: {}", vaultDirPath);
+            }
+            
             String jsonContent = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(secrets);
             Files.writeString(vaultFilePath, jsonContent);
         } catch (Exception e) {
             log.error("Failed to save vault file for namespace '{}': {}", namespace, e.getMessage());
             throw VaultException.vaultOperationFailed("Failed to save vault file: " + e.getMessage());
         }
-    }
-
-    private void validateSecretOperation(String namespace, String key, String value, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
-        
-        if (key == null || key.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret key cannot be null or empty");
-        }
-        
-        if (value == null || value.trim().isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secret value cannot be null or empty");
-        }
-        
-        // Sanitize key to prevent path traversal or special character issues
-        if (key.contains("..") || key.contains("/") || key.contains("\\") || key.contains("\n") || key.contains("\r")) {
-            throw VaultException.vaultOperationFailed("Secret key contains invalid characters");
-        }
-    }
-
-    private void validateBasicSecretOperation(String namespace, String email, String commitMessage) {
-        validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
-        validationService.validateCommitMessage(commitMessage);
     }
 }

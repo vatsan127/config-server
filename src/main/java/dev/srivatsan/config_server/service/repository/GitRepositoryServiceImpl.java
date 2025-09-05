@@ -198,7 +198,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         if (forClient) {
             return secretProcessor.processConfigurationForClient(content, namespace);
         } else {
-            return secretProcessor.processConfigurationForInternal(content);
+            return secretProcessor.processConfigurationForInternal(content, namespace);
         }
     }
 

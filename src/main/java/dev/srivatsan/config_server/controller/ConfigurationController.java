@@ -23,10 +23,6 @@ import java.util.Map;
 @RequestMapping("/config")
 public class ConfigurationController implements ConfigurationAPI {
 
-    private static final String CONFIG_CREATED_MESSAGE = "Configuration file has been created successfully";
-    private static final String CONFIG_UPDATED_MESSAGE = "Configuration file has been updated successfully";
-    private static final String CONFIG_DELETED_MESSAGE = "Configuration file has been deleted successfully";
-
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
     private final ValidationService validationService;

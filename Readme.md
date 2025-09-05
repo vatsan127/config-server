@@ -2,6 +2,21 @@
 
 A Git-based Configuration Management Server with multi-namespace support for application configuration files.
 
+## 🚨 BREAKING CHANGES NOTICE (v2.0)
+
+**⚠️ Default Namespace Changed**: The default namespace has been changed from `default` to `main`. 
+**⚠️ Vault API Simplified**: The vault system has been redesigned from 8+ endpoints to just 3 core methods.
+
+**📋 Migration Checklist for Existing Users:**
+- [ ] Create `main` namespace: `POST /namespace/create {"namespace": "main"}`
+- [ ] Migrate configs from `default` to `main` namespace (if applicable)
+- [ ] Update client apps using old vault endpoints to new simplified API
+- [ ] Test Spring Cloud Config integration with new default namespace
+
+**📖 See [Recent Changes & Migration Notes](#5-recent-changes--migration-notes) for detailed migration guide.**
+
+---
+
 ## 🏗️ Architecture
 
 The application follows a clean, layered architecture with well-defined service boundaries:
@@ -34,6 +49,9 @@ service/
 - **Intelligent caching** - Automatic cache preloading for performance
 - **Input validation** - Comprehensive security and format validation
 - **Audit trail** - Complete history of all configuration changes
+- **Simplified Vault System** - AES-256-GCM encrypted secrets with merge-based updates
+- **YAML-Vault Integration** - Dynamic secret replacement in configuration files
+- **Smart Secret Processing** - Different views for management UI vs client applications
 
 ### Technical Highlights
 - **Modern Java 21** - Proper sealed interfaces with non-sealed implementations for Spring compatibility
@@ -65,6 +83,12 @@ This section provides complete REST API documentation with request/response exam
    ```
 
 4. **Create your first configuration file** using the API endpoints below.
+
+⚠️ **BREAKING CHANGE**: The default namespace for Spring Cloud Config has been changed from `default` to `main` to avoid conflicts with reserved namespace names. 
+
+🚨 **Action Required for Existing Users**: If you have existing configurations in a `default` namespace, you must either:
+1. Create a `main` namespace and migrate your configs, OR  
+2. Update your Spring Boot applications to explicitly specify the namespace using the `label` parameter
 
 ---
 
@@ -372,6 +396,8 @@ Creates a new namespace directory with Git initialization for configuration isol
 - `409` - Namespace already exists
 - `500` - Internal server error
 
+⚠️ **Important**: The `default` namespace is reserved. Spring Cloud Config now uses `main` as the default namespace when no label is specified.
+
 ---
 
 ### 2.2 List All Namespaces
@@ -470,328 +496,242 @@ Deletes an existing namespace directory and all its contents permanently.
 
 ---
 
-## 3. Vault Management API
+## 3. Vault Management API (Simplified)
 **Base URL:** `/api/vault/{namespace}`
 
-Manages encrypted secrets in Git-based vaults with complete namespace isolation and AES-256-GCM encryption.
+🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
 
-### 3.1 Store Secret
+### 3.1 Get Vault Secrets
 
-**Endpoint:** `POST /api/vault/{namespace}/secrets`
+**Endpoint:** `GET /api/vault/{namespace}`
 
-Store a new encrypted secret in the specified namespace vault.
+Retrieve all decrypted secrets from the namespace vault.
+
+**URL Parameters:**
+- `namespace` (string, required): Source namespace for the vault
+
+**Request:** No request body required
+
+**Response Model:**
+```json
+{
+  "database.password": "mysecret123",
+  "api.token": "token456",
+  "jwt.secret": "signing-key-789"
+}
+```
+
+**Status Codes:**
+- `200` - Vault retrieved successfully (returns `{}` if no secrets exist)
+- `404` - Namespace not found
+- `500` - Internal server error
+
+---
+
+### 3.2 Update Vault Secrets (Merge-based)
+
+**Endpoint:** `PUT /api/vault/{namespace}?email={email}&commitMessage={message}`
+
+Update vault secrets using merge-based approach. New secrets are added, existing ones are updated.
 
 **URL Parameters:**
 - `namespace` (string, required): Target namespace for the vault
-
-**Request Model:**
-```json
-{
-  "key": "db_password",
-  "value": "super_secure_password_123",
-  "email": "admin@company.com",
-  "commitMessage": "Add database password for production environment"
-}
-```
-
-**Request Fields:**
-- `key` (string, required): Unique identifier for the secret (1-255 characters)
-- `value` (string, required): Plain text value to be encrypted (1-10000 characters)
 - `email` (string, required): Email address for Git commit attribution
-- `commitMessage` (string, required): Git commit message (1-500 characters)
-
-**Response Model:**
-```json
-{
-  "message": "Secret stored successfully",
-  "namespace": "production",
-  "key": "db_password",
-  "encrypted": true,
-  "commitId": "xyz789abc012def",
-  "status": "created"
-}
-```
-
-**Status Codes:**
-- `201` - Secret stored successfully
-- `400` - Invalid request parameters or validation failure
-- `404` - Namespace not found
-- `409` - Secret already exists (use update instead)
-- `500` - Internal server error
-
----
-
-### 3.2 Store Bulk Secrets
-
-**Endpoint:** `POST /api/vault/{namespace}/secrets/bulk`
-
-Store multiple secrets in a single atomic Git commit operation.
+- `commitMessage` (string, required): Git commit message
 
 **Request Model:**
 ```json
 {
-  "secrets": {
-    "db_host": "prod-db.company.com",
-    "db_port": "5432", 
-    "db_username": "app_user",
-    "db_password": "secure_password_123",
-    "api_key": "sk-1234567890abcdef"
-  },
-  "email": "devops@company.com",
-  "commitMessage": "Initial database and API configuration setup"
+  "database.password": "new_secure_password",
+  "api.token": "updated_token_123",
+  "new.secret": "brand_new_value"
 }
 ```
-
-**Request Fields:**
-- `secrets` (object, required): Map of secret keys to their plain text values
-- `email` (string, required): Email address for Git commit attribution  
-- `commitMessage` (string, required): Git commit message for all secrets
 
 **Response Model:**
 ```json
 {
-  "message": "Bulk secrets stored successfully",
-  "namespace": "production", 
-  "count": 5,
-  "keys": ["db_host", "db_port", "db_username", "db_password", "api_key"],
-  "commitId": "bulk456def789abc",
-  "status": "created"
+  "message": "Vault updated successfully",
+  "namespace": "production",
+  "secretsUpdated": 2,
+  "secretsAdded": 1,
+  "commitId": "abc123def456789"
 }
 ```
 
 **Status Codes:**
-- `201` - Bulk secrets stored successfully
-- `400` - Invalid request or exceeds batch size limits (max 100 secrets)
+- `200` - Vault updated successfully
+- `400` - Invalid request parameters (missing email/commitMessage)
 - `404` - Namespace not found
 - `500` - Internal server error
 
 ---
 
-### 3.3 Get Secret
+### 3.3 Get Vault History
 
-**Endpoint:** `POST /api/vault/{namespace}/secrets/get/{key}`
+**Endpoint:** `GET /api/vault/{namespace}/history`
 
-Retrieve a decrypted secret value from the vault.
-
-**URL Parameters:**
-- `namespace` (string, required): Source namespace
-- `key` (string, required): Secret identifier
-
-**Request Model:**
-```json
-{}
-```
-
-**Response Model:
-```json
-{
-  "namespace": "production",
-  "key": "db_password", 
-  "value": "super_secure_password_123",
-  "lastModified": "2024-01-15T10:30:00Z",
-  "author": "admin@company.com"
-}
-```
-
-**Status Codes:**
-- `200` - Secret retrieved successfully
-- `400` - Invalid request parameters
-- `404` - Secret or namespace not found
-- `500` - Internal server error
-
----
-
-### 3.4 Get All Secrets
-
-**Endpoint:** `POST /api/vault/{namespace}/secrets/list`
-
-Retrieve all decrypted secrets from the namespace vault. Use with caution.
-
-**Request Model:**
-```json
-{}
-```
-
-**Response Model:
-```json
-{
-  "namespace": "production",
-  "secrets": {
-    "db_password": "super_secure_password_123",
-    "api_key": "sk-1234567890abcdef", 
-    "jwt_secret": "my-jwt-signing-secret"
-  },
-  "count": 3,
-  "lastModified": "2024-01-15T14:30:00Z"
-}
-```
-
-**Status Codes:**
-- `200` - All secrets retrieved successfully
-- `400` - Invalid request parameters
-- `404` - Namespace not found
-- `500` - Internal server error
-
----
-
-### 3.5 Update Secret
-
-**Endpoint:** `PUT /api/vault/{namespace}/secrets/{key}`
-
-Update an existing encrypted secret in the vault.
+Retrieve the Git commit history of vault changes for audit purposes.
 
 **URL Parameters:**
 - `namespace` (string, required): Target namespace
-- `key` (string, required): Secret identifier to update
-
-**Request Model:**
-```json
-{
-  "key": "db_password",
-  "value": "new_super_secure_password_456", 
-  "email": "admin@company.com",
-  "commitMessage": "Update database password for security rotation"
-}
-```
 
 **Response Model:**
 ```json
 {
-  "message": "Secret updated successfully",
   "namespace": "production",
-  "key": "db_password",
-  "previousCommitId": "old123abc456def",
-  "commitId": "new789def012abc", 
-  "status": "updated"
-}
-```
-
-**Status Codes:**
-- `200` - Secret updated successfully
-- `400` - Invalid request parameters
-- `404` - Secret or namespace not found
-- `500` - Internal server error
-
----
-
-### 3.6 Delete Secret
-
-**Endpoint:** `DELETE /api/vault/{namespace}/secrets/{key}`
-
-Delete a secret from the vault permanently.
-
-**URL Parameters:**
-- `namespace` (string, required): Target namespace
-- `key` (string, required): Secret identifier to delete
-
-**Request Model:**
-```json
-{
-  "email": "admin@company.com",
-  "commitMessage": "Remove deprecated API key"
-}
-```
-
-**Response Model:**
-```json
-{
-  "message": "Secret deleted successfully",
-  "namespace": "production", 
-  "key": "old_api_key",
-  "commitId": "del456abc789def",
-  "status": "deleted"
-}
-```
-
-**Status Codes:**
-- `200` - Secret deleted successfully
-- `400` - Invalid request parameters
-- `404` - Secret or namespace not found  
-- `500` - Internal server error
-
----
-
-### 3.7 Check Secret Exists
-
-**Endpoint:** `POST /api/vault/{namespace}/secrets/exists/{key}`
-
-Check if a specific secret exists in the vault without retrieving its value.
-
-**URL Parameters:**
-- `namespace` (string, required): Target namespace
-- `key` (string, required): Secret identifier to check
-
-**Request Model:**
-```json
-{}
-```
-
-**Response Model:
-```json
-{
-  "namespace": "production",
-  "key": "db_password",
-  "exists": true
-}
-```
-
-**Status Codes:**
-- `200` - Secret existence check completed
-- `400` - Invalid request parameters
-- `500` - Internal server error
-
----
-
-### 3.8 Get Vault History
-
-**Endpoint:** `POST /api/vault/{namespace}/secrets/history`
-
-Retrieve the Git commit history of vault changes for audit and compliance purposes.
-
-**URL Parameters:**
-- `namespace` (string, required): Target namespace
-
-**Request Model:**
-```json
-{}
-```
-
-**Response Model:
-```json
-{
-  "namespace": "production",
-  "vaultFile": ".vault-secrets.json",
+  "vaultFile": ".vault/production-vault.json",
   "commits": [
     {
-      "commitId": "latest123abc456def",
-      "author": "admin@company.com", 
-      "email": "admin@company.com",
+      "commitId": "abc123def456789",
+      "author": "admin@company.com",
       "date": "2024-01-15T14:30:00Z",
-      "commitMessage": "Update database password for security rotation"
-    },
-    {
-      "commitId": "prev456def789abc",
-      "author": "devops@company.com",
-      "email": "devops@company.com", 
-      "date": "2024-01-10T09:15:00Z",
-      "commitMessage": "Initial database configuration setup"
+      "commitMessage": "Update database secrets"
     }
   ],
-  "totalCommits": 2
+  "totalCommits": 1
 }
 ```
 
 **Status Codes:**
 - `200` - Vault history retrieved successfully
-- `400` - Invalid request parameters
 - `404` - Namespace not found
 - `500` - Internal server error
+
+---
+
+## 4. YAML-Vault Integration
+
+🆕 **Smart Secret Processing**: The system now automatically integrates vault secrets with YAML configuration files using dynamic replacement.
+
+### How It Works
+
+1. **Configuration Files**: Store your YAML configs with vault key references:
+   ```yaml
+   server:
+     port: 8080
+   
+   database:
+     password: database.password  # This key exists in vault
+     host: database.host         # This key exists in vault
+   
+   regular:
+     setting: "normal value"     # Regular config value
+   ```
+
+2. **Management UI Response**: When fetched via management APIs, vault keys are replaced with placeholders:
+   ```yaml
+   server:
+     port: 8080
+   
+   database:
+     password: <ENCRYPTED_VALUE>
+     host: <ENCRYPTED_VALUE>
+   
+   regular:
+     setting: "normal value"
+   ```
+
+3. **Client Application Response**: When fetched via Spring Cloud Config, vault keys are replaced with actual decrypted values:
+   ```yaml
+   server:
+     port: 8080
+   
+   database:
+     password: "actual_secret_password_123"
+     host: "prod-db.company.com"
+   
+   regular:
+     setting: "normal value"
+   ```
+
+### Secret Key Detection
+
+The system automatically detects vault keys in YAML files using pattern matching for:
+- Keys containing: `password`, `secret`, `key`, `token`, `credential`, `auth`
+- API keys: `api_key`, `api-key`, `apikey`
+- Private keys: `private_key`, `private-key`
+- Access keys: `access_key`, `access-key`
+
+### Spring Cloud Config Integration
+
+**Endpoint Format**: `GET /{application}/{profile}/{label}`
+- `application`: Your app name
+- `profile`: Environment profile (default, dev, prod, etc.)
+- `label`: Namespace (defaults to `main` if not specified)
+
+**Example**:
+```bash
+# Get config for 'api' application, 'default' profile, 'production' namespace
+GET /config-server/api/default/production
+```
 
 ---
 
 ## Cache Management
 
 The application automatically preloads namespaces and directory listings on startup for better performance.
+
+---
+
+## 5. Recent Changes & Migration Notes
+
+### 🔄 Vault System Simplification (v2.0)
+
+**What Changed:**
+- Reduced from 8+ complex vault endpoints to just 3 core methods
+- Removed individual secret operations (create/update/delete single keys)
+- Implemented merge-based updates for better UX
+- Changed vault storage from `.vault-secrets.json` to `.vault/{namespace}-vault.json`
+
+**Migration Guide:**
+- Old bulk operations → Use new `PUT /api/vault/{namespace}` with merge behavior
+- Old individual secret gets → Use `GET /api/vault/{namespace}` and extract needed keys
+- Old vault history → Use new `GET /api/vault/{namespace}/history`
+
+### 🔄 Namespace Changes (v2.0)
+
+**What Changed:**
+- Default namespace changed from `default` to `main` for Spring Cloud Config
+- `default` is now a reserved namespace name
+- Spring Cloud Config URLs now default to `main` namespace when no label provided
+
+**Migration Impact:**
+- **🔴 BREAKING**: Existing Spring Boot applications using default config server will now fetch from `main` namespace instead of `default`
+- **Action Required**: Create a `main` namespace and migrate configs from `default` namespace if needed
+- **Alternative**: Update client applications to specify label explicitly if using other namespaces
+
+**Client Configuration Updates:**
+```yaml
+# Before (implicit default namespace)
+spring:
+  cloud:
+    config:
+      uri: http://config-server:8080/config-server
+
+# After - Option 1: Use main namespace (recommended)
+spring:
+  cloud:
+    config:
+      uri: http://config-server:8080/config-server
+      label: main
+
+# After - Option 2: Explicitly specify your namespace
+spring:
+  cloud:
+    config:
+      uri: http://config-server:8080/config-server  
+      label: production  # or your specific namespace
+```
+
+### 🔄 YAML-Vault Integration (v2.0)
+
+**New Feature:**
+- Automatic vault key detection and replacement in YAML files
+- Different processing for management UI (`<ENCRYPTED_VALUE>`) vs client apps (actual secrets)
+- Pattern-based secret key detection (password, secret, key, token, etc.)
+
+---
 
 ## Configuration
 
@@ -803,6 +743,9 @@ The application automatically preloads namespaces and directory listings on star
 | `SERVER_SERVLET_CONTEXT_PATH` | Application context path | `/config-server` |
 | `CONFIG_BASE_PATH` | Base directory for namespace repositories | `/config/` |
 | `CONFIG_COMMIT_HISTORY_SIZE` | Maximum commits returned in history API | `10` |
+| `VAULT_ENABLED` | Enable vault functionality | `true` |
+| `VAULT_CACHE_TTL` | Vault cache time-to-live in seconds | `600` |
+| `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation | `100` |
 
 ## Docker
 

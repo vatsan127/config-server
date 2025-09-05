@@ -2,19 +2,6 @@
 
 A Git-based Configuration Management Server with multi-namespace support for application configuration files.
 
-## 🚨 BREAKING CHANGES NOTICE (v2.0)
-
-**⚠️ Default Namespace Changed**: The default namespace has been changed from `default` to `main`. 
-**⚠️ Vault API Simplified**: The vault system has been redesigned from 8+ endpoints to just 3 core methods.
-
-**📋 Migration Checklist for Existing Users:**
-- [ ] Create `main` namespace: `POST /namespace/create {"namespace": "main"}`
-- [ ] Migrate configs from `default` to `main` namespace (if applicable)
-- [ ] Update client apps using old vault endpoints to new simplified API
-- [ ] Test Spring Cloud Config integration with new default namespace
-
-**📖 See [Recent Changes & Migration Notes](#5-recent-changes--migration-notes) for detailed migration guide.**
-
 ---
 
 ## 🏗️ Architecture
@@ -22,6 +9,7 @@ A Git-based Configuration Management Server with multi-namespace support for app
 The application follows a clean, layered architecture with well-defined service boundaries:
 
 ### Service Layer Structure
+
 ```
 service/
 ├── cache/           # Cache management operations
@@ -43,8 +31,9 @@ service/
 ```
 
 ### Key Features
+
 - **Multi-namespace isolation** - Each namespace has its own Git repository
-- **Version control** - Full Git history for all configuration changes  
+- **Version control** - Full Git history for all configuration changes
 - **Optimistic locking** - Prevents concurrent update conflicts
 - **Intelligent caching** - Automatic cache preloading for performance
 - **Input validation** - Comprehensive security and format validation
@@ -54,8 +43,9 @@ service/
 - **Smart Secret Processing** - Different views for management UI vs client applications
 
 ### Technical Highlights
+
 - **Modern Java 21** - Proper sealed interfaces with non-sealed implementations for Spring compatibility
-- **Clean Architecture** - SOLID principles with clear separation of concerns  
+- **Clean Architecture** - SOLID principles with clear separation of concerns
 - **Interface-based Design** - All services follow contract-first approach with sealed contracts
 - **Spring Boot 3.5.5** - Latest Spring ecosystem with enhanced performance
 - **Caffeine Caching** - High-performance caching with intelligent eviction
@@ -64,7 +54,8 @@ service/
 
 ## 📖 API Documentation
 
-This section provides complete REST API documentation with request/response examples and parameter descriptions for all endpoints.
+This section provides complete REST API documentation with request/response examples and parameter descriptions for all
+endpoints.
 
 ## 🚀 Getting Started
 
@@ -84,10 +75,12 @@ This section provides complete REST API documentation with request/response exam
 
 4. **Create your first configuration file** using the API endpoints below.
 
-⚠️ **BREAKING CHANGE**: The default namespace for Spring Cloud Config has been changed from `default` to `main` to avoid conflicts with reserved namespace names. 
+⚠️ **BREAKING CHANGE**: The default namespace for Spring Cloud Config has been changed from `default` to `main` to avoid
+conflicts with reserved namespace names.
 
 🚨 **Action Required for Existing Users**: If you have existing configurations in a `default` namespace, you must either:
-1. Create a `main` namespace and migrate your configs, OR  
+
+1. Create a `main` namespace and migrate your configs, OR
 2. Update your Spring Boot applications to explicitly specify the namespace using the `label` parameter
 
 ---
@@ -95,6 +88,7 @@ This section provides complete REST API documentation with request/response exam
 # API Endpoints
 
 ## 1. Configuration Management API
+
 **Base URL:** `/config`
 
 Manages application configuration files with Git version control and namespace isolation.
@@ -106,17 +100,19 @@ Manages application configuration files with Git version control and namespace i
 Creates a new configuration file with default YAML template and commits it to Git.
 
 **Request Model:**
+
 ```json
 {
   "action": "create",
   "appName": "user-service",
-  "namespace": "production", 
+  "namespace": "production",
   "path": "/",
   "email": "developer@company.com"
 }
 ```
 
 **Request Fields:**
+
 - `action` (string, required): Must be "create"
 - `appName` (string, required): Application name (alphanumeric, dash, underscore only)
 - `namespace` (string, required): Target namespace (must exist)
@@ -124,6 +120,7 @@ Creates a new configuration file with default YAML template and commits it to Gi
 - `email` (string, required): Email for Git commit attribution
 
 **Response Model:**
+
 ```json
 {
   "message": "Configuration file has been created successfully",
@@ -134,6 +131,7 @@ Creates a new configuration file with default YAML template and commits it to Gi
 ```
 
 **Status Codes:**
+
 - `201` - Configuration file created successfully
 - `400` - Invalid request parameters
 - `404` - Namespace not found
@@ -149,6 +147,7 @@ Creates a new configuration file with default YAML template and commits it to Gi
 Retrieves the current content of a configuration file.
 
 **Request Model:**
+
 ```json
 {
   "action": "fetch",
@@ -160,6 +159,7 @@ Retrieves the current content of a configuration file.
 ```
 
 **Request Fields:**
+
 - `action` (string, required): Must be "fetch"
 - `appName` (string, required): Application name
 - `namespace` (string, required): Source namespace
@@ -167,10 +167,11 @@ Retrieves the current content of a configuration file.
 - `email` (string, required): Email for audit trail
 
 **Response Model:**
+
 ```json
 {
   "action": "fetch",
-  "appName": "user-service", 
+  "appName": "user-service",
   "namespace": "production",
   "path": "/",
   "content": "server:\n  port: 8080\n\nspring:\n  application:\n    name: user-service\n\ndatabase:\n  host: ${vault:db_host}\n  password: ${vault:db_password}",
@@ -181,6 +182,7 @@ Retrieves the current content of a configuration file.
 ```
 
 **Status Codes:**
+
 - `200` - Configuration file retrieved successfully
 - `400` - Invalid request parameters
 - `404` - Configuration file or namespace not found
@@ -195,11 +197,12 @@ Retrieves the current content of a configuration file.
 Updates an existing configuration file with new content and commits changes to Git.
 
 **Request Model:**
+
 ```json
 {
   "action": "update",
   "appName": "user-service",
-  "namespace": "production", 
+  "namespace": "production",
   "path": "/",
   "content": "server:\n  port: 8081\n\nspring:\n  application:\n    name: user-service\n\ndatabase:\n  host: ${vault:db_host}\n  password: ${vault:db_password}",
   "message": "Update server port to 8081",
@@ -209,6 +212,7 @@ Updates an existing configuration file with new content and commits changes to G
 ```
 
 **Request Fields:**
+
 - `action` (string, required): Must be "update"
 - `appName` (string, required): Application name
 - `namespace` (string, required): Target namespace
@@ -219,6 +223,7 @@ Updates an existing configuration file with new content and commits changes to G
 - `commitId` (string, optional): Current commit ID for optimistic locking
 
 **Response Model:**
+
 ```json
 {
   "message": "Configuration file has been updated successfully",
@@ -230,6 +235,7 @@ Updates an existing configuration file with new content and commits changes to G
 ```
 
 **Status Codes:**
+
 - `200` - Configuration updated successfully
 - `400` - Invalid request or YAML content
 - `404` - Configuration file not found
@@ -245,6 +251,7 @@ Updates an existing configuration file with new content and commits changes to G
 Retrieves the commit history for a specific configuration file.
 
 **Request Model:**
+
 ```json
 {
   "action": "history",
@@ -256,6 +263,7 @@ Retrieves the commit history for a specific configuration file.
 ```
 
 **Response Model:**
+
 ```json
 {
   "filePath": "production/user-service.yml",
@@ -267,7 +275,7 @@ Retrieves the commit history for a specific configuration file.
       "message": "Update server port to 8081"
     },
     {
-      "commitId": "abc123def456789", 
+      "commitId": "abc123def456789",
       "author": "admin@company.com",
       "date": "2024-01-15T10:30:00Z",
       "message": "Initial configuration"
@@ -278,6 +286,7 @@ Retrieves the commit history for a specific configuration file.
 ```
 
 **Status Codes:**
+
 - `200` - History retrieved successfully
 - `400` - Invalid request parameters
 - `404` - Configuration file not found
@@ -292,6 +301,7 @@ Retrieves the commit history for a specific configuration file.
 Retrieves detailed changes for a specific commit ID including diff information.
 
 **Request Model:**
+
 ```json
 {
   "action": "changes",
@@ -304,6 +314,7 @@ Retrieves detailed changes for a specific commit ID including diff information.
 ```
 
 **Response Model:**
+
 ```json
 {
   "commitId": "def456abc789012",
@@ -315,6 +326,7 @@ Retrieves detailed changes for a specific commit ID including diff information.
 ```
 
 **Status Codes:**
+
 - `200` - Commit changes retrieved successfully
 - `400` - Invalid commit ID
 - `404` - Commit not found
@@ -329,6 +341,7 @@ Retrieves detailed changes for a specific commit ID including diff information.
 Deletes an existing configuration file and commits the change to Git.
 
 **Request Model:**
+
 ```json
 {
   "action": "delete",
@@ -341,6 +354,7 @@ Deletes an existing configuration file and commits the change to Git.
 ```
 
 **Response Model:**
+
 ```json
 {
   "message": "Configuration file has been deleted successfully",
@@ -351,6 +365,7 @@ Deletes an existing configuration file and commits the change to Git.
 ```
 
 **Status Codes:**
+
 - `200` - Configuration file deleted successfully
 - `400` - Invalid request parameters
 - `404` - Configuration file not found
@@ -359,6 +374,7 @@ Deletes an existing configuration file and commits the change to Git.
 ---
 
 ## 2. Namespace Management API
+
 **Base URL:** `/namespace`
 
 Manages configuration namespaces and directory operations with complete isolation.
@@ -370,6 +386,7 @@ Manages configuration namespaces and directory operations with complete isolatio
 Creates a new namespace directory with Git initialization for configuration isolation.
 
 **Request Model:**
+
 ```json
 {
   "namespace": "production"
@@ -377,9 +394,11 @@ Creates a new namespace directory with Git initialization for configuration isol
 ```
 
 **Request Fields:**
+
 - `namespace` (string, required): Namespace name (alphanumeric, dash, underscore only)
 
 **Response Model:**
+
 ```json
 {
   "message": "Namespace has been created successfully and is ready for configuration files",
@@ -391,12 +410,14 @@ Creates a new namespace directory with Git initialization for configuration isol
 ```
 
 **Status Codes:**
+
 - `201` - Namespace created successfully
 - `400` - Invalid namespace name (reserved names: system, admin, dashboard, default, log, root)
 - `409` - Namespace already exists
 - `500` - Internal server error
 
-⚠️ **Important**: The `default` namespace is reserved. Spring Cloud Config now uses `main` as the default namespace when no label is specified.
+⚠️ **Important**: The `default` namespace is reserved. Spring Cloud Config now uses `main` as the default namespace when
+no label is specified.
 
 ---
 
@@ -407,15 +428,17 @@ Creates a new namespace directory with Git initialization for configuration isol
 Retrieves a list of all available namespaces in the configuration server.
 
 **Request Model:**
+
 ```json
 {}
 ```
 
 **Response Model:**
+
 ```json
 [
   "production",
-  "staging", 
+  "staging",
   "development",
   "test",
   "integration"
@@ -423,6 +446,7 @@ Retrieves a list of all available namespaces in the configuration server.
 ```
 
 **Status Codes:**
+
 - `200` - Namespaces retrieved successfully
 - `500` - Internal server error
 
@@ -435,6 +459,7 @@ Retrieves a list of all available namespaces in the configuration server.
 Retrieves the list of .yml files and subdirectories within a specified directory path in a namespace.
 
 **Request Model:**
+
 ```json
 {
   "namespace": "production",
@@ -443,14 +468,16 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 ```
 
 **Request Fields:**
+
 - `namespace` (string, required): Target namespace
 - `path` (string, required): Directory path to list (e.g., "/", "/services", "/config")
 
 **Response Model:**
+
 ```json
 [
   "user-service",
-  "payment-service", 
+  "payment-service",
   "api-gateway",
   "services/",
   "config/"
@@ -458,6 +485,7 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 ```
 
 **Status Codes:**
+
 - `200` - Directory contents retrieved successfully
 - `400` - Invalid request parameters
 - `404` - Namespace or directory not found
@@ -472,6 +500,7 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 Deletes an existing namespace directory and all its contents permanently.
 
 **Request Model:**
+
 ```json
 {
   "namespace": "old-environment"
@@ -479,6 +508,7 @@ Deletes an existing namespace directory and all its contents permanently.
 ```
 
 **Response Model:**
+
 ```json
 {
   "message": "Namespace has been deleted successfully"
@@ -486,6 +516,7 @@ Deletes an existing namespace directory and all its contents permanently.
 ```
 
 **Status Codes:**
+
 - `200` - Namespace deleted successfully
 - `400` - Invalid namespace name or reserved namespace
 - `404` - Namespace not found
@@ -494,22 +525,30 @@ Deletes an existing namespace directory and all its contents permanently.
 ---
 
 ## 3. Vault Management API (Simplified)
-**Base URL:** `/api/vault/{namespace}`
 
-🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
+**Base URL:** `/api/vault`
+
+🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets
+are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
+
+🔒 **Enhanced Security**: All vault endpoints use POST requests for better security - sensitive data is sent in encrypted request bodies instead of URLs, preventing leakage in server logs and browser history.
 
 ### 3.1 Get Vault Secrets
 
-**Endpoint:** `GET /api/vault/{namespace}`
+**Endpoint:** `POST /api/vault/get`
 
 Retrieve all decrypted secrets from the namespace vault.
 
-**URL Parameters:**
-- `namespace` (string, required): Source namespace for the vault
+**Request Model:**
 
-**Request:** No request body required
+```json
+{
+  "namespace": "production"
+}
+```
 
 **Response Model:**
+
 ```json
 {
   "database.password": "mysecret123",
@@ -519,26 +558,26 @@ Retrieve all decrypted secrets from the namespace vault.
 ```
 
 **Status Codes:**
+
 - `200` - Vault retrieved successfully (returns `{}` if no secrets exist)
 - `404` - Namespace not found
 - `500` - Internal server error
 
 ---
 
-### 3.2 Update Vault Secrets (Merge-based)
+### 3.2 Update Vault Secrets (Complete Replacement)
 
-**Endpoint:** `PUT /api/vault/{namespace}?email={email}&commitMessage={message}`
+**Endpoint:** `POST /api/vault/update`
 
-Update vault secrets using merge-based approach. New secrets are added, existing ones are updated.
-
-**URL Parameters:**
-- `namespace` (string, required): Target namespace for the vault
-- `email` (string, required): Email address for Git commit attribution
-- `commitMessage` (string, required): Git commit message
+Update vault secrets using complete replacement approach. All existing secrets are replaced with the provided ones.
 
 **Request Model:**
+
 ```json
 {
+  "namespace": "production",
+  "email": "user@example.com",
+  "commitMessage": "Update vault secrets",
   "database.password": "new_secure_password",
   "api.token": "updated_token_123",
   "new.secret": "brand_new_value"
@@ -546,17 +585,17 @@ Update vault secrets using merge-based approach. New secrets are added, existing
 ```
 
 **Response Model:**
+
 ```json
 {
   "message": "Vault updated successfully",
   "namespace": "production",
-  "secretsUpdated": 2,
-  "secretsAdded": 1,
-  "commitId": "abc123def456789"
+  "count": 3
 }
 ```
 
 **Status Codes:**
+
 - `200` - Vault updated successfully
 - `400` - Invalid request parameters (missing email/commitMessage)
 - `404` - Namespace not found
@@ -566,14 +605,20 @@ Update vault secrets using merge-based approach. New secrets are added, existing
 
 ### 3.3 Get Vault History
 
-**Endpoint:** `GET /api/vault/{namespace}/history`
+**Endpoint:** `POST /api/vault/history`
 
 Retrieve the Git commit history of vault changes for audit purposes.
 
-**URL Parameters:**
-- `namespace` (string, required): Target namespace
+**Request Model:**
+
+```json
+{
+  "namespace": "production"
+}
+```
 
 **Response Model:**
+
 ```json
 {
   "namespace": "production",
@@ -591,6 +636,7 @@ Retrieve the Git commit history of vault changes for audit purposes.
 ```
 
 **Status Codes:**
+
 - `200` - Vault history retrieved successfully
 - `404` - Namespace not found
 - `500` - Internal server error
@@ -599,7 +645,8 @@ Retrieve the Git commit history of vault changes for audit purposes.
 
 ## 4. YAML-Vault Integration
 
-🆕 **Smart Secret Processing**: The system now automatically integrates vault secrets with YAML configuration files using dynamic replacement.
+🆕 **Smart Secret Processing**: The system now automatically integrates vault secrets with YAML configuration files using
+dynamic replacement.
 
 ### How It Works
 
@@ -629,7 +676,8 @@ Retrieve the Git commit history of vault changes for audit purposes.
      setting: "normal value"
    ```
 
-3. **Client Application Response**: When fetched via Spring Cloud Config, vault keys are replaced with actual decrypted values:
+3. **Client Application Response**: When fetched via Spring Cloud Config, vault keys are replaced with actual decrypted
+   values:
    ```yaml
    server:
      port: 8080
@@ -645,6 +693,7 @@ Retrieve the Git commit history of vault changes for audit purposes.
 ### Secret Key Detection
 
 The system automatically detects vault keys in YAML files using pattern matching for:
+
 - Keys containing: `password`, `secret`, `key`, `token`, `credential`, `auth`
 - API keys: `api_key`, `api-key`, `apikey`
 - Private keys: `private_key`, `private-key`
@@ -653,11 +702,13 @@ The system automatically detects vault keys in YAML files using pattern matching
 ### Spring Cloud Config Integration
 
 **Endpoint Format**: `GET /{application}/{profile}/{label}`
+
 - `application`: Your app name
 - `profile`: Environment profile (default, dev, prod, etc.)
 - `label`: Namespace (defaults to `main` if not specified)
 
 **Example**:
+
 ```bash
 # Get config for 'api' application, 'default' profile, 'production' namespace
 GET /config-server/api/default/production
@@ -676,29 +727,35 @@ The application automatically preloads namespaces and directory listings on star
 ### 🔄 Vault System Simplification (v2.0)
 
 **What Changed:**
+
 - Reduced from 8+ complex vault endpoints to just 3 core methods
 - Removed individual secret operations (create/update/delete single keys)
-- Implemented merge-based updates for better UX
+- Implemented complete replacement updates for better data consistency
 - Changed vault storage from `.vault-secrets.json` to `.vault/{namespace}-vault.json`
 
 **Migration Guide:**
-- Old bulk operations → Use new `PUT /api/vault/{namespace}` with merge behavior
-- Old individual secret gets → Use `GET /api/vault/{namespace}` and extract needed keys
-- Old vault history → Use new `GET /api/vault/{namespace}/history`
+
+- Old bulk operations → Use new `POST /api/vault/update` with complete replacement
+- Old individual secret gets → Use `POST /api/vault/get` and extract needed keys
+- Old vault history → Use new `POST /api/vault/history`
 
 ### 🔄 Namespace Changes (v2.0)
 
 **What Changed:**
+
 - Default namespace changed from `default` to `main` for Spring Cloud Config
 - `default` is now a reserved namespace name
 - Spring Cloud Config URLs now default to `main` namespace when no label provided
 
 **Migration Impact:**
-- **🔴 BREAKING**: Existing Spring Boot applications using default config server will now fetch from `main` namespace instead of `default`
+
+- **🔴 BREAKING**: Existing Spring Boot applications using default config server will now fetch from `main` namespace
+  instead of `default`
 - **Action Required**: Create a `main` namespace and migrate configs from `default` namespace if needed
 - **Alternative**: Update client applications to specify label explicitly if using other namespaces
 
 **Client Configuration Updates:**
+
 ```yaml
 # Before (implicit default namespace)
 spring:
@@ -717,13 +774,14 @@ spring:
 spring:
   cloud:
     config:
-      uri: http://config-server:8080/config-server  
+      uri: http://config-server:8080/config-server
       label: production  # or your specific namespace
 ```
 
 ### 🔄 YAML-Vault Integration (v2.0)
 
 **New Feature:**
+
 - Automatic vault key detection and replacement in YAML files
 - Different processing for management UI (`<ENCRYPTED_VALUE>`) vs client apps (actual secrets)
 - Pattern-based secret key detection (password, secret, key, token, etc.)
@@ -734,15 +792,15 @@ spring:
 
 ### Environment Variables
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `SERVER_PORT` | HTTP server port | `8080` |
-| `SERVER_SERVLET_CONTEXT_PATH` | Application context path | `/config-server` |
-| `CONFIG_BASE_PATH` | Base directory for namespace repositories | `/config/` |
-| `CONFIG_COMMIT_HISTORY_SIZE` | Maximum commits returned in history API | `10` |
-| `VAULT_ENABLED` | Enable vault functionality | `true` |
-| `VAULT_CACHE_TTL` | Vault cache time-to-live in seconds | `600` |
-| `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation | `100` |
+| Variable                          | Description                               | Default Value    |
+|-----------------------------------|-------------------------------------------|------------------|
+| `SERVER_PORT`                     | HTTP server port                          | `8080`           |
+| `SERVER_SERVLET_CONTEXT_PATH`     | Application context path                  | `/config-server` |
+| `CONFIG_BASE_PATH`                | Base directory for namespace repositories | `/config/`       |
+| `CONFIG_COMMIT_HISTORY_SIZE`      | Maximum commits returned in history API   | `10`             |
+| `VAULT_ENABLED`                   | Enable vault functionality                | `true`           |
+| `VAULT_CACHE_TTL`                 | Vault cache time-to-live in seconds       | `600`            |
+| `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation        | `100`            |
 
 ## Docker
 

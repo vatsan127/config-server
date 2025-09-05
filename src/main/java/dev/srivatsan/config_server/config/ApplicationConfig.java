@@ -18,6 +18,7 @@ public class ApplicationConfig {
     private String basePath;
     private List<String> refreshNotifyUrl;
     private VaultConfig vault = new VaultConfig();
+    private RefreshApiConfig refreshApi = new RefreshApiConfig();
 
     @PostConstruct
     public void init() {
@@ -29,5 +30,11 @@ public class ApplicationConfig {
         private boolean enabled = true;
         private long cacheTtl = 600; // 10 minutes in seconds
         private int maxSecretsPerOperation = 100;
+    }
+
+    @Data
+    public static class RefreshApiConfig {
+        private int maxRetries = 3;
+        private long retryIntervalMs = 1000; // 1 second
     }
 }

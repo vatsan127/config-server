@@ -80,6 +80,17 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             // Initialize encryption key for the namespace
             encryptionService.initializeNamespaceKey(namespace);
             
+            // Create vault directory for secrets management
+            File vaultDir = new File(namespaceDir, ".vault");
+            if (!vaultDir.exists()) {
+                boolean vaultCreated = vaultDir.mkdirs();
+                if (vaultCreated) {
+                    log.info("Created vault directory for namespace '{}': {}", namespace, vaultDir.getAbsolutePath());
+                } else {
+                    log.warn("Failed to create vault directory for namespace '{}': {}", namespace, vaultDir.getAbsolutePath());
+                }
+            }
+            
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
 
             // Clear namespace list cache and directory listings

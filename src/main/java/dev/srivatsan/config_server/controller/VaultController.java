@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/vault/{namespace}")
+@RequestMapping("/api/vault")
 public class VaultController implements VaultAPI {
 
     private static final Logger log = LoggerFactory.getLogger(VaultController.class);
@@ -24,7 +24,12 @@ public class VaultController implements VaultAPI {
     }
 
     @Override
-    public ResponseEntity<Map<String, Object>> getVault(@PathVariable String namespace) {
+    public ResponseEntity<Map<String, Object>> getVault(@RequestBody Map<String, String> request) {
+        String namespace = request.get("namespace");
+        if (namespace == null || namespace.trim().isEmpty()) {
+            throw new IllegalArgumentException("Namespace is required");
+        }
+        
         Map<String, String> secrets = gitVaultService.getVault(namespace);
         return ResponseEntity.ok(Map.of(
             "namespace", namespace,
@@ -34,37 +39,41 @@ public class VaultController implements VaultAPI {
     }
 
     @Override
-    public ResponseEntity<Map<String, Object>> updateVault(@PathVariable String namespace, @RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, Object>> updateVault(@RequestBody Map<String, String> request) {
+        Map<String, String> requestData = new HashMap<>(request);
+        String namespace = requestData.remove("namespace");
+        String email = requestData.remove("email");
+        String commitMessage = requestData.remove("commitMessage");
         
-        // Extract secrets, email, and commitMessage from request
-        Map<String, String> secrets = new HashMap<>(request);
-        String email = secrets.remove("email");
-        String commitMessage = secrets.remove("commitMessage");
+        if (namespace == null || namespace.trim().isEmpty()) {
+            throw new IllegalArgumentException("Namespace is required");
+        }
         
         if (email == null || email.trim().isEmpty()) {
             throw new IllegalArgumentException("Email is required");
         }
+
         if (commitMessage == null || commitMessage.trim().isEmpty()) {
             throw new IllegalArgumentException("Commit message is required");
         }
-        
-        log.info("Updating vault with {} secrets in namespace '{}'", secrets.size(), namespace);
-        
-        gitVaultService.updateVault(namespace, secrets, email, commitMessage);
-        
+
+        // Remaining entries are the secrets
+        gitVaultService.updateVault(namespace, requestData, email, commitMessage);
         return ResponseEntity.ok(Map.of(
             "message", "Vault updated successfully",
             "namespace", namespace,
-            "count", secrets.size()
+            "count", requestData.size()
         ));
     }
 
     @Override
-    public ResponseEntity<Map<String, Object>> getVaultHistory(@PathVariable String namespace) {
-        log.info("Getting vault history for namespace '{}'", namespace);
+    public ResponseEntity<Map<String, Object>> getVaultHistory(@RequestBody Map<String, String> request) {
+        String namespace = request.get("namespace");
+        if (namespace == null || namespace.trim().isEmpty()) {
+            throw new IllegalArgumentException("Namespace is required");
+        }
         
         Map<String, Object> history = gitVaultService.getVaultHistory(namespace);
-        
         return ResponseEntity.ok(history);
     }
 }

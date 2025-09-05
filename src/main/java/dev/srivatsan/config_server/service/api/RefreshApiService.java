@@ -38,19 +38,37 @@ public class RefreshApiService {
     }
 
     private void sendRefreshRequest(String url, String payload) {
-        try { // ToDo: Add retry functionality with interval. use both values from configuration file
-            log.info("sendRefreshNotifications :: URL - '{}', payload - '{}'", url, payload);
-            String response = restClient
-                    .post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(String.class);
-            log.debug("sendRefreshNotifications :: response - '{}'", response);
-        } catch (Exception e) {
-            log.error("Error While Sending API Request to URL - '{}', payload - '{}'. Error -> ", url, payload, e);
+        int maxRetries = applicationConfig.getRefreshApi().getMaxRetries();
+        long retryInterval = applicationConfig.getRefreshApi().getRetryIntervalMs();
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("sendRefreshNotifications :: Attempt {}/{} - URL: '{}', payload: '{}'", attempt, maxRetries, url, payload);
+                String response = restClient
+                        .post()
+                        .uri(url)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(payload)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(String.class);
+                log.debug("sendRefreshNotifications :: response - '{}'", response);
+                log.info("Successfully sent refresh notification to '{}' on attempt {}", url, attempt);
+                return; // Success, exit retry loop
+            } catch (Exception e) {
+                if (attempt == maxRetries) {
+                    log.error("Failed to send API request to URL '{}' after {} attempts. Final error: ", url, maxRetries, e);
+                } else {
+                    log.warn("Attempt {}/{} failed for URL '{}', retrying in {}ms. Error: {}", attempt, maxRetries, url, retryInterval, e.getMessage());
+                    try {
+                        Thread.sleep(retryInterval);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("Retry interrupted for URL '{}'", url);
+                        return;
+                    }
+                }
+            }
         }
     }
 }

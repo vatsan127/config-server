@@ -4,6 +4,7 @@ import dev.srivatsan.config_server.service.vault.GitVaultService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 import java.util.*;
@@ -26,7 +27,15 @@ public class SecretProcessorImpl implements SecretProcessor {
 
     public SecretProcessorImpl(GitVaultService gitVaultService) {
         this.gitVaultService = gitVaultService;
-        this.yaml = new Yaml();
+        
+        // Configure YAML dumper for proper block-style formatting
+        DumperOptions options = new DumperOptions();
+        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        options.setPrettyFlow(true);
+        options.setIndent(2);
+        options.setCanonical(false);
+        
+        this.yaml = new Yaml(options);
     }
 
     @Override

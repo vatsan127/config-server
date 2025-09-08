@@ -20,4 +20,12 @@ public sealed interface CacheManagerService permits CacheManagerServiceImpl {
      * @param cacheName the name of the cache to clear
      */
     void evictAllFromCache(String cacheName);
+
+    /**
+     * Evicts cache entries whose keys start with the specified prefix.
+     *
+     * @param cacheName the name of the cache
+     * @param prefix    the key prefix to match
+     */
+    void evictByPrefix(String cacheName, String prefix);
 }

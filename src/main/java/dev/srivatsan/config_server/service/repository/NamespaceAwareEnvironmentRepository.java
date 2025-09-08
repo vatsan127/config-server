@@ -51,6 +51,9 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
             String path = utilService.extractPathFromLabel(label);
 
             List<PropertySource> propertySources = loadConfigurationFiles(namespace, path, application, profile);
+
+            log.info("property sources - {}",propertySources);
+
             for (PropertySource propertySource : propertySources) {
                 environment.add(propertySource);
             }
@@ -100,8 +103,9 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
             throw ConfigFileException.notFound(mainFilePath);
         }
         
-        // 2. Flatten all property sources into single merged map
+        // 2. Flatten all property sources into single merged map // TODO:
         Map<String, Object> flattenedConfig = utilService.flattenPropertySources(rawPropertyMaps);
+        log.info("flattenedConfig - {}",flattenedConfig);
         
         // 3. Convert flattened config back to YAML for secret processing
         String flattenedYaml = utilService.convertMapToYaml(flattenedConfig);
@@ -145,6 +149,9 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
                 rawPropertyMaps.add(properties);
                 log.debug("Loaded raw properties from: {}", filePath);
             }
+
+            log.info("rawPropertyMaps - {}",rawPropertyMaps);
+
         } catch (Exception e) {
             log.debug("Configuration file not found or could not be loaded: {} - {}", filePath, e.getMessage());
         }

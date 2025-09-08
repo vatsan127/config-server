@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.VaultException;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
+import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -15,7 +16,6 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -39,18 +39,21 @@ public class GitVaultServiceImpl implements GitVaultService {
     private final GitOperationService gitOperationService;
     private final ValidationService validationService;
     private final UtilService utilService;
+    private final CacheManagerService cacheManagerService;
     private final ObjectMapper objectMapper;
 
     public GitVaultServiceImpl(ApplicationConfig applicationConfig,
                                EncryptionService encryptionService,
                                GitOperationService gitOperationService,
                                ValidationService validationService,
-                               UtilService utilService) {
+                               UtilService utilService,
+                               CacheManagerService cacheManagerService) {
         this.applicationConfig = applicationConfig;
         this.encryptionService = encryptionService;
         this.gitOperationService = gitOperationService;
         this.validationService = validationService;
         this.utilService = utilService;
+        this.cacheManagerService = cacheManagerService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -62,12 +65,8 @@ public class GitVaultServiceImpl implements GitVaultService {
         return gitOperationService.executeGitOperation(namespace, git -> {
             try {
                 Map<String, String> secrets = loadVaultSecrets(namespace, git);
-                
-                // Decrypt values in-place for better performance
                 secrets.replaceAll((key, encryptedValue) -> encryptionService.decrypt(encryptedValue, namespace));
-                
                 return secrets;
-                
             } catch (Exception e) {
                 log.error("Failed to get vault from namespace '{}': {}", namespace, e.getMessage());
                 if (e instanceof VaultException) {
@@ -79,7 +78,6 @@ public class GitVaultServiceImpl implements GitVaultService {
     }
 
     @Override
-    @CacheEvict(value = {"vault-secrets", "vault-history"}, key = "#namespace")
     public void updateVault(String namespace, Map<String, String> secrets, String email, String commitMessage) {
         validationService.validateNamespace(namespace);
         validationService.validateEmail(email);
@@ -92,7 +90,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
 
-                // Replace all secrets completely (don't merge with existing ones)
                 Map<String, String> encryptedSecrets = new HashMap<>();
                 for (Map.Entry<String, String> entry : secrets.entrySet()) {
                     String encryptedValue = encryptionService.encrypt(entry.getValue(), namespace);
@@ -117,6 +114,18 @@ public class GitVaultServiceImpl implements GitVaultService {
                 throw VaultException.vaultOperationFailed("Failed to update vault: " + e.getMessage());
             }
         });
+
+        // Manually evict cache entries after successful update
+        cacheManagerService.evictKey("vault-secrets", namespace);
+        cacheManagerService.evictKey("vault-history", namespace);
+        
+        // Clear config file caches for this specific namespace since they contain processed secrets
+        cacheManagerService.evictByPrefix("config-content", namespace + "/");
+        cacheManagerService.evictByPrefix("commit-history", namespace + "/");
+        cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
+        cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
+        
+        log.debug("Evicted vault and config cache entries for namespace '{}'", namespace);
     }
 
     @Override
@@ -185,7 +194,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         Path vaultFilePath = vaultDirPath.resolve(vaultFileName);
 
         try {
-            // Vault directory is created during namespace initialization
             String jsonContent = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(secrets);
             Files.writeString(vaultFilePath, jsonContent);
         } catch (Exception e) {
@@ -211,12 +219,10 @@ public class GitVaultServiceImpl implements GitVaultService {
                 result.put("author", commit.getAuthorIdent().getName());
                 result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
-                // Use DiffFormatter to show changes (equivalent to 'git show')
                 try (ByteArrayOutputStream out = new ByteArrayOutputStream();
                      DiffFormatter df = new DiffFormatter(out)) {
                     df.setRepository(repository);
-                    
-                    // Get the tree changes for this commit
+
                     var diffs = df.scan(commit.getParentCount() > 0 ? commit.getParent(0) : null, commit);
                     for (var diff : diffs) {
                         df.format(diff);
@@ -264,4 +270,5 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         return cleanedDiff.toString().trim();
     }
+
 }

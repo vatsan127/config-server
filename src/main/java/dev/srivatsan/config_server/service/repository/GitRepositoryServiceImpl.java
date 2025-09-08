@@ -73,10 +73,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
-            // Initialize encryption key for the namespace
             encryptionService.initializeNamespaceKey(namespace);
 
-            // Create vault directory for secrets management
             File vaultDir = new File(namespaceDir, ".vault");
             if (!vaultDir.exists()) {
                 boolean vaultCreated = vaultDir.mkdirs();
@@ -91,6 +89,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear namespace list cache and directory listings
             cacheManagerService.evictKey("namespaces", "all");
+            // Clear directory listings cache since parent directories now contain the new namespace
             cacheManagerService.evictAllFromCache("directory-listing");
         } catch (GitAPIException e) {
             log.error("Failed to initialize git repository for namespace '{}': {}", namespace, e.getMessage());
@@ -152,8 +151,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                         throw ConfigFileException.notFound(filePath);
                     }
 
-                    // ToDo: Add secret processor and make it encrypted value
-                    Files.writeString(configFilePath, payload.getContent());
+                    // Process configuration to replace vault keys with encrypted placeholders before storing in git
+                    String processedContent = secretProcessor.processConfigurationForInternal(payload.getContent(), namespace);
+                    Files.writeString(configFilePath, processedContent);
 
                     git.add().addFilepattern(relativePath).call();
                     RevCommit revCommit = git.commit()
@@ -367,15 +367,14 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             deleteDirectoryRecursively(namespaceDir.toPath());
             log.info("Successfully deleted namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
 
-            // Clear all related caches
+            // Clear all related caches immediately to prevent serving stale data from deleted namespace
+            // Use prefix-based eviction to only clear caches for this specific namespace
             cacheManagerService.evictKey("namespaces", "all");
-
-            // ToDo: When namespace is delete below things can be cleared in TTL
-            cacheManagerService.evictAllFromCache("directory-listing");
-            cacheManagerService.evictAllFromCache("config-content");
-            cacheManagerService.evictAllFromCache("commit-history");
-            cacheManagerService.evictAllFromCache("latest-commit");
-            cacheManagerService.evictAllFromCache("commit-details");
+            cacheManagerService.evictAllFromCache("directory-listing"); // No prefix - directory listings are mixed
+            cacheManagerService.evictByPrefix("config-content", namespace + "/");
+            cacheManagerService.evictByPrefix("commit-history", namespace + "/");
+            cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
+            cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
 
         } catch (IOException e) {
             log.error("Failed to delete namespace '{}': {}", namespace, e.getMessage());

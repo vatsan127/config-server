@@ -348,12 +348,38 @@ public class UtilService {
     public Map<String, Object> flattenPropertySources(List<Map<String, Object>> propertySources) {
         Map<String, Object> merged = new LinkedHashMap<>();
         
-        // Merge sources in order - later sources override earlier ones
+        // First merge sources in order - later sources override earlier ones
         for (Map<String, Object> source : propertySources) {
             deepMergeProperties(merged, source);
         }
         
-        return merged;
+        // Then flatten the merged result to dot-notation keys
+        return flattenMap(merged);
+    }
+    
+    /**
+     * Flattens a nested map to dot-notation keys
+     * Example: {server: {port: 8080}} -> {"server.port": 8080}
+     */
+    private Map<String, Object> flattenMap(Map<String, Object> map) {
+        Map<String, Object> flattened = new LinkedHashMap<>();
+        flattenMapRecursive(map, "", flattened);
+        return flattened;
+    }
+    
+    private void flattenMapRecursive(Map<String, Object> source, String prefix, Map<String, Object> result) {
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+            Object value = entry.getValue();
+            
+            if (value instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> nestedMap = (Map<String, Object>) value;
+                flattenMapRecursive(nestedMap, key, result);
+            } else {
+                result.put(key, value);
+            }
+        }
     }
 
     /**

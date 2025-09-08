@@ -44,4 +44,25 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
             log.warn("Cache '{}' not found for clearing", cacheName);
         }
     }
+
+    @Override
+    public void evictByPrefix(String cacheName, String prefix) {
+        log.info("Evicting entries with prefix '{}' from cache '{}'", prefix, cacheName);
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache != null) {
+            @SuppressWarnings("unchecked")
+            com.github.benmanes.caffeine.cache.Cache<Object, Object> caffeineCache = 
+                (com.github.benmanes.caffeine.cache.Cache<Object, Object>) cache.getNativeCache();
+            
+            // Use parallel stream for efficient prefix matching and eviction
+            long evictedCount = caffeineCache.asMap().keySet().parallelStream()
+                .filter(key -> key instanceof String && ((String) key).startsWith(prefix))
+                .peek(cache::evict)
+                .count();
+            
+            log.debug("Evicted {} entries with prefix '{}' from cache '{}'", evictedCount, prefix, cacheName);
+        } else {
+            log.warn("Cache '{}' not found for prefix eviction", cacheName);
+        }
+    }
 }

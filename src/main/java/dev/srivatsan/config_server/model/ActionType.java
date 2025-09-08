@@ -53,5 +53,13 @@ public enum ActionType {
      * Returns commit history for all files within the namespace directory.
      * Used by: POST /namespace/events
      */
-    events
+    events,
+
+    /**
+     * Retrieves API call status notifications for the last commit-history-size operations.
+     * Returns status information including trigger time, app name, retry count, and status
+     * (success, in-progress, failed) for each namespace.
+     * Used by: POST /namespace/notify
+     */
+    notify
 }

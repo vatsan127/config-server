@@ -1,12 +1,15 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
+import dev.srivatsan.config_server.config.NotificationConfig;
 import dev.srivatsan.config_server.exception.ConfigConflictException;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.model.NotificationStatus;
 import dev.srivatsan.config_server.service.notify.ClientNotifyService;
+import dev.srivatsan.config_server.service.notify.NotificationStorageService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
@@ -22,6 +25,7 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -38,21 +42,25 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     private final Logger log = LoggerFactory.getLogger(GitRepositoryServiceImpl.class);
     private final ApplicationConfig applicationConfig;
+    private final NotificationConfig notificationConfig;
     private final UtilService utilService;
     private final GitOperationService gitOperationService;
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
     private final ClientNotifyService clientNotifyService;
+    private final NotificationStorageService notificationStorageService;
     private final SecretProcessor secretProcessor;
     private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, NotificationConfig notificationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
         this.applicationConfig = applicationConfig;
+        this.notificationConfig = notificationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
         this.clientNotifyService = clientNotifyService;
+        this.notificationStorageService = notificationStorageService;
         this.secretProcessor = secretProcessor;
         this.encryptionService = encryptionService;
     }
@@ -111,6 +119,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear all directory listings for this namespace
             cacheManagerService.evictAllFromCache("directory-listing");
+            
+            // Clear namespace-level caches since a new file was created
+            cacheManagerService.evictKey("namespace-events", namespace);
+            cacheManagerService.evictKey("namespace-notifications", namespace);
 
         });
     }
@@ -167,6 +179,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("config-content", filePath);
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
+                    
+                    // Clear namespace-level caches since a file was updated
+                    cacheManagerService.evictKey("namespace-events", namespace);
+                    cacheManagerService.evictKey("namespace-notifications", namespace);
 
                     return revCommit.getId().getName();
                 }
@@ -343,6 +359,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
                     cacheManagerService.evictAllFromCache("directory-listing");
+                    
+                    // Clear namespace-level caches since a file was deleted
+                    cacheManagerService.evictKey("namespace-events", namespace);
+                    cacheManagerService.evictKey("namespace-notifications", namespace);
 
                 }
         );
@@ -454,6 +474,69 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             result.put("totalCommits", commits.size());
             return result;
         });
+    }
+
+    @Override
+    @Cacheable(value = "namespace-notifications", key = "#namespace", 
+               condition = "#namespace != null", 
+               unless = "#result.get('totalNotifications') == 0")
+    public Map<String, Object> getNamespaceNotifications(String namespace) throws Exception {
+        validationService.validateNamespace(namespace);
+
+        // Get recent notifications limited by commit-history-size
+        List<NotificationStatus> notifications = notificationStorageService
+                .getRecentNotifications(namespace, applicationConfig.getCommitHistorySize());
+
+        // Convert to response format efficiently with conditional parallel processing
+        List<Map<String, Object>> notificationDetails = 
+            (notificationConfig.isEnableParallelProcessing() && notifications.size() >= notificationConfig.getParallelProcessingThreshold())
+                ? notifications.parallelStream().map(this::formatNotificationInfo).toList()
+                : notifications.stream().map(this::formatNotificationInfo).toList();
+
+        // Pre-size map for better performance
+        Map<String, Object> result = new HashMap<>(8);
+        result.put("namespace", namespace);
+        result.put("notifications", notificationDetails);
+        result.put("totalNotifications", notificationDetails.size());
+        result.put("maxNotifications", applicationConfig.getCommitHistorySize());
+        
+        // Add storage stats for monitoring if enabled
+        if (notificationConfig.isEnableDebugStats()) {
+            Map<String, Object> stats = notificationStorageService.getStorageStats();
+            result.put("_debug_storage_stats", stats);
+        }
+        
+        return result;
+    }
+
+    /**
+     * Optimized formatter for notification status information.
+     * Pre-allocates map size and uses efficient string operations.
+     *
+     * @param notification the notification status to format
+     * @return formatted notification information map
+     */
+    private Map<String, Object> formatNotificationInfo(NotificationStatus notification) {
+        // Pre-size map based on expected fields (6-8 fields typically)
+        Map<String, Object> info = new HashMap<>(8);
+        
+        info.put("triggeredAt", notification.getTriggeredAt().toString());
+        info.put("appName", notification.getAppName());
+        info.put("operation", notification.getOperation());
+        info.put("status", notification.getStatus().toString());
+        info.put("retryCount", notification.getRetryCount());
+        info.put("namespace", notification.getNamespace());
+        
+        // Add optional fields only if present to minimize JSON payload
+        if (notification.getErrorMessage() != null && !notification.getErrorMessage().trim().isEmpty()) {
+            info.put("errorMessage", notification.getErrorMessage());
+        }
+        
+        if (notification.getCommitId() != null && !notification.getCommitId().trim().isEmpty()) {
+            info.put("commitId", notification.getCommitId());
+        }
+        
+        return info;
     }
 
 }

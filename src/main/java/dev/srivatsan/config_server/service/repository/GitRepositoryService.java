@@ -119,4 +119,15 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
      */
     Map<String, Object> getNamespaceEvents(String namespace) throws Exception;
 
+    /**
+     * Retrieves API call status notifications for the last commit-history-size operations.
+     * Returns status information including trigger time, app name, retry count, and status
+     * (success, in-progress, failed) for each namespace operation.
+     *
+     * @param namespace the namespace identifier to get notifications for
+     * @return a map containing notification status information
+     * @throws Exception if the namespace is not found or operation fails
+     */
+    Map<String, Object> getNamespaceNotifications(String namespace) throws Exception;
+
 }

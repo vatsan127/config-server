@@ -77,4 +77,17 @@ public interface NamespaceAPI {
      */
     @PostMapping("/events")
     ResponseEntity<Map<String, Object>> getNamespaceEvents(@RequestBody Map<String, String> request) throws Exception;
+
+    /**
+     * Retrieves API call status notifications for the last commit-history-size operations.
+     * Returns status information including trigger time, app name in payload, retry count,
+     * and status (success, in-progress when retry is happening, failed) for each namespace operation.
+     * The number of notifications returned is limited by the commit-history-size configuration.
+     *
+     * @param request a map containing the namespace name
+     * @return ResponseEntity containing notification status details
+     * @throws Exception if notification retrieval fails or namespace is not found
+     */
+    @PostMapping("/notify")
+    ResponseEntity<Map<String, Object>> getNamespaceNotifications(@RequestBody Map<String, String> request) throws Exception;
 }

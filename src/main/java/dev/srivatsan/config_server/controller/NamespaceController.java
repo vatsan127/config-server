@@ -69,4 +69,13 @@ public class NamespaceController implements NamespaceAPI {
         Map<String, Object> events = gitRepositoryService.getNamespaceEvents(namespace.trim());
         return ResponseEntity.ok(events);
     }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> getNamespaceNotifications(@RequestBody Map<String, String> request) throws Exception {
+        String namespace = request.get("namespace");
+        validationService.validateNamespace(namespace);
+        
+        Map<String, Object> notifications = gitRepositoryService.getNamespaceNotifications(namespace.trim());
+        return ResponseEntity.ok(notifications);
+    }
 }

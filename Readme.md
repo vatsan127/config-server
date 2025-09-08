@@ -575,6 +575,93 @@ namespace root directory.
 
 ---
 
+### 2.6 Get Namespace Notifications
+
+**Endpoint:** `POST /namespace/notify`
+
+Retrieves API call status notifications for the last `commit-history-size` operations within a namespace. Shows execution status, timing information, retry counts, and results for configuration management operations.
+
+**Request Model:**
+
+```json
+{
+  "namespace": "production"
+}
+```
+
+**Request Fields:**
+
+- `namespace` (string, required): Target namespace name
+
+**Response Model:**
+
+```json
+{
+  "namespace": "production",
+  "notifications": [
+    {
+      "triggeredAt": "2024-01-15T14:35:00",
+      "appName": "user-service",
+      "operation": "update",
+      "status": "success",
+      "retryCount": 0,
+      "namespace": "production",
+      "commitId": "abc123def456789"
+    },
+    {
+      "triggeredAt": "2024-01-15T14:32:00",
+      "appName": "order-service",
+      "operation": "create",
+      "status": "inprogress",
+      "retryCount": 2,
+      "namespace": "production",
+      "errorMessage": "Network timeout, retrying..."
+    },
+    {
+      "triggeredAt": "2024-01-15T14:25:00",
+      "appName": "payment-service",
+      "operation": "delete",
+      "status": "failed",
+      "retryCount": 3,
+      "namespace": "production",
+      "errorMessage": "Maximum retry attempts exceeded"
+    }
+  ],
+  "totalNotifications": 3,
+  "maxNotifications": 10
+}
+```
+
+**Response Fields:**
+
+- `namespace` (string): The namespace that was queried
+- `notifications` (array): List of notification status objects
+  - `triggeredAt` (string): When the API call was triggered (ISO format)
+  - `appName` (string): Application name from the original payload
+  - `operation` (string): Type of operation (create, update, delete, etc.)
+  - `status` (string): Current status - `success`, `inprogress`, or `failed`
+  - `retryCount` (integer): Number of retry attempts made
+  - `namespace` (string): Namespace where the operation occurred
+  - `commitId` (string, optional): Associated Git commit ID (if operation succeeded)
+  - `errorMessage` (string, optional): Error details (if operation failed or is retrying)
+- `totalNotifications` (integer): Number of notifications returned
+- `maxNotifications` (integer): Maximum notifications limit (from commit-history-size config)
+
+**Status Descriptions:**
+
+- `success` - Operation completed successfully without errors
+- `inprogress` - Operation is currently being retried due to previous failures
+- `failed` - Operation failed after all retry attempts were exhausted
+
+**Status Codes:**
+
+- `200` - Namespace notifications retrieved successfully
+- `400` - Invalid request parameters or namespace name
+- `404` - Namespace not found
+- `500` - Internal server error
+
+---
+
 ## 3. Vault Management API (Simplified)
 
 **Base URL:** `/vault`

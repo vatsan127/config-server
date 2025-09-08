@@ -108,4 +108,15 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
      */
     void deleteNamespace(String namespace);
 
+    /**
+     * Retrieves the complete event history (git log) for an entire namespace.
+     * Returns Git history for all files and activities within the namespace root directory.
+     * The number of events returned is limited by the commit-history-size configuration.
+     *
+     * @param namespace the namespace identifier to get events for
+     * @return a map containing namespace event history (commit ID, author, date, message)
+     * @throws Exception if the namespace is not found or git operations fail
+     */
+    Map<String, Object> getNamespaceEvents(String namespace) throws Exception;
+
 }

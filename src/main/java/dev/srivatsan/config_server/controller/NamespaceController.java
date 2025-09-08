@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.NamespaceAPI;
+import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -58,5 +59,14 @@ public class NamespaceController implements NamespaceAPI {
         validationService.validateNamespace(namespace);
         gitRepositoryService.deleteNamespace(namespace.trim());
         return ResponseEntity.ok(Map.of("message", NAMESPACE_DELETED_MESSAGE));
+    }
+
+    @Override
+    public ResponseEntity<Map<String, Object>> getNamespaceEvents(@RequestBody Map<String, String> request) throws Exception {
+        String namespace = request.get("namespace");
+        validationService.validateNamespace(namespace);
+        
+        Map<String, Object> events = gitRepositoryService.getNamespaceEvents(namespace.trim());
+        return ResponseEntity.ok(events);
     }
 }

@@ -46,5 +46,12 @@ public enum ActionType {
      * Removes the file from the filesystem and commits the change to Git.
      * Used by: POST /config/delete
      */
-    delete
+    delete,
+
+    /**
+     * Retrieves the event history (git log) for an entire namespace.
+     * Returns commit history for all files within the namespace directory.
+     * Used by: POST /namespace/events
+     */
+    events
 }

@@ -158,6 +158,7 @@ public class ValidationService {
 
     /**
      * Validates YAML configuration content for basic syntax.
+     * Supports both single and multi-document YAML (separated by ---).
      *
      * @param content the YAML content to validate
      * @throws ValidationException if the content is invalid
@@ -169,7 +170,11 @@ public class ValidationService {
 
         try {
             Yaml yaml = new Yaml();
-            yaml.load(content);
+            // Use loadAll() to validate multi-document YAML with --- separators
+            for (Object document : yaml.loadAll(content)) {
+                // Just iterate through all documents to ensure they're valid
+                // The iteration itself validates the YAML syntax
+            }
         } catch (YAMLException e) {
             log.error("Invalid YAML content: {}", e.getMessage());
             throw ValidationException.invalidYaml("Invalid YAML syntax");

@@ -64,4 +64,17 @@ public interface NamespaceAPI {
      */
     @PostMapping("/delete")
     ResponseEntity<Map<String, Object>> deleteNamespace(@RequestBody Map<String, String> request);
+
+    /**
+     * Retrieves the complete event history (git log) for an entire namespace.
+     * Returns Git history with timestamps, authors, and commit messages
+     * for all files and activities within the namespace root directory.
+     * The number of events returned is limited by the commit-history-size configuration.
+     *
+     * @param request a map containing the namespace name
+     * @return ResponseEntity containing namespace event history details
+     * @throws Exception if event history retrieval fails or namespace is not found
+     */
+    @PostMapping("/events")
+    ResponseEntity<Map<String, Object>> getNamespaceEvents(@RequestBody Map<String, String> request) throws Exception;
 }

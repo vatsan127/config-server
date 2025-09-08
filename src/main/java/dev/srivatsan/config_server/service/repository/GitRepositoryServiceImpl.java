@@ -431,4 +431,29 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         return cleanedDiff.toString().trim();
     }
 
+    @Override
+    @Cacheable(value = "namespace-events", key = "#namespace")
+    public Map<String, Object> getNamespaceEvents(String namespace) throws Exception {
+        validationService.validateNamespace(namespace);
+
+        return gitOperationService.executeGitOperation(namespace, git -> {
+            var logCommand = git.log()
+                    .setMaxCount(applicationConfig.getCommitHistorySize())
+                    .add(git.getRepository().resolve(HEAD));
+
+            List<Map<String, Object>> commits = new ArrayList<>();
+            for (RevCommit commit : logCommand.call()) {
+                Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
+                commitInfo.put("commitMessage", commit.getShortMessage());
+                commits.add(commitInfo);
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("namespace", namespace);
+            result.put("commits", commits);
+            result.put("totalCommits", commits.size());
+            return result;
+        });
+    }
+
 }

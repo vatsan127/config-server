@@ -524,6 +524,57 @@ Deletes an existing namespace directory and all its contents permanently.
 
 ---
 
+### 2.5 Get Namespace Events
+
+**Endpoint:** `POST /namespace/events`
+
+Retrieves the complete event history (git log) for an entire namespace. Shows all Git commits and activities within the
+namespace root directory.
+
+**Request Model:**
+
+```json
+{
+  "namespace": "production"
+}
+```
+
+**Request Fields:**
+
+- `namespace` (string, required): Target namespace name
+
+**Response Model:**
+
+```json
+{
+  "namespace": "production",
+  "commits": [
+    {
+      "commitId": "abc123def456789",
+      "author": "developer@company.com",
+      "date": "2024-01-15T14:30:00Z",
+      "commitMessage": "Update user-service configuration"
+    },
+    {
+      "commitId": "def456abc789012",
+      "author": "admin@company.com",
+      "date": "2024-01-15T10:30:00Z",
+      "commitMessage": "Initialize production namespace"
+    }
+  ],
+  "totalCommits": 2
+}
+```
+
+**Status Codes:**
+
+- `200` - Namespace events retrieved successfully
+- `400` - Invalid request parameters or namespace name
+- `404` - Namespace not found
+- `500` - Internal server error
+
+---
+
 ## 3. Vault Management API (Simplified)
 
 **Base URL:** `/vault`
@@ -531,7 +582,8 @@ Deletes an existing namespace directory and all its contents permanently.
 🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets
 are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
 
-🔒 **Enhanced Security**: All vault endpoints use POST requests for better security - sensitive data is sent in encrypted request bodies instead of URLs, preventing leakage in server logs and browser history.
+🔒 **Enhanced Security**: All vault endpoints use POST requests for better security - sensitive data is sent in encrypted
+request bodies instead of URLs, preventing leakage in server logs and browser history.
 
 ### 3.1 Get Vault Secrets
 
@@ -676,79 +728,6 @@ Retrieve detailed changes for a specific commit in the vault, showing what secre
 - `400` - Invalid request parameters (missing namespace/commitId)
 - `404` - Namespace or commit not found
 - `500` - Internal server error
-
----
-
-## 4. YAML-Vault Integration
-
-🆕 **Smart Secret Processing**: The system now automatically integrates vault secrets with YAML configuration files using
-dynamic replacement.
-
-### How It Works
-
-1. **Configuration Files**: Store your YAML configs with vault key references:
-   ```yaml
-   server:
-     port: 8080
-   
-   database:
-     password: database.password  # This key exists in vault
-     host: database.host         # This key exists in vault
-   
-   regular:
-     setting: "normal value"     # Regular config value
-   ```
-
-2. **Management UI Response**: When fetched via management APIs, vault keys are replaced with placeholders:
-   ```yaml
-   server:
-     port: 8080
-   
-   database:
-     password: <ENCRYPTED_VALUE>
-     host: <ENCRYPTED_VALUE>
-   
-   regular:
-     setting: "normal value"
-   ```
-
-3. **Client Application Response**: When fetched via Spring Cloud Config, vault keys are replaced with actual decrypted
-   values:
-   ```yaml
-   server:
-     port: 8080
-   
-   database:
-     password: "actual_secret_password_123"
-     host: "prod-db.company.com"
-   
-   regular:
-     setting: "normal value"
-   ```
-
-### Secret Key Detection
-
-The system automatically detects vault keys in YAML files using pattern matching for:
-
-- Keys containing: `password`, `secret`, `key`, `token`, `credential`, `auth`
-- API keys: `api_key`, `api-key`, `apikey`
-- Private keys: `private_key`, `private-key`
-- Access keys: `access_key`, `access-key`
-
-### Spring Cloud Config Integration
-
-**Endpoint Format**: `GET /{application}/{profile}/{label}`
-
-- `application`: Your app name
-- `profile`: Environment profile (default, dev, prod, etc.)
-- `label`: Namespace (defaults to `main` if not specified)
-
-**Example**:
-
-```bash
-# Get config for 'api' application, 'default' profile, 'production' namespace
-GET /config-server/api/default/production
-```
 
 ---
 

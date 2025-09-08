@@ -134,10 +134,10 @@ public class AESEncryptionServiceImpl implements EncryptionService {
             }
             Files.write(keyPath, secretKey.getEncoded());
 
-            try { // Set secure permissions on the key file (owner read/write only) ToDo: This can be moved to read only
-                Set<PosixFilePermission> keyPerms = PosixFilePermissions.fromString("rw-------");
+            try { // Set secure permissions on the key file (owner read-only for better security)
+                Set<PosixFilePermission> keyPerms = PosixFilePermissions.fromString("r--------");
                 Files.setPosixFilePermissions(keyPath, keyPerms);
-                log.debug("Set secure permissions on key file: {}", keyPath);
+                log.debug("Set read-only secure permissions on key file: {}", keyPath);
             } catch (UnsupportedOperationException e) {
                 log.debug("POSIX permissions not supported on this filesystem, skipping permission setting");
             }

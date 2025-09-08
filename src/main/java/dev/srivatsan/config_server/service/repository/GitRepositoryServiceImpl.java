@@ -6,11 +6,11 @@ import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
-import dev.srivatsan.config_server.service.api.RefreshApiService;
+import dev.srivatsan.config_server.service.notify.ClientNotifyService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
-import dev.srivatsan.config_server.service.processor.SecretProcessor;
+import dev.srivatsan.config_server.service.secret.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
@@ -42,17 +42,17 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final GitOperationService gitOperationService;
     private final CacheManagerService cacheManagerService;
     private final ValidationService validationService;
-    private final RefreshApiService refreshApiService;
+    private final ClientNotifyService clientNotifyService;
     private final SecretProcessor secretProcessor;
     private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, RefreshApiService refreshApiService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
         this.validationService = validationService;
-        this.refreshApiService = refreshApiService;
+        this.clientNotifyService = clientNotifyService;
         this.secretProcessor = secretProcessor;
         this.encryptionService = encryptionService;
     }
@@ -171,7 +171,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     return revCommit.getId().getName();
                 }
         );
-        refreshApiService.sendRefreshNotifications(namespace, payload.getAppName());
+        clientNotifyService.sendRefreshNotifications(namespace, payload.getAppName());
         return commitId;
 
     }

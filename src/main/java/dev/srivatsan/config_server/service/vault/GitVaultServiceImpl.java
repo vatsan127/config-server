@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.VaultException;
-import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
+import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -82,7 +82,7 @@ public class GitVaultServiceImpl implements GitVaultService {
         validationService.validateNamespace(namespace);
         validationService.validateEmail(email);
         validationService.validateCommitMessage(commitMessage);
-        
+
         if (secrets == null || secrets.isEmpty()) {
             throw VaultException.vaultOperationFailed("Secrets map cannot be null or empty");
         }
@@ -97,14 +97,14 @@ public class GitVaultServiceImpl implements GitVaultService {
                 }
 
                 saveVaultSecrets(namespace, encryptedSecrets, git);
-                
+
                 String vaultFileName = namespace + VAULT_FILE_SUFFIX;
                 git.add().addFilepattern(VAULT_DIR + "/" + vaultFileName).call();
                 git.commit()
                         .setMessage(commitMessage)
                         .setAuthor(email.substring(0, email.indexOf('@')), email)
                         .call();
-                
+
                 log.info("Updated {} secrets in namespace '{}' vault", secrets.size(), namespace);
             } catch (Exception e) {
                 log.error("Failed to update vault in namespace '{}': {}", namespace, e.getMessage());
@@ -118,13 +118,13 @@ public class GitVaultServiceImpl implements GitVaultService {
         // Manually evict cache entries after successful update
         cacheManagerService.evictKey("vault-secrets", namespace);
         cacheManagerService.evictKey("vault-history", namespace);
-        
+
         // Clear config file caches for this specific namespace since they contain processed secrets
         cacheManagerService.evictByPrefix("config-content", namespace + "/");
         cacheManagerService.evictByPrefix("commit-history", namespace + "/");
         cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
         cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
-        
+
         log.debug("Evicted vault and config cache entries for namespace '{}'", namespace);
     }
 
@@ -137,7 +137,7 @@ public class GitVaultServiceImpl implements GitVaultService {
             try {
                 String vaultFileName = namespace + VAULT_FILE_SUFFIX;
                 String vaultFilePath = VAULT_DIR + "/" + vaultFileName;
-                
+
                 var logCommand = git.log()
                         .setMaxCount(applicationConfig.getCommitHistorySize())
                         .add(git.getRepository().resolve(HEAD))
@@ -179,8 +179,9 @@ public class GitVaultServiceImpl implements GitVaultService {
             if (jsonContent.trim().isEmpty()) {
                 return new HashMap<>();
             }
-            
-            return objectMapper.readValue(jsonContent, new TypeReference<>() {});
+
+            return objectMapper.readValue(jsonContent, new TypeReference<>() {
+            });
         } catch (Exception e) {
             log.error("Failed to parse vault file for namespace '{}': {}", namespace, e.getMessage());
             throw VaultException.vaultOperationFailed("Failed to parse vault file: " + e.getMessage());
@@ -227,7 +228,7 @@ public class GitVaultServiceImpl implements GitVaultService {
                     for (var diff : diffs) {
                         df.format(diff);
                     }
-                    
+
                     String rawDiff = out.toString();
                     String cleanedDiff = filterGitDiffMetadata(rawDiff);
                     result.put("changes", cleanedDiff);

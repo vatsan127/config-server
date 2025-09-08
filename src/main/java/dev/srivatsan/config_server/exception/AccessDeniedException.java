@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.exception;
 
 public class AccessDeniedException extends RuntimeException {
-    
+
     private final String username;
     private final String resource;
     private final String action;

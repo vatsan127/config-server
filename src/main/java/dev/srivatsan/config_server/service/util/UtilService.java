@@ -223,7 +223,7 @@ public class UtilService {
      * Extract namespace from Spring Cloud Config label.
      * Examples:
      * - "production/config" -> "production"
-     * - "production" -> "production"  
+     * - "production" -> "production"
      * - "test/api" -> "test"
      * - null/empty -> "main"
      *
@@ -234,7 +234,7 @@ public class UtilService {
         if (label == null || label.trim().isEmpty()) {
             return "main";
         }
-        
+
         if (label.contains("/")) {
             return label.split("/")[0];
         }
@@ -256,7 +256,7 @@ public class UtilService {
         if (label == null || label.trim().isEmpty()) {
             return "";
         }
-        
+
         if (label.contains("/")) {
             int firstSlash = label.indexOf('/');
             return label.substring(firstSlash + 1);
@@ -272,10 +272,10 @@ public class UtilService {
      * - namespace="test", path="", application="api-service", profile=null -> "test/api-service.yml"
      * - namespace="dev", path="api/v1", application="gateway", profile="staging" -> "dev/api/v1/gateway-staging.yml"
      *
-     * @param namespace the namespace name
-     * @param path the path within the namespace
+     * @param namespace   the namespace name
+     * @param path        the path within the namespace
      * @param application the application name
-     * @param profile the profile name (can be null)
+     * @param profile     the profile name (can be null)
      * @return the complete file path
      */
     public String constructFilePathFromLabel(String namespace, String path, String application, String profile) {
@@ -298,7 +298,7 @@ public class UtilService {
      * Parse YAML content into a map of properties.
      * Assumes content is already validated during config updates.
      *
-     * @param content the YAML content to parse
+     * @param content  the YAML content to parse
      * @param filePath the file path for logging purposes
      * @return a map containing the parsed YAML properties
      */
@@ -308,7 +308,7 @@ public class UtilService {
             log.debug("Empty content for file: {}, returning empty properties", filePath);
             return new LinkedHashMap<>();
         }
-        
+
         try {
             Map<String, Object> yamlData = yaml.load(content);
             return yamlData != null ? yamlData : new LinkedHashMap<>();
@@ -323,7 +323,7 @@ public class UtilService {
      * This file contains common configuration shared across all applications in the namespace.
      *
      * @param namespace the namespace name
-     * @param path the path within the namespace (can be empty for root)
+     * @param path      the path within the namespace (can be empty for root)
      * @return the file path for the generic application.yml
      */
     public String constructGenericApplicationConfigPath(String namespace, String path) {
@@ -333,7 +333,7 @@ public class UtilService {
         if (!path.isEmpty()) {
             filePath.append("/").append(path);
         }
-        
+
         filePath.append("/application.yml");
         return filePath.toString();
     }
@@ -347,16 +347,16 @@ public class UtilService {
      */
     public Map<String, Object> flattenPropertySources(List<Map<String, Object>> propertySources) {
         Map<String, Object> merged = new LinkedHashMap<>();
-        
+
         // First merge sources in order - later sources override earlier ones
         for (Map<String, Object> source : propertySources) {
             deepMergeProperties(merged, source);
         }
-        
+
         // Then flatten the merged result to dot-notation keys
         return flattenMap(merged);
     }
-    
+
     /**
      * Flattens a nested map to dot-notation keys
      * Example: {server: {port: 8080}} -> {"server.port": 8080}
@@ -366,12 +366,12 @@ public class UtilService {
         flattenMapRecursive(map, "", flattened);
         return flattened;
     }
-    
+
     private void flattenMapRecursive(Map<String, Object> source, String prefix, Map<String, Object> result) {
         for (Map.Entry<String, Object> entry : source.entrySet()) {
             String key = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
             Object value = entry.getValue();
-            
+
             if (value instanceof Map) {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> nestedMap = (Map<String, Object>) value;
@@ -394,7 +394,7 @@ public class UtilService {
         for (Map.Entry<String, Object> entry : source.entrySet()) {
             String key = entry.getKey();
             Object sourceValue = entry.getValue();
-            
+
             if (target.containsKey(key) && target.get(key) instanceof Map && sourceValue instanceof Map) {
                 // Both are maps, merge recursively
                 deepMergeProperties((Map<String, Object>) target.get(key), (Map<String, Object>) sourceValue);
@@ -416,7 +416,7 @@ public class UtilService {
         if (properties == null || properties.isEmpty()) {
             return "";
         }
-        
+
         try {
             return yaml.dump(properties);
         } catch (Exception e) {

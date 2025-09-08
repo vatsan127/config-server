@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.service.api;
+package dev.srivatsan.config_server.service.notify;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import org.slf4j.Logger;
@@ -7,25 +7,24 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.BiConsumer;
 
 @Service
-public class RefreshApiService {
+public class ClientNotifyService {
 
-    private static final Logger log = LoggerFactory.getLogger(RefreshApiService.class);
+    private static final Logger log = LoggerFactory.getLogger(ClientNotifyService.class);
     private final ExecutorService virtualThreadExecutorService;
     private final RestClient restClient;
     private final BiConsumer<String, String> refreshTask;
     private final ApplicationConfig applicationConfig;
 
-    public RefreshApiService(RestClient restClient, ApplicationConfig applicationConfig) {
+    public ClientNotifyService(RestClient restClient, ApplicationConfig applicationConfig) {
         this.restClient = restClient;
         this.applicationConfig = applicationConfig;
         this.virtualThreadExecutorService = Executors.newVirtualThreadPerTaskExecutor();
-        this.refreshTask = this::sendRefreshRequest;
+        this.refreshTask = this::sendRequest;
     }
 
     public void sendRefreshNotifications(String namespace, String appName) {
@@ -37,10 +36,10 @@ public class RefreshApiService {
         applicationConfig.getRefreshNotifyUrl().forEach(url -> virtualThreadExecutorService.submit(() -> refreshTask.accept(url, payload)));
     }
 
-    private void sendRefreshRequest(String url, String payload) {
+    private void sendRequest(String url, String payload) {
         int maxRetries = applicationConfig.getRefreshApi().getMaxRetries();
         long retryInterval = applicationConfig.getRefreshApi().getRetryIntervalMs();
-        
+
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 log.info("sendRefreshNotifications :: Attempt {}/{} - URL: '{}', payload: '{}'", attempt, maxRetries, url, payload);

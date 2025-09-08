@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.service.processor;
+package dev.srivatsan.config_server.service.secret;
 
 import dev.srivatsan.config_server.service.vault.GitVaultService;
 import org.slf4j.Logger;

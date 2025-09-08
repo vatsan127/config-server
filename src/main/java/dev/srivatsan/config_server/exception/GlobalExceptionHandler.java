@@ -109,7 +109,7 @@ public class GlobalExceptionHandler {
 
         HttpStatus status = switch (ex.getErrorCode()) {
             case VaultException.VAULT_FILE_NOT_FOUND, VaultException.SECRET_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case VaultException.ENCRYPTION_FAILED, VaultException.DECRYPTION_FAILED, 
+            case VaultException.ENCRYPTION_FAILED, VaultException.DECRYPTION_FAILED,
                  VaultException.KEY_INITIALIZATION_FAILED, VaultException.KEY_LOAD_FAILED,
                  VaultException.VAULT_OPERATION_FAILED -> HttpStatus.INTERNAL_SERVER_ERROR;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;

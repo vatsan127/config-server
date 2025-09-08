@@ -77,6 +77,7 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
     /**
      * Loads and flattens configuration files including profile-specific configurations.
      * Uses the new flattened approach: Load all sources → Flatten → Resolve secrets → Return single PropertySource
+     * Supports multiple comma-separated profiles with proper precedence.
      */
     private List<PropertySource> loadConfigurationFiles(String namespace, String path, String application, String profile) throws Exception {
         log.info("Loading flattened configuration for application: {}, profile: {}", application, profile);
@@ -90,9 +91,17 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
         // Load main application configuration (application-specific base config)
         loadRawPropertySource(rawPropertyMaps, namespace, path, application, null);
 
-        // Load profile-specific configuration if profile is specified
-        if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
-            loadRawPropertySource(rawPropertyMaps, namespace, path, application, profile);
+        // Handle multiple comma-separated profiles with proper precedence
+        if (profile != null && !profile.trim().isEmpty()) {
+            String[] profiles = profile.split(",");
+            for (String singleProfile : profiles) {
+                String trimmedProfile = singleProfile.trim();
+                // Skip empty profiles and don't load separate file for "default" profile
+                if (!trimmedProfile.isEmpty() && !"default".equals(trimmedProfile)) {
+                    loadRawPropertySource(rawPropertyMaps, namespace, path, application, trimmedProfile);
+                    log.debug("Loaded profile-specific configuration for profile: {}", trimmedProfile);
+                }
+            }
         }
 
         // Check if we have any configuration loaded

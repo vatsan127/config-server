@@ -201,9 +201,10 @@ public class ValidationService {
 
     /**
      * Validates Spring Cloud Config request parameters to prevent security issues.
+     * Supports comma-separated multiple profiles.
      *
      * @param application the application name
-     * @param profile     the profile name (can be null)
+     * @param profile     the profile name (can be null, supports comma-separated values)
      * @param label       the label/branch name (can be null)
      * @throws ValidationException if any parameter is invalid
      */
@@ -216,9 +217,13 @@ public class ValidationService {
             throw ValidationException.invalidAppName(application, "Application name contains invalid path characters");
         }
 
+        // Validate multiple comma-separated profiles
         if (profile != null && (profile.contains("../") || profile.contains("..\\"))) {
             throw ValidationException.invalidPath(profile, "Profile contains invalid path characters");
         }
+        
+        // Validate individual profiles if comma-separated
+        validateProfile(profile);
 
         // Label can be null (will default to "default")
         if (label != null && (label.contains("../") || label.contains("..\\"))) {
@@ -228,22 +233,47 @@ public class ValidationService {
 
     /**
      * Validates a profile parameter for Spring Cloud Config requests.
+     * Supports comma-separated multiple profiles (e.g., "dev,local,debug" or "default,dev").
      *
-     * @param profile the profile to validate
+     * @param profile the profile to validate (can contain comma-separated values)
      * @throws ValidationException if the profile is invalid
      */
     public void validateProfile(String profile) {
         if (profile != null && !profile.trim().isEmpty()) {
             String cleanProfile = profile.trim();
 
-            if (cleanProfile.length() > 50) {
-                throw ValidationException.invalidPath(profile, "Profile name too long (max 50 characters)");
+            // Check total length limit for the entire profile string
+            if (cleanProfile.length() > 200) {
+                throw ValidationException.invalidPath(profile, "Profile string too long (max 200 characters)");
             }
 
-            if (!SAFE_NAME_PATTERN.matcher(cleanProfile).matches()) {
-                throw ValidationException.invalidPath(profile,
-                        "Invalid profile format. Only alphanumeric, dash, and underscore are allowed");
+            // Split by comma and validate each individual profile
+            String[] profiles = cleanProfile.split(",");
+            for (String singleProfile : profiles) {
+                validateSingleProfile(singleProfile.trim());
             }
+        }
+    }
+
+    /**
+     * Validates a single profile name.
+     *
+     * @param profile the individual profile name to validate
+     * @throws ValidationException if the profile is invalid
+     */
+    private void validateSingleProfile(String profile) {
+        if (profile.isEmpty()) {
+            throw ValidationException.invalidPath(profile, "Profile name cannot be empty");
+        }
+
+        if (profile.length() > 50) {
+            throw ValidationException.invalidPath(profile, "Individual profile name too long (max 50 characters)");
+        }
+
+        // Allow "default" profile and standard profile naming pattern
+        if (!"default".equals(profile) && !SAFE_NAME_PATTERN.matcher(profile).matches()) {
+            throw ValidationException.invalidPath(profile,
+                    "Invalid profile format '" + profile + "'. Only alphanumeric, dash, and underscore are allowed");
         }
     }
 

@@ -3,6 +3,7 @@ package dev.srivatsan.config_server.service.repository;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.ValidationException;
+import dev.srivatsan.config_server.service.processor.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.slf4j.Logger;
@@ -12,10 +13,8 @@ import org.springframework.cloud.config.environment.PropertySource;
 import org.springframework.cloud.config.server.environment.EnvironmentRepository;
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
-import org.yaml.snakeyaml.Yaml;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,35 +26,36 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
     private final GitRepositoryService gitRepositoryService;
     private final UtilService utilService;
     private final ValidationService validationService;
-    private final Yaml yaml;
+    private final SecretProcessor secretProcessor;
 
     public NamespaceAwareEnvironmentRepository(GitRepositoryService gitRepositoryService, 
                                                UtilService utilService, 
-                                               ValidationService validationService) {
+                                               ValidationService validationService,
+                                               SecretProcessor secretProcessor) {
         this.gitRepositoryService = gitRepositoryService;
         this.utilService = utilService;
         this.validationService = validationService;
-        this.yaml = new Yaml();
+        this.secretProcessor = secretProcessor;
     }
 
     @Override
     public Environment findOne(String application, String profile, String label) {
         log.info("Finding configuration for application: {}, profile: {}, label: {}", application, profile, label);
 
-        validateInputs(application, profile, label);
+        validationService.validateConfigRequest(application, profile, label);
         Environment environment = new Environment(application, profile);
         
         try {
-            String namespace = extractNamespaceFromLabel(label);
+            String namespace = utilService.extractNamespaceFromLabel(label);
             validationService.validateNamespace(namespace);
-            String path = extractPathFromLabel(label);
+            String path = utilService.extractPathFromLabel(label);
 
             List<PropertySource> propertySources = loadConfigurationFiles(namespace, path, application, profile);
             for (PropertySource propertySource : propertySources) {
                 environment.add(propertySource);
             }
 
-            String mainFilePath = constructFilePathFromLabel(namespace, path, application, null);
+            String mainFilePath = utilService.constructFilePathFromLabel(namespace, path, application, null);
             String version = gitRepositoryService.getLatestCommitId(mainFilePath);
             environment.setVersion(version);
             
@@ -72,147 +72,83 @@ public class NamespaceAwareEnvironmentRepository implements EnvironmentRepositor
         }
     }
 
-    /**
-     * Validates input parameters to prevent security issues and provide clear error messages.
-     */
-    private void validateInputs(String application, String profile, String label) {
-        if (application == null || application.trim().isEmpty()) {
-            throw ValidationException.invalidAppName(application, "Application name cannot be null or empty");
-        }
-        
-        if (application.contains("../") || application.contains("..\\")) {
-            throw ValidationException.invalidAppName(application, "Application name contains invalid path characters");
-        }
-
-        if (profile != null && (profile.contains("../") || profile.contains("..\\"))) {
-            throw ValidationException.invalidPath(profile, "Profile contains invalid path characters");
-        }
-        
-        // Label can be null (will default to "default")
-        if (label != null && (label.contains("../") || label.contains("..\\"))) {
-            throw ValidationException.invalidPath(label, "Label contains invalid path characters");
-        }
-    }
     
     /**
-     * Loads configuration files including profile-specific configurations.
+     * Loads and flattens configuration files including profile-specific configurations.
+     * Uses the new flattened approach: Load all sources → Flatten → Resolve secrets → Return single PropertySource
      */
     private List<PropertySource> loadConfigurationFiles(String namespace, String path, String application, String profile) throws Exception {
-        log.info("configuration for application: {}, profile: {}", application, profile);
-        List<PropertySource> propertySources = new ArrayList<>();
+        log.info("Loading flattened configuration for application: {}, profile: {}", application, profile);
         
-        // Load main application configuration (application.yml)
-        String mainFilePath = constructFilePathFromLabel(namespace, path, application, null);
-        try {
-            String mainContent = gitRepositoryService.getConfigFile(mainFilePath, true);
-            Map<String, Object> mainProperties = parseYamlContent(mainContent, mainFilePath);
-            propertySources.add(new PropertySource(mainFilePath, mainProperties));
-        } catch (Exception e) {
-            log.debug("Main configuration file not found: {}", mainFilePath);
-        }
+        // 1. Load all raw property sources (no secret processing yet)
+        List<Map<String, Object>> rawPropertyMaps = new ArrayList<>();
         
-        // Load profile-specific configuration if profile is specified (application-{profile}.yml)
+        // Load generic application.yml (shared across all applications in namespace/path)
+        loadRawPropertySource(rawPropertyMaps, namespace, path, "application", null);
+        
+        // Load main application configuration (application-specific base config)
+        loadRawPropertySource(rawPropertyMaps, namespace, path, application, null);
+        
+        // Load profile-specific configuration if profile is specified
         if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
-            String profileFilePath = constructFilePathFromLabel(namespace, path, application, profile);
-            try {
-                String profileContent = gitRepositoryService.getConfigFile(profileFilePath, true);
-                Map<String, Object> profileProperties = parseYamlContent(profileContent, profileFilePath);
-                propertySources.add(new PropertySource(profileFilePath, profileProperties));
-            } catch (Exception e) {
-                log.debug("Profile-specific configuration file not found: {}", profileFilePath);
-            }
+            loadRawPropertySource(rawPropertyMaps, namespace, path, application, profile);
         }
         
-        if (propertySources.isEmpty()) {
+        // Check if we have any configuration loaded
+        if (rawPropertyMaps.isEmpty()) {
+            String mainFilePath = utilService.constructFilePathFromLabel(namespace, path, application, null);
             throw ConfigFileException.notFound(mainFilePath);
         }
         
-        return propertySources;
-    }
-
-    /**
-     * Extract namespace from label.
-     * Examples:
-     * - "production/config" -> "production"
-     * - "production" -> "production"  
-     * - "test/api" -> "test"
-     * - null/empty -> "main"
-     */
-    private String extractNamespaceFromLabel(String label) {
-        if (label == null || label.trim().isEmpty()) {
-            return "main";
-        }
+        // 2. Flatten all property sources into single merged map
+        Map<String, Object> flattenedConfig = utilService.flattenPropertySources(rawPropertyMaps);
         
-        if (label.contains("/")) {
-            return label.split("/")[0];
-        }
-        return label;
-    }
-
-    /**
-     * Extract path from label.
-     * Examples:
-     * - "production/config" -> "config"
-     * - "test/api/v1" -> "api/v1"
-     * - "production" -> "" (root path)
-     * - null/empty -> "" (root path)
-     */
-    private String extractPathFromLabel(String label) {
-        if (label == null || label.trim().isEmpty()) {
-            return "";
-        }
+        // 3. Convert flattened config back to YAML for secret processing
+        String flattenedYaml = utilService.convertMapToYaml(flattenedConfig);
         
-        if (label.contains("/")) {
-            int firstSlash = label.indexOf('/');
-            return label.substring(firstSlash + 1);
-        }
-        return ""; // root path
+        // 4. Resolve all secrets in the flattened configuration
+        String resolvedYaml = secretProcessor.processConfigurationForClient(flattenedYaml, namespace);
+        
+        // 5. Parse resolved YAML back to map
+        String mergedSourceName = String.format("merged-%s-%s", application, profile != null ? profile : "default");
+        Map<String, Object> resolvedProperties = utilService.parseYamlContent(resolvedYaml, mergedSourceName);
+        
+        // 6. Return single PropertySource with all merged and resolved configuration
+        List<PropertySource> result = new ArrayList<>();
+        result.add(new PropertySource(mergedSourceName, resolvedProperties));
+        
+        log.info("Successfully created flattened configuration with {} properties for {}", 
+                 resolvedProperties.size(), application);
+        
+        return result;
     }
-
+    
     /**
-     * Construct the complete file path using label-based namespace/path and application name.
-     * Examples:
-     * - namespace="production", path="config", application="user-service", profile=null -> "production/config/user-service.yml"
-     * - namespace="production", path="config", application="user-service", profile="dev" -> "production/config/user-service-dev.yml"
-     * - namespace="test", path="", application="api-service", profile=null -> "test/api-service.yml"
-     * - namespace="dev", path="api/v1", application="gateway", profile="staging" -> "dev/api/v1/gateway-staging.yml"
+     * Loads a raw property source without any secret processing.
+     * 
+     * @param rawPropertyMaps list to add the loaded properties to
+     * @param namespace the namespace
+     * @param path the path within namespace
+     * @param application the application name
+     * @param profile the profile (can be null)
      */
-    private String constructFilePathFromLabel(String namespace, String path, String application, String profile) {
-        StringBuilder filePath = new StringBuilder();
-        filePath.append(namespace);
-
-        if (!path.isEmpty()) {
-            filePath.append("/").append(path);
-        }
-        filePath.append("/").append(application);
-
-        if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
-            filePath.append("-").append(profile);
-        }
-        filePath.append(".yml");
-        return filePath.toString();
-    }
-
-    /**
-     * Parse YAML content into a map of properties.
-     * Assumes content is already validated during config updates.
-     */
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseYamlContent(String content, String filePath) {
-        if (content == null || content.trim().isEmpty()) {
-            log.debug("Empty content for file: {}, returning empty properties", filePath);
-            return new LinkedHashMap<>();
-        }
+    private void loadRawPropertySource(List<Map<String, Object>> rawPropertyMaps, 
+                                      String namespace, String path, String application, String profile) {
+        String filePath = utilService.constructFilePathFromLabel(namespace, path, application, profile);
         
         try {
-            Map<String, Object> yamlData = yaml.load(content);
-            return yamlData != null ? yamlData : new LinkedHashMap<>();
+            // Use getConfigFile with forClient=false to get raw content without secret processing
+            String rawContent = gitRepositoryService.getConfigFile(filePath);
+            Map<String, Object> properties = utilService.parseYamlContent(rawContent, filePath);
+            
+            if (!properties.isEmpty()) {
+                rawPropertyMaps.add(properties);
+                log.debug("Loaded raw properties from: {}", filePath);
+            }
         } catch (Exception e) {
-            log.error("Failed to parse YAML content for file: {} - {}", filePath, e.getMessage());
-            return new LinkedHashMap<>();
+            log.debug("Configuration file not found or could not be loaded: {} - {}", filePath, e.getMessage());
         }
     }
-
 
     @Override
     public int getOrder() {

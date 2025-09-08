@@ -49,17 +49,6 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
     String getConfigFile(String filePath) throws IOException;
 
     /**
-     * Retrieves the current content of a configuration file from the repository
-     * with context-aware secret processing.
-     *
-     * @param filePath the relative path of the configuration file
-     * @param forClient true if this is for client consumption (secrets decrypted), false for internal use (secrets remain as #ENCODED)
-     * @return the file content as a string, processed according to context
-     * @throws IOException if the file cannot be read or the repository cannot be accessed
-     */
-    String getConfigFile(String filePath, boolean forClient) throws IOException;
-
-    /**
      * Retrieves the commit history for a specific configuration file.
      * Returns metadata about all commits that affected the file.
      *

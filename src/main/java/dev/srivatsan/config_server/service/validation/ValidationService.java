@@ -200,6 +200,54 @@ public class ValidationService {
     }
 
     /**
+     * Validates Spring Cloud Config request parameters to prevent security issues.
+     * 
+     * @param application the application name
+     * @param profile the profile name (can be null)
+     * @param label the label/branch name (can be null)
+     * @throws ValidationException if any parameter is invalid
+     */
+    public void validateConfigRequest(String application, String profile, String label) {
+        if (application == null || application.trim().isEmpty()) {
+            throw ValidationException.invalidAppName(application, "Application name cannot be null or empty");
+        }
+        
+        if (application.contains("../") || application.contains("..\\")) {
+            throw ValidationException.invalidAppName(application, "Application name contains invalid path characters");
+        }
+
+        if (profile != null && (profile.contains("../") || profile.contains("..\\"))) {
+            throw ValidationException.invalidPath(profile, "Profile contains invalid path characters");
+        }
+        
+        // Label can be null (will default to "default")
+        if (label != null && (label.contains("../") || label.contains("..\\"))) {
+            throw ValidationException.invalidPath(label, "Label contains invalid path characters");
+        }
+    }
+
+    /**
+     * Validates a profile parameter for Spring Cloud Config requests.
+     * 
+     * @param profile the profile to validate
+     * @throws ValidationException if the profile is invalid
+     */
+    public void validateProfile(String profile) {
+        if (profile != null && !profile.trim().isEmpty()) {
+            String cleanProfile = profile.trim();
+            
+            if (cleanProfile.length() > 50) {
+                throw ValidationException.invalidPath(profile, "Profile name too long (max 50 characters)");
+            }
+            
+            if (!SAFE_NAME_PATTERN.matcher(cleanProfile).matches()) {
+                throw ValidationException.invalidPath(profile,
+                        "Invalid profile format. Only alphanumeric, dash, and underscore are allowed");
+            }
+        }
+    }
+
+    /**
      * Checks if a namespace name is reserved.
      *
      * @param namespace the namespace to check

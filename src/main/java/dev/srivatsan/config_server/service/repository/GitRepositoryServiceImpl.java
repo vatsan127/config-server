@@ -16,7 +16,6 @@ import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffFormatter;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -30,9 +29,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static org.eclipse.jgit.lib.Constants.HEAD;
@@ -79,7 +75,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
             // Initialize encryption key for the namespace
             encryptionService.initializeNamespaceKey(namespace);
-            
+
             // Create vault directory for secrets management
             File vaultDir = new File(namespaceDir, ".vault");
             if (!vaultDir.exists()) {
@@ -90,7 +86,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     log.warn("Failed to create vault directory for namespace '{}': {}", namespace, vaultDir.getAbsolutePath());
                 }
             }
-            
+
             log.info("Created and initialized namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
 
             // Clear namespace list cache and directory listings
@@ -156,6 +152,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                         throw ConfigFileException.notFound(filePath);
                     }
 
+                    // ToDo: Add secret processor and make it encrypted value
                     Files.writeString(configFilePath, payload.getContent());
 
                     git.add().addFilepattern(relativePath).call();
@@ -179,38 +176,26 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     }
 
+    @Override
     @Cacheable(value = "config-content", key = "#filePath")
     public String getConfigFile(String filePath) {
-        return getConfigFile(filePath, false);
-    }
-
-    @Override
-    public String getConfigFile(String filePath, boolean forClient) {
         validationService.validateSafePath(filePath);
-
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         String rawContent = gitOperationService.executeGitOperation(namespace, git -> {
-            Path workTree = git.getRepository().getWorkTree().toPath();
-            Path configFilePath = workTree.resolve(relativePath);
+                    Path workTree = git.getRepository().getWorkTree().toPath();
+                    Path configFilePath = workTree.resolve(relativePath);
 
-            if (!Files.exists(configFilePath)) {
-                throw ConfigFileException.notFound(filePath);
-            }
+                    if (!Files.exists(configFilePath)) {
+                        throw ConfigFileException.notFound(filePath);
+                    }
 
-            return Files.readString(configFilePath);
-        });
+                    return Files.readString(configFilePath);
+                }
+        );
 
-        return processConfigContent(rawContent, namespace, forClient);
-    }
-
-    private String processConfigContent(String content, String namespace, boolean forClient) {
-        if (forClient) {
-            return secretProcessor.processConfigurationForClient(content, namespace);
-        } else {
-            return secretProcessor.processConfigurationForInternal(content, namespace);
-        }
+        return secretProcessor.processConfigurationForInternal(rawContent, namespace);
     }
 
     @Cacheable(value = "latest-commit", key = "#filePath")
@@ -221,16 +206,17 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
-            var logCommand = git.log()
-                    .setMaxCount(1)
-                    .add(git.getRepository().resolve(HEAD))
-                    .addPath(relativePath);
+                    var logCommand = git.log()
+                            .setMaxCount(1)
+                            .add(git.getRepository().resolve(HEAD))
+                            .addPath(relativePath);
 
-            for (RevCommit commit : logCommand.call()) {
-                return commit.getId().getName();
-            }
-            throw ConfigFileException.notFound(filePath);
-        });
+                    for (RevCommit commit : logCommand.call()) {
+                        return commit.getId().getName();
+                    }
+                    throw ConfigFileException.notFound(filePath);
+                }
+        );
     }
 
     @Override
@@ -242,23 +228,24 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
-            var logCommand = git.log()
-                    .setMaxCount(applicationConfig.getCommitHistorySize())
-                    .add(git.getRepository().resolve(HEAD))
-                    .addPath(relativePath);
+                    var logCommand = git.log()
+                            .setMaxCount(applicationConfig.getCommitHistorySize())
+                            .add(git.getRepository().resolve(HEAD))
+                            .addPath(relativePath);
 
-            List<Map<String, Object>> commits = new ArrayList<>();
-            for (RevCommit commit : logCommand.call()) {
-                Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
-                commitInfo.put("commitMessage", commit.getShortMessage());
-                commits.add(commitInfo);
-            }
+                    List<Map<String, Object>> commits = new ArrayList<>();
+                    for (RevCommit commit : logCommand.call()) {
+                        Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
+                        commitInfo.put("commitMessage", commit.getShortMessage());
+                        commits.add(commitInfo);
+                    }
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("filePath", filePath);
-            result.put("commits", commits);
-            return result;
-        });
+                    Map<String, Object> result = new HashMap<>();
+                    result.put("filePath", filePath);
+                    result.put("commits", commits);
+                    return result;
+                }
+        );
     }
 
 
@@ -268,36 +255,37 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         validationService.validateNamespace(namespace);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
-            Map<String, Object> result = new HashMap<>();
+                    Map<String, Object> result = new HashMap<>();
 
-            Repository repository = git.getRepository();
-            try (RevWalk revWalk = new RevWalk(repository)) {
+                    Repository repository = git.getRepository();
+                    try (RevWalk revWalk = new RevWalk(repository)) {
 
-                RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
-                result.put("commitId", commit.getName());
-                result.put("commitMessage", commit.getFullMessage());
-                result.put("author", commit.getAuthorIdent().getName());
-                result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
+                        RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
+                        result.put("commitId", commit.getName());
+                        result.put("commitMessage", commit.getFullMessage());
+                        result.put("author", commit.getAuthorIdent().getName());
+                        result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
 
-                // Use DiffFormatter to show changes (equivalent to 'git show')
-                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-                     DiffFormatter df = new DiffFormatter(out)) {
-                    df.setRepository(repository);
-                    
-                    // Get the tree changes for this commit
-                    var diffs = df.scan(commit.getParentCount() > 0 ? commit.getParent(0) : null, commit);
-                    for (var diff : diffs) {
-                        df.format(diff);
+                        // Use DiffFormatter to show changes (equivalent to 'git show')
+                        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                             DiffFormatter df = new DiffFormatter(out)) {
+                            df.setRepository(repository);
+
+                            // Get the tree changes for this commit
+                            var diffs = df.scan(commit.getParentCount() > 0 ? commit.getParent(0) : null, commit);
+                            for (var diff : diffs) {
+                                df.format(diff);
+                            }
+
+                            String rawDiff = out.toString();
+                            String cleanedDiff = filterGitDiffMetadata(rawDiff);
+                            result.put("changes", cleanedDiff);
+                        }
                     }
-                    
-                    String rawDiff = out.toString();
-                    String cleanedDiff = filterGitDiffMetadata(rawDiff);
-                    result.put("changes", cleanedDiff);
-                }
-            }
 
-            return result;
-        });
+                    return result;
+                }
+        );
     }
 
 
@@ -334,29 +322,30 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         gitOperationService.executeGitVoidOperation(namespace, git -> {
-            Path workTree = git.getRepository().getWorkTree().toPath();
-            Path configFilePath = workTree.resolve(relativePath);
+                    Path workTree = git.getRepository().getWorkTree().toPath();
+                    Path configFilePath = workTree.resolve(relativePath);
 
-            if (!Files.exists(configFilePath)) {
-                throw ConfigFileException.notFound(filePath);
-            }
-            Files.delete(configFilePath);
+                    if (!Files.exists(configFilePath)) {
+                        throw ConfigFileException.notFound(filePath);
+                    }
+                    Files.delete(configFilePath);
 
-            git.rm().addFilepattern(relativePath).call();
-            git.commit()
-                    .setMessage(payload.getMessage())
-                    .setAuthor(payload.getEmail().substring(0, payload.getEmail().indexOf('@')), payload.getEmail())
-                    .call();
+                    git.rm().addFilepattern(relativePath).call();
+                    git.commit()
+                            .setMessage(payload.getMessage())
+                            .setAuthor(payload.getEmail().substring(0, payload.getEmail().indexOf('@')), payload.getEmail())
+                            .call();
 
-            log.info("Committed deletion of file: '{}' with message: '{}'", filePath, payload.getMessage());
+                    log.info("Committed deletion of file: '{}' with message: '{}'", filePath, payload.getMessage());
 
-            // Clear relevant caches
-            cacheManagerService.evictKey("config-content", filePath);
-            cacheManagerService.evictKey("commit-history", filePath);
-            cacheManagerService.evictKey("latest-commit", filePath);
-            cacheManagerService.evictAllFromCache("directory-listing");
+                    // Clear relevant caches
+                    cacheManagerService.evictKey("config-content", filePath);
+                    cacheManagerService.evictKey("commit-history", filePath);
+                    cacheManagerService.evictKey("latest-commit", filePath);
+                    cacheManagerService.evictAllFromCache("directory-listing");
 
-        });
+                }
+        );
     }
 
     @Override
@@ -380,6 +369,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear all related caches
             cacheManagerService.evictKey("namespaces", "all");
+
+            // ToDo: When namespace is delete below things can be cleared in TTL
             cacheManagerService.evictAllFromCache("directory-listing");
             cacheManagerService.evictAllFromCache("config-content");
             cacheManagerService.evictAllFromCache("commit-history");

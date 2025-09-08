@@ -9,6 +9,7 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.IOException;
@@ -25,10 +26,12 @@ public class UtilService {
 
     private final ApplicationConfig applicationConfig;
     private final ValidationService validationService;
+    private final Yaml yaml;
 
     public UtilService(ApplicationConfig applicationConfig, ValidationService validationService) {
         this.applicationConfig = applicationConfig;
         this.validationService = validationService;
+        this.yaml = new Yaml();
     }
 
     /**
@@ -214,6 +217,186 @@ public class UtilService {
 
         fileNames.sort(String.CASE_INSENSITIVE_ORDER);
         return fileNames;
+    }
+
+    /**
+     * Extract namespace from Spring Cloud Config label.
+     * Examples:
+     * - "production/config" -> "production"
+     * - "production" -> "production"  
+     * - "test/api" -> "test"
+     * - null/empty -> "main"
+     *
+     * @param label the label from Spring Cloud Config request
+     * @return the namespace extracted from the label
+     */
+    public String extractNamespaceFromLabel(String label) {
+        if (label == null || label.trim().isEmpty()) {
+            return "main";
+        }
+        
+        if (label.contains("/")) {
+            return label.split("/")[0];
+        }
+        return label;
+    }
+
+    /**
+     * Extract path from Spring Cloud Config label.
+     * Examples:
+     * - "production/config" -> "config"
+     * - "test/api/v1" -> "api/v1"
+     * - "production" -> "" (root path)
+     * - null/empty -> "" (root path)
+     *
+     * @param label the label from Spring Cloud Config request
+     * @return the path extracted from the label
+     */
+    public String extractPathFromLabel(String label) {
+        if (label == null || label.trim().isEmpty()) {
+            return "";
+        }
+        
+        if (label.contains("/")) {
+            int firstSlash = label.indexOf('/');
+            return label.substring(firstSlash + 1);
+        }
+        return ""; // root path
+    }
+
+    /**
+     * Construct the complete file path using label-based namespace/path and application name.
+     * Examples:
+     * - namespace="production", path="config", application="user-service", profile=null -> "production/config/user-service.yml"
+     * - namespace="production", path="config", application="user-service", profile="dev" -> "production/config/user-service-dev.yml"
+     * - namespace="test", path="", application="api-service", profile=null -> "test/api-service.yml"
+     * - namespace="dev", path="api/v1", application="gateway", profile="staging" -> "dev/api/v1/gateway-staging.yml"
+     *
+     * @param namespace the namespace name
+     * @param path the path within the namespace
+     * @param application the application name
+     * @param profile the profile name (can be null)
+     * @return the complete file path
+     */
+    public String constructFilePathFromLabel(String namespace, String path, String application, String profile) {
+        StringBuilder filePath = new StringBuilder();
+        filePath.append(namespace);
+
+        if (!path.isEmpty()) {
+            filePath.append("/").append(path);
+        }
+        filePath.append("/").append(application);
+
+        if (profile != null && !profile.trim().isEmpty() && !"default".equals(profile)) {
+            filePath.append("-").append(profile);
+        }
+        filePath.append(".yml");
+        return filePath.toString();
+    }
+
+    /**
+     * Parse YAML content into a map of properties.
+     * Assumes content is already validated during config updates.
+     *
+     * @param content the YAML content to parse
+     * @param filePath the file path for logging purposes
+     * @return a map containing the parsed YAML properties
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> parseYamlContent(String content, String filePath) {
+        if (content == null || content.trim().isEmpty()) {
+            log.debug("Empty content for file: {}, returning empty properties", filePath);
+            return new LinkedHashMap<>();
+        }
+        
+        try {
+            Map<String, Object> yamlData = yaml.load(content);
+            return yamlData != null ? yamlData : new LinkedHashMap<>();
+        } catch (Exception e) {
+            log.error("Failed to parse YAML content for file: {} - {}", filePath, e.getMessage());
+            return new LinkedHashMap<>();
+        }
+    }
+
+    /**
+     * Constructs the file path for generic application.yml that applies to all applications in a namespace.
+     * This file contains common configuration shared across all applications in the namespace.
+     *
+     * @param namespace the namespace name
+     * @param path the path within the namespace (can be empty for root)
+     * @return the file path for the generic application.yml
+     */
+    public String constructGenericApplicationConfigPath(String namespace, String path) {
+        StringBuilder filePath = new StringBuilder();
+        filePath.append(namespace);
+
+        if (!path.isEmpty()) {
+            filePath.append("/").append(path);
+        }
+        
+        filePath.append("/application.yml");
+        return filePath.toString();
+    }
+
+    /**
+     * Flattens multiple property sources into a single merged map with correct precedence.
+     * Later sources in the list override earlier ones (profile-specific overrides base config).
+     *
+     * @param propertySources the list of property sources to flatten
+     * @return a merged map containing all properties with correct precedence
+     */
+    public Map<String, Object> flattenPropertySources(List<Map<String, Object>> propertySources) {
+        Map<String, Object> merged = new LinkedHashMap<>();
+        
+        // Merge sources in order - later sources override earlier ones
+        for (Map<String, Object> source : propertySources) {
+            deepMergeProperties(merged, source);
+        }
+        
+        return merged;
+    }
+
+    /**
+     * Recursively merges properties from source map into target map.
+     * Nested maps are merged deeply, primitive values are overwritten.
+     *
+     * @param target the target map to merge into
+     * @param source the source map to merge from
+     */
+    @SuppressWarnings("unchecked")
+    private void deepMergeProperties(Map<String, Object> target, Map<String, Object> source) {
+        for (Map.Entry<String, Object> entry : source.entrySet()) {
+            String key = entry.getKey();
+            Object sourceValue = entry.getValue();
+            
+            if (target.containsKey(key) && target.get(key) instanceof Map && sourceValue instanceof Map) {
+                // Both are maps, merge recursively
+                deepMergeProperties((Map<String, Object>) target.get(key), (Map<String, Object>) sourceValue);
+            } else {
+                // Overwrite with new value
+                target.put(key, sourceValue);
+            }
+        }
+    }
+
+    /**
+     * Converts a flattened property map back to YAML string for secret processing.
+     * This is needed because SecretProcessor works with YAML string content.
+     *
+     * @param properties the property map to convert
+     * @return YAML string representation of the properties
+     */
+    public String convertMapToYaml(Map<String, Object> properties) {
+        if (properties == null || properties.isEmpty()) {
+            return "";
+        }
+        
+        try {
+            return yaml.dump(properties);
+        } catch (Exception e) {
+            log.error("Failed to convert properties map to YAML: {}", e.getMessage());
+            return "";
+        }
     }
 
     /**

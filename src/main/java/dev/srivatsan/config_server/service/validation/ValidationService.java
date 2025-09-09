@@ -283,6 +283,54 @@ public class ValidationService {
     }
 
     /**
+     * Validates that a secret key follows YAML key naming conventions.
+     * Keys must not contain spaces and can use dot notation for nested structures.
+     *
+     * @param secretKey the secret key to validate
+     * @throws ValidationException if the key is invalid
+     */
+    public void validateSecretKey(String secretKey) {
+        if (secretKey == null || secretKey.trim().isEmpty()) {
+            throw ValidationException.invalidPath(secretKey, "Secret key cannot be null or empty");
+        }
+
+        String cleanKey = secretKey.trim();
+
+        // Check for spaces - not allowed in YAML keys
+        if (cleanKey.contains(" ")) {
+            throw ValidationException.invalidPath(secretKey, "Secret key cannot contain spaces. Use dot notation for nested keys (e.g., 'parent.child')");
+        }
+
+        // Check for invalid YAML key characters
+        // Allow alphanumeric, dots, dashes, and underscores
+        if (!cleanKey.matches("^[a-zA-Z0-9._-]+$")) {
+            throw ValidationException.invalidPath(secretKey, "Secret key contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed");
+        }
+
+        // Check for consecutive dots or leading/trailing dots
+        if (cleanKey.contains("..") || cleanKey.startsWith(".") || cleanKey.endsWith(".")) {
+            throw ValidationException.invalidPath(secretKey, "Secret key has invalid dot usage. Dots should only be used to separate nested key parts");
+        }
+
+        // Check for empty segments between dots
+        String[] segments = cleanKey.split("\\.");
+        for (String segment : segments) {
+            if (segment.isEmpty()) {
+                throw ValidationException.invalidPath(secretKey, "Secret key cannot have empty segments between dots");
+            }
+            // Each segment should follow basic naming conventions
+            if (!segment.matches("^[a-zA-Z0-9_-]+$")) {
+                throw ValidationException.invalidPath(secretKey, "Secret key segment '" + segment + "' contains invalid characters");
+            }
+        }
+
+        // Check maximum length
+        if (cleanKey.length() > 100) {
+            throw ValidationException.invalidPath(secretKey, "Secret key too long (max 100 characters)");
+        }
+    }
+
+    /**
      * Checks if a namespace name is reserved.
      *
      * @param namespace the namespace to check

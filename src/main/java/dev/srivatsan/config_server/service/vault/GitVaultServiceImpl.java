@@ -87,6 +87,11 @@ public class GitVaultServiceImpl implements GitVaultService {
             throw VaultException.vaultOperationFailed("Secrets map cannot be null or empty");
         }
 
+        // Validate all secret keys before processing
+        for (String secretKey : secrets.keySet()) {
+            validationService.validateSecretKey(secretKey);
+        }
+
         gitOperationService.executeGitVoidOperation(namespace, git -> {
             try {
 

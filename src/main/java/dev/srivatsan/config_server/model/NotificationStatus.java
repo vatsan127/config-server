@@ -25,16 +25,23 @@ public class NotificationStatus {
     @Builder.Default
     private final NotificationOperationStatus status = NotificationOperationStatus.IN_PROGRESS;
 
-    /**
-     * Total number of retry attempts
-     */
-    @Builder.Default
-    private final int retryCount = 0;
 
     /**
      * Total number of API calls expected
      */
     private final int totalCount;
+
+    /**
+     * Number of API calls that succeeded
+     */
+    @Builder.Default
+    private final int successCount = 0;
+
+    /**
+     * Number of API calls that failed permanently
+     */
+    @Builder.Default
+    private final int failureCount = 0;
 
     /**
      * The timestamp when the notification was initiated
@@ -58,32 +65,71 @@ public class NotificationStatus {
     }
 
     /**
-     * Marks notification as successfully completed
+     * Resets the notification for retry - keeps the same ID but resets all tracking data
+     */
+    public NotificationStatus resetForRetry(int newTotalCount) {
+        return NotificationStatus.builder()
+                .id(this.id)
+                .status(NotificationOperationStatus.IN_PROGRESS)
+                .totalCount(newTotalCount)
+                .successCount(0)
+                .failureCount(0)
+                .initiatedTime(LocalDateTime.now())
+                .completedTime(null)
+                .build();
+    }
+
+    /**
+     * Marks one API call as successful and updates overall status if all calls are complete
      */
     public NotificationStatus withSuccess() {
+        int newSuccessCount = this.successCount + 1;
+        NotificationOperationStatus newStatus = determineOverallStatus(newSuccessCount, this.failureCount);
+        LocalDateTime completedTime = isComplete(newSuccessCount, this.failureCount) ? LocalDateTime.now() : this.completedTime;
+        
         return this.toBuilder()
-                .status(NotificationOperationStatus.SUCCESS)
-                .completedTime(LocalDateTime.now())
+                .successCount(newSuccessCount)
+                .status(newStatus)
+                .completedTime(completedTime)
                 .build();
     }
 
-    /**
-     * Updates notification after a retry attempt
-     */
-    public NotificationStatus withRetry() {
-        return this.toBuilder()
-                .retryCount(this.retryCount + 1)
-                .build();
-    }
 
     /**
-     * Marks notification as failed
+     * Marks one API call as failed and updates overall status if all calls are complete
      */
     public NotificationStatus withFailure() {
+        int newFailureCount = this.failureCount + 1;
+        NotificationOperationStatus newStatus = determineOverallStatus(this.successCount, newFailureCount);
+        LocalDateTime completedTime = isComplete(this.successCount, newFailureCount) ? LocalDateTime.now() : this.completedTime;
+        
         return this.toBuilder()
-                .status(NotificationOperationStatus.FAILED)
-                .completedTime(LocalDateTime.now())
+                .failureCount(newFailureCount)
+                .status(newStatus)
+                .completedTime(completedTime)
                 .build();
+    }
+
+    /**
+     * Determines the overall status based on success and failure counts
+     */
+    private NotificationOperationStatus determineOverallStatus(int successCount, int failureCount) {
+        int completedCount = successCount + failureCount;
+        
+        if (completedCount < totalCount) {
+            return NotificationOperationStatus.IN_PROGRESS;
+        } else if (successCount == totalCount) {
+            return NotificationOperationStatus.SUCCESS;
+        } else {
+            return NotificationOperationStatus.FAILED;
+        }
+    }
+
+    /**
+     * Checks if all API calls are complete (either success or failure)
+     */
+    private boolean isComplete(int successCount, int failureCount) {
+        return (successCount + failureCount) >= totalCount;
     }
 
     /**
@@ -109,7 +155,7 @@ public class NotificationStatus {
      */
     @Override
     public String toString() {
-        return String.format("NotificationStatus{id='%s', status=%s, retries=%d, total=%d}",
-                id, status, retryCount, totalCount);
+        return String.format("NotificationStatus{id='%s', status=%s, success=%d/%d, failed=%d}",
+                id, status, successCount, totalCount, failureCount);
     }
 }

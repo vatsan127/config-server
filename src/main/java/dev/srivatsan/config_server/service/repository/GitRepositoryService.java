@@ -121,7 +121,7 @@ public sealed interface GitRepositoryService permits GitRepositoryServiceImpl {
 
     /**
      * Retrieves API call status notifications for the last commit-history-size operations.
-     * Returns status information including trigger time, app name, retry count, and status
+     * Returns status information including trigger time, app name, success/failure counts, and status
      * (success, in-progress, failed) for each namespace operation.
      *
      * @param namespace the namespace identifier to get notifications for

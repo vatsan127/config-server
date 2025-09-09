@@ -14,7 +14,7 @@ import java.util.concurrent.Executors;
 
 /**
  * Enhanced client notification service with async notification tracking integration.
- * Tracks notification attempts, retries, and results for monitoring purposes.
+ * Tracks notification attempts and results for monitoring purposes.
  */
 @Service
 public class ClientNotifyService {
@@ -26,9 +26,9 @@ public class ClientNotifyService {
     private final NotificationStorageService notificationStorageService;
     private final CacheManagerService cacheManagerService;
 
-    public ClientNotifyService(RestClient restClient, ApplicationConfig applicationConfig, 
-                             NotificationStorageService notificationStorageService,
-                             CacheManagerService cacheManagerService) {
+    public ClientNotifyService(RestClient restClient, ApplicationConfig applicationConfig,
+                               NotificationStorageService notificationStorageService,
+                               CacheManagerService cacheManagerService) {
         this.restClient = restClient;
         this.applicationConfig = applicationConfig;
         this.notificationStorageService = notificationStorageService;
@@ -51,90 +51,70 @@ public class ClientNotifyService {
             return;
         }
 
-        String payload = String.format("{\"namespace\":\"%s\",\"appName\":\"%s\"}", namespace, appName);
+        String payload = String.format("{\"namespace\":\"%s\"}", namespace);
         int totalUrls = applicationConfig.getRefreshNotifyUrl().size();
-        
-        // Create and store initial notification using commitId
+
+        // Update existing notification or create new one if doesn't exist
         if (commitId != null) {
-            NotificationStatus notification = NotificationStatus.createInitial(commitId, totalUrls);
-            notificationStorageService.storeNotification(namespace, notification);
+            // Try to update existing notification, or create new one if not found
+            NotificationStatus existingNotification = notificationStorageService.getNotificationByCommitId(namespace, commitId);
+
+            if (existingNotification != null) {
+                // Reset existing notification to fresh state
+                NotificationStatus resetNotification = existingNotification.resetForRetry(totalUrls);
+                notificationStorageService.updateNotification(namespace, resetNotification);
+            } else {
+                // Create new notification if none exists
+                NotificationStatus notification = NotificationStatus.createInitial(commitId, totalUrls);
+                notificationStorageService.storeNotification(namespace, notification);
+            }
         }
 
         // Send notifications to all configured URLs using virtual threads
-        applicationConfig.getRefreshNotifyUrl().forEach(url -> 
-            virtualThreadExecutorService.submit(
-                () -> sendRequestWithTracking(url, payload, commitId, namespace)));
+        applicationConfig.getRefreshNotifyUrl().forEach(url ->
+                virtualThreadExecutorService.submit(
+                        () -> sendRequestWithTracking(url, payload, commitId, namespace)
+                )
+        );
     }
 
     /**
      * Sends a request with notification tracking
      */
     private void sendRequestWithTracking(String url, String payload, String commitId, String namespace) {
-        int maxRetries = applicationConfig.getRefreshApi().getMaxRetries();
-        long retryInterval = applicationConfig.getRefreshApi().getRetryIntervalMs();
+        try {
+            log.info("sendRefreshNotifications :: Sending to URL: '{}', payload: '{}'", url, payload);
 
-        for (int attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                log.info("sendRefreshNotifications :: Attempt {}/{} - URL: '{}', payload: '{}'", attempt, maxRetries, url, payload);
+            String response = restClient
+                    .post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(payload)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(String.class);
 
-                String response = restClient
-                        .post()
-                        .uri(url)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .body(payload)
-                        .accept(MediaType.APPLICATION_JSON)
-                        .retrieve()
-                        .body(String.class);
-                
-                log.debug("sendRefreshNotifications :: response - '{}'", response);
-                log.info("Successfully sent refresh notification to '{}' on attempt {}", url, attempt);
-                
-                // Update notification with success if commitId exists
-                if (commitId != null) {
-                    updateNotificationSuccess(namespace, commitId);
-                }
-                return; // Success, exit retry loop
-                
-            } catch (Exception e) {
-                if (attempt == maxRetries) {
-                    log.error("Failed to send API request to URL '{}' after {} attempts. Final error: ", url, maxRetries, e);
-                    if (commitId != null) {
-                        updateNotificationFailure(namespace, commitId);
-                    }
-                } else {
-                    log.warn("Attempt {}/{} failed for URL '{}', retrying in {}ms. Error: {}", attempt, maxRetries, url, retryInterval, e.getMessage());
-                    if (commitId != null) {
-                        updateNotificationRetry(namespace, commitId);
-                    }
-                    
-                    try {
-                        Thread.sleep(retryInterval);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        log.error("Retry interrupted for URL '{}'", url);
-                        if (commitId != null) {
-                            updateNotificationFailure(namespace, commitId);
-                        }
-                        return;
-                    }
-                }
+            log.debug("sendRefreshNotifications :: response - '{}'", response);
+            log.info("Successfully sent refresh notification to '{}'", url);
+
+            updateNotificationSuccess(namespace, commitId);
+
+        } catch (Exception e) {
+            log.error("Failed to send API request to URL '{}'. Error: ", url, e);
+            if (commitId != null) {
+                updateNotificationFailure(namespace, commitId);
             }
         }
     }
 
     private void updateNotificationSuccess(String namespace, String commitId) {
         notificationStorageService.updateNotificationAtomic(
-            namespace, commitId, NotificationStatus::withSuccess);
-    }
-
-    private void updateNotificationRetry(String namespace, String commitId) {
-        notificationStorageService.updateNotificationAtomic(
-            namespace, commitId, NotificationStatus::withRetry);
+                namespace, commitId, NotificationStatus::withSuccess);
     }
 
     private void updateNotificationFailure(String namespace, String commitId) {
         notificationStorageService.updateNotificationAtomic(
-            namespace, commitId, NotificationStatus::withFailure);
+                namespace, commitId, NotificationStatus::withFailure);
     }
 
     /**

@@ -57,9 +57,17 @@ public enum ActionType {
 
     /**
      * Retrieves API call status notifications for the last commit-history-size operations.
-     * Returns status information including trigger time, app name, retry count, and status
+     * Returns status information including trigger time, app name, success/failure counts, and status
      * (success, in-progress, failed) for each namespace.
      * Used by: POST /namespace/notify
      */
-    notify
+    notify,
+
+    /**
+     * Triggers refresh notification API calls for a specific namespace and commit.
+     * Manually initiates notification calls that can be used when automatic notifications fail.
+     * The app name is automatically extracted from the commit details.
+     * Used by: POST /namespace/trigger-notify
+     */
+    triggerNotify
 }

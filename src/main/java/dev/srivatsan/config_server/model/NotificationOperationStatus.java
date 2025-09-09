@@ -8,22 +8,22 @@ public enum NotificationOperationStatus {
     
     /**
      * Notification batch is currently being processed.
-     * Some API calls may be pending, in progress, or retrying.
-     * Condition: successfulApiCallCount < totalApiCallCount
+     * Some API calls may be pending or in progress.
+     * Condition: (successfulApiCallCount + failedApiCallCount) < totalApiCallCount
      */
     IN_PROGRESS,
     
     /**
      * All API calls in the notification batch completed successfully.
-     * May have required retries, but ultimately all endpoints were reached.
+     * All endpoints were successfully reached.
      * Condition: successfulApiCallCount == totalApiCallCount
      */
     SUCCESS,
     
     /**
-     * One or more API calls failed permanently after exhausting all retry attempts.
+     * One or more API calls failed permanently.
      * Some calls may have succeeded, but the overall notification batch is considered failed.
-     * Condition: Some URLs failed after max retries
+     * Condition: failedApiCallCount > 0 && (successfulApiCallCount + failedApiCallCount) == totalApiCallCount
      */
     FAILED
 }

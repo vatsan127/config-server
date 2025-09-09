@@ -1,7 +1,6 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.NamespaceAPI;
-import dev.srivatsan.config_server.model.ActionType;
 import dev.srivatsan.config_server.service.notify.ClientNotifyService;
 import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;
@@ -26,8 +25,8 @@ public class NamespaceController implements NamespaceAPI {
     private final ValidationService validationService;
     private final ClientNotifyService clientNotifyService;
 
-    public NamespaceController(GitRepositoryService gitRepositoryService, UtilService utilService, 
-                             ValidationService validationService, ClientNotifyService clientNotifyService) {
+    public NamespaceController(GitRepositoryService gitRepositoryService, UtilService utilService,
+                               ValidationService validationService, ClientNotifyService clientNotifyService) {
         this.gitRepositoryService = gitRepositoryService;
         this.utilService = utilService;
         this.validationService = validationService;
@@ -69,7 +68,7 @@ public class NamespaceController implements NamespaceAPI {
     public ResponseEntity<Map<String, Object>> getNamespaceEvents(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
         validationService.validateNamespace(namespace);
-        
+
         Map<String, Object> events = gitRepositoryService.getNamespaceEvents(namespace.trim());
         return ResponseEntity.ok(events);
     }
@@ -78,42 +77,9 @@ public class NamespaceController implements NamespaceAPI {
     public ResponseEntity<Map<String, Object>> getNamespaceNotifications(@RequestBody Map<String, String> request) throws Exception {
         String namespace = request.get("namespace");
         validationService.validateNamespace(namespace);
-        
+
         Map<String, Object> notifications = gitRepositoryService.getNamespaceNotifications(namespace.trim());
         return ResponseEntity.ok(notifications);
-    }
-
-    @Override
-    public ResponseEntity<Map<String, Object>> triggerNotifications(@RequestBody Map<String, String> request) throws Exception {
-        String namespace = request.get("namespace");
-        String commitId = request.get("commitid"); // Note: using "commitid" as per your specification
-        
-        // Validate required parameters
-        validationService.validateNamespace(namespace);
-        validationService.validateCommitId(commitId);
-        
-        try {
-            // Reinitialize notification from scratch - this will create a fresh notification
-            // with new timestamp, reset status, and all tracking details
-            clientNotifyService.sendRefreshNotifications(namespace.trim(), null, commitId.trim());
-            
-            log.info("Triggered notification reinitialization for namespace: '{}', commitId: '{}'", 
-                    namespace, commitId);
-            
-            return ResponseEntity.ok().build();
-            
-        } catch (Exception e) {
-            log.error("Failed to reinitialize notifications for namespace: '{}', commitId: '{}': {}", 
-                     namespace, commitId, e.getMessage(), e);
-            
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "message", "Failed to reinitialize notifications",
-                "error", e.getMessage(),
-                "namespace", namespace.trim(),
-                "commitId", commitId != null ? commitId.trim() : null,
-                "status", "failed"
-            ));
-        }
     }
 
 }

@@ -1,18 +1,19 @@
 package dev.srivatsan.config_server.model;
 
+import dev.srivatsan.config_server.constants.NotificationStatus;
 import lombok.Builder;
 import lombok.Data;
 import lombok.extern.jackson.Jacksonized;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
+
 /**
- * Simplified notification status with essential tracking fields.
+ * refresh notify api status with essential tracking fields.
  */
 @Data
 @Builder(toBuilder = true)
 @Jacksonized
-public class NotificationStatus {
+public class Notification {
 
     /**
      * The commit ID - unique identifier for this notification
@@ -23,7 +24,7 @@ public class NotificationStatus {
      * The current status of the notification
      */
     @Builder.Default
-    private final NotificationOperationStatus status = NotificationOperationStatus.IN_PROGRESS;
+    private final NotificationStatus status = NotificationStatus.IN_PROGRESS;
 
 
     /**
@@ -57,8 +58,8 @@ public class NotificationStatus {
     /**
      * Creates initial notification with commit ID
      */
-    public static NotificationStatus createInitial(String commitId, int totalCount) {
-        return NotificationStatus.builder()
+    public static Notification createInitial(String commitId, int totalCount) {
+        return Notification.builder()
                 .id(commitId)
                 .totalCount(totalCount)
                 .build();
@@ -67,10 +68,10 @@ public class NotificationStatus {
     /**
      * Resets the notification for retry - keeps the same ID but resets all tracking data
      */
-    public NotificationStatus resetForRetry(int newTotalCount) {
-        return NotificationStatus.builder()
+    public Notification resetForRetry(int newTotalCount) {
+        return Notification.builder()
                 .id(this.id)
-                .status(NotificationOperationStatus.IN_PROGRESS)
+                .status(NotificationStatus.IN_PROGRESS)
                 .totalCount(newTotalCount)
                 .successCount(0)
                 .failureCount(0)
@@ -82,11 +83,11 @@ public class NotificationStatus {
     /**
      * Marks one API call as successful and updates overall status if all calls are complete
      */
-    public NotificationStatus withSuccess() {
+    public Notification withSuccess() {
         int newSuccessCount = this.successCount + 1;
-        NotificationOperationStatus newStatus = determineOverallStatus(newSuccessCount, this.failureCount);
+        NotificationStatus newStatus = determineOverallStatus(newSuccessCount, this.failureCount);
         LocalDateTime completedTime = isComplete(newSuccessCount, this.failureCount) ? LocalDateTime.now() : this.completedTime;
-        
+
         return this.toBuilder()
                 .successCount(newSuccessCount)
                 .status(newStatus)
@@ -98,11 +99,11 @@ public class NotificationStatus {
     /**
      * Marks one API call as failed and updates overall status if all calls are complete
      */
-    public NotificationStatus withFailure() {
+    public Notification withFailure() {
         int newFailureCount = this.failureCount + 1;
-        NotificationOperationStatus newStatus = determineOverallStatus(this.successCount, newFailureCount);
+        NotificationStatus newStatus = determineOverallStatus(this.successCount, newFailureCount);
         LocalDateTime completedTime = isComplete(this.successCount, newFailureCount) ? LocalDateTime.now() : this.completedTime;
-        
+
         return this.toBuilder()
                 .failureCount(newFailureCount)
                 .status(newStatus)
@@ -113,15 +114,15 @@ public class NotificationStatus {
     /**
      * Determines the overall status based on success and failure counts
      */
-    private NotificationOperationStatus determineOverallStatus(int successCount, int failureCount) {
+    private NotificationStatus determineOverallStatus(int successCount, int failureCount) {
         int completedCount = successCount + failureCount;
-        
+
         if (completedCount < totalCount) {
-            return NotificationOperationStatus.IN_PROGRESS;
+            return NotificationStatus.IN_PROGRESS;
         } else if (successCount == totalCount) {
-            return NotificationOperationStatus.SUCCESS;
+            return NotificationStatus.SUCCESS;
         } else {
-            return NotificationOperationStatus.FAILED;
+            return NotificationStatus.FAILED;
         }
     }
 
@@ -132,30 +133,4 @@ public class NotificationStatus {
         return (successCount + failureCount) >= totalCount;
     }
 
-    /**
-     * Equality check based on id
-     */
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof NotificationStatus that)) return false;
-        return Objects.equals(id, that.id);
-    }
-
-    /**
-     * Hash code based on id
-     */
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
-
-    /**
-     * Compact string representation for logging
-     */
-    @Override
-    public String toString() {
-        return String.format("NotificationStatus{id='%s', status=%s, success=%d/%d, failed=%d}",
-                id, status, successCount, totalCount, failureCount);
-    }
 }

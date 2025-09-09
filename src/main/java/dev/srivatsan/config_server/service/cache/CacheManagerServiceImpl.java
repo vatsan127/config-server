@@ -23,7 +23,7 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
 
     @Override
     public void evictKey(String cacheName, String key) {
-        log.info("Evicting key '{}' from cache '{}'", key, cacheName);
+        log.debug("Evicting key '{}' from cache '{}'", key, cacheName);
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.evict(key);
@@ -35,11 +35,11 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
 
     @Override
     public void evictAllFromCache(String cacheName) {
-        log.info("Clearing all entries from cache '{}'", cacheName);
+        log.debug("Clearing all entries from cache '{}'", cacheName);
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             cache.clear();
-            log.info("Cleared all entries from cache '{}'", cacheName);
+            log.debug("Cleared all entries from cache '{}'", cacheName);
         } else {
             log.warn("Cache '{}' not found for clearing", cacheName);
         }
@@ -47,7 +47,7 @@ public non-sealed class CacheManagerServiceImpl implements CacheManagerService {
 
     @Override
     public void evictByPrefix(String cacheName, String prefix) {
-        log.info("Evicting entries with prefix '{}' from cache '{}'", prefix, cacheName);
+        log.debug("Evicting entries with prefix '{}' from cache '{}'", prefix, cacheName);
         Cache cache = cacheManager.getCache(cacheName);
         if (cache != null) {
             @SuppressWarnings("unchecked")

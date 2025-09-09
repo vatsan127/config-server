@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
  * Configuration properties for the notification tracking system.
  * Allows fine-tuning of memory usage, cleanup intervals, and performance settings.
  */
-@Configuration
+@Configuration // ToDo: This needs to be removed
 @ConfigurationProperties(prefix = "config-server.notifications")
 public class NotificationConfig {
 

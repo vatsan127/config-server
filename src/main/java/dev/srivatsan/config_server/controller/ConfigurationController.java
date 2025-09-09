@@ -2,7 +2,7 @@ package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.ConfigurationAPI;
 import dev.srivatsan.config_server.exception.ValidationException;
-import dev.srivatsan.config_server.model.ActionType;
+import dev.srivatsan.config_server.constants.ActionType;
 import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.service.repository.GitRepositoryService;
 import dev.srivatsan.config_server.service.util.UtilService;

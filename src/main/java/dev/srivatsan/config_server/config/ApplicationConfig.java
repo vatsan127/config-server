@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Data
@@ -16,7 +17,7 @@ public class ApplicationConfig {
 
     private int commitHistorySize;
     private String basePath;
-    private List<String> refreshNotifyUrl;
+    private Map<String, String> refreshNotifyUrl;
     private VaultConfig vault = new VaultConfig();
 
     @PostConstruct

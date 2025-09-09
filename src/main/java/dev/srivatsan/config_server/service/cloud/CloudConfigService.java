@@ -82,7 +82,7 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
     private List<PropertySource> loadConfigurationFiles(String namespace, String path, String application, String profile) throws Exception {
         log.info("Loading flattened configuration for application: {}, profile: {}", application, profile);
 
-        // 1. Load all raw property sources (no secret processing yet)
+        // Load all raw property sources (no secret processing yet)
         List<Map<String, Object>> rawPropertyMaps = new ArrayList<>();
 
         // Load generic application.yml (shared across all applications in namespace/path)
@@ -91,12 +91,11 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
         // Load main application configuration (application-specific base config)
         loadRawPropertySource(rawPropertyMaps, namespace, path, application, null);
 
-        // Handle multiple comma-separated profiles with proper precedence
+        // Load profile specific config ex -> dev (or) prod, uat
         if (profile != null && !profile.trim().isEmpty()) {
             String[] profiles = profile.split(",");
             for (String singleProfile : profiles) {
                 String trimmedProfile = singleProfile.trim();
-                // Skip empty profiles and don't load separate file for "default" profile
                 if (!trimmedProfile.isEmpty() && !"default".equals(trimmedProfile)) {
                     loadRawPropertySource(rawPropertyMaps, namespace, path, application, trimmedProfile);
                     log.debug("Loaded profile-specific configuration for profile: {}", trimmedProfile);
@@ -104,27 +103,16 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
             }
         }
 
-        // Check if we have any configuration loaded
-        if (rawPropertyMaps.isEmpty()) {
+        if (rawPropertyMaps.isEmpty()) {    // Check if we have any configuration loaded
             String mainFilePath = utilService.constructFilePathFromLabel(namespace, path, application, null);
             throw ConfigFileException.notFound(mainFilePath);
         }
 
-        // 2. Flatten all property sources into single merged map with dot-notation keys
         Map<String, Object> flattenedConfig = utilService.flattenPropertySources(rawPropertyMaps);
-        log.info("flattenedConfig - {}", flattenedConfig);
-
-        // 3. Convert flattened config back to YAML for secret processing
         String flattenedYaml = utilService.convertMapToYaml(flattenedConfig);
-
-        // 4. Resolve all secrets in the flattened configuration
         String resolvedYaml = secretProcessor.processConfigurationForClient(flattenedYaml, namespace);
-
-        // 5. Parse resolved YAML back to map
         String mergedSourceName = String.format("merged-%s-%s", application, profile != null ? profile : "default");
         Map<String, Object> resolvedProperties = utilService.parseYamlContent(resolvedYaml, mergedSourceName);
-
-        // 6. Return single PropertySource with all merged and resolved configuration
         List<PropertySource> result = new ArrayList<>();
         result.add(new PropertySource(mergedSourceName, resolvedProperties));
 
@@ -148,7 +136,6 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
         String filePath = utilService.constructFilePathFromLabel(namespace, path, application, profile);
 
         try {
-            // Use getConfigFile with forClient=false to get raw content without secret processing
             String rawContent = gitRepositoryService.getConfigFile(filePath);
             Map<String, Object> properties = utilService.parseYamlContent(rawContent, filePath);
 

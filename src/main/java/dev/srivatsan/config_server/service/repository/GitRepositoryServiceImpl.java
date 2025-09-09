@@ -7,7 +7,7 @@ import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
 import dev.srivatsan.config_server.model.Payload;
-import dev.srivatsan.config_server.model.NotificationStatus;
+import dev.srivatsan.config_server.model.Notification;
 import dev.srivatsan.config_server.service.notify.ClientNotifyService;
 import dev.srivatsan.config_server.service.notify.NotificationStorageService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
@@ -25,7 +25,6 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -119,7 +118,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
             // Clear all directory listings for this namespace
             cacheManagerService.evictAllFromCache("directory-listing");
-            
+
             // Clear namespace-level caches since a new file was created
             cacheManagerService.evictKey("namespace-events", namespace);
             cacheManagerService.evictKey("namespace-notifications", namespace);
@@ -179,7 +178,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("config-content", filePath);
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
-                    
+
                     // Clear namespace-level caches since a file was updated
                     cacheManagerService.evictKey("namespace-events", namespace);
                     cacheManagerService.evictKey("namespace-notifications", namespace);
@@ -359,7 +358,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     cacheManagerService.evictKey("commit-history", filePath);
                     cacheManagerService.evictKey("latest-commit", filePath);
                     cacheManagerService.evictAllFromCache("directory-listing");
-                    
+
                     // Clear namespace-level caches since a file was deleted
                     cacheManagerService.evictKey("namespace-events", namespace);
                     cacheManagerService.evictKey("namespace-notifications", namespace);
@@ -487,21 +486,21 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     }
 
     @Override
-    @Cacheable(value = "namespace-notifications", key = "#namespace", 
-               condition = "#namespace != null", 
-               unless = "#result.get('totalNotifications') == 0")
+    @Cacheable(value = "namespace-notifications", key = "#namespace",
+            condition = "#namespace != null",
+            unless = "#result.get('totalNotifications') == 0")
     public Map<String, Object> getNamespaceNotifications(String namespace) throws Exception {
         validationService.validateNamespace(namespace);
 
         // Get recent notifications limited by commit-history-size
-        List<NotificationStatus> notifications = notificationStorageService
+        List<Notification> notifications = notificationStorageService
                 .getRecentNotifications(namespace, applicationConfig.getCommitHistorySize());
 
         // Convert to response format efficiently with conditional parallel processing
-        List<Map<String, Object>> notificationDetails = 
-            (notificationConfig.isEnableParallelProcessing() && notifications.size() >= notificationConfig.getParallelProcessingThreshold())
-                ? notifications.parallelStream().map(this::formatNotificationInfo).toList()
-                : notifications.stream().map(this::formatNotificationInfo).toList();
+        List<Map<String, Object>> notificationDetails =
+                (notificationConfig.isEnableParallelProcessing() && notifications.size() >= notificationConfig.getParallelProcessingThreshold())
+                        ? notifications.parallelStream().map(this::formatNotificationInfo).toList()
+                        : notifications.stream().map(this::formatNotificationInfo).toList();
 
         // Pre-size map for better performance
         Map<String, Object> result = new HashMap<>(8);
@@ -509,13 +508,13 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         result.put("notifications", notificationDetails);
         result.put("totalNotifications", notificationDetails.size());
         result.put("maxNotifications", applicationConfig.getCommitHistorySize());
-        
+
         // Add storage stats for monitoring if enabled
         if (notificationConfig.isEnableDebugStats()) {
             Map<String, Object> stats = notificationStorageService.getStorageStats();
             result.put("_debug_storage_stats", stats);
         }
-        
+
         return result;
     }
 
@@ -525,21 +524,21 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
      * @param notification the notification status to format
      * @return formatted notification information map
      */
-    private Map<String, Object> formatNotificationInfo(NotificationStatus notification) {
+    private Map<String, Object> formatNotificationInfo(Notification notification) {
         Map<String, Object> info = new HashMap<>(7);
-        
+
         info.put("id", notification.getId());
         info.put("status", notification.getStatus().toString());
         info.put("totalCount", notification.getTotalCount());
         info.put("successCount", notification.getSuccessCount());
         info.put("failureCount", notification.getFailureCount());
         info.put("initiatedTime", notification.getInitiatedTime().toString());
-        
+
         // Add completedTime only if present
         if (notification.getCompletedTime() != null) {
             info.put("completedTime", notification.getCompletedTime().toString());
         }
-        
+
         return info;
     }
 

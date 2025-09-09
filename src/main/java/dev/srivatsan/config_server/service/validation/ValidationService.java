@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.service.validation;
 
 import dev.srivatsan.config_server.exception.ValidationException;
-import dev.srivatsan.config_server.model.ActionType;
+import dev.srivatsan.config_server.constants.ActionType;
 import dev.srivatsan.config_server.model.Payload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -226,7 +226,7 @@ public class ValidationService {
         if (profile != null && (profile.contains("../") || profile.contains("..\\"))) {
             throw ValidationException.invalidPath(profile, "Profile contains invalid path characters");
         }
-        
+
         // Validate individual profiles if comma-separated
         validateProfile(profile);
 

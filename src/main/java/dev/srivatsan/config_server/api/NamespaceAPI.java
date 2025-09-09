@@ -91,16 +91,4 @@ public interface NamespaceAPI {
     @PostMapping("/notify")
     ResponseEntity<Map<String, Object>> getNamespaceNotifications(@RequestBody Map<String, String> request) throws Exception;
 
-    /**
-     * Triggers refresh notification API calls for a specific namespace and commit.
-     * This endpoint reinitializes the notification from scratch with fresh timestamp and status.
-     * Any existing notification with the same commitId will be removed and recreated.
-     * The app name is retrieved from the commit context automatically.
-     *
-     * @param request a map containing namespace name and commitid (note: "commitid" key)
-     * @return ResponseEntity containing trigger result and status
-     * @throws Exception if the trigger operation fails or required parameters are missing
-     */
-    @PostMapping("/trigger-notify")
-    ResponseEntity<Map<String, Object>> triggerNotifications(@RequestBody Map<String, String> request) throws Exception;
 }

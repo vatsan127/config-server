@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.service.notify;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
-import dev.srivatsan.config_server.model.NotificationStatus;
+import dev.srivatsan.config_server.model.Notification;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,7 +24,6 @@ public class ClientNotifyService {
     private final RestClient restClient;
     private final ApplicationConfig applicationConfig;
     private final NotificationStorageService notificationStorageService;
-    private final CacheManagerService cacheManagerService;
 
     public ClientNotifyService(RestClient restClient, ApplicationConfig applicationConfig,
                                NotificationStorageService notificationStorageService,
@@ -32,7 +31,6 @@ public class ClientNotifyService {
         this.restClient = restClient;
         this.applicationConfig = applicationConfig;
         this.notificationStorageService = notificationStorageService;
-        this.cacheManagerService = cacheManagerService;
         this.virtualThreadExecutorService = Executors.newVirtualThreadPerTaskExecutor();
     }
 
@@ -47,35 +45,33 @@ public class ClientNotifyService {
      * Enhanced version that tracks notifications and optionally associates with a commit
      */
     public void sendRefreshNotifications(String namespace, String appName, String commitId) {
-        if (applicationConfig.getRefreshNotifyUrl() == null || applicationConfig.getRefreshNotifyUrl().isEmpty()) {
+        if (applicationConfig.getRefreshNotifyUrl().get(namespace) == null || applicationConfig.getRefreshNotifyUrl().get(namespace).isEmpty()) {
             return;
         }
 
-        String payload = String.format("{\"namespace\":\"%s\"}", namespace);
+        String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
+        String payload = String.format("{\"namespace\":\"%s\"}", namespace); // ToDo: add app name and make it as a class level final static
         int totalUrls = applicationConfig.getRefreshNotifyUrl().size();
 
         // Update existing notification or create new one if doesn't exist
         if (commitId != null) {
             // Try to update existing notification, or create new one if not found
-            NotificationStatus existingNotification = notificationStorageService.getNotificationByCommitId(namespace, commitId);
+            Notification existingNotification = notificationStorageService.getNotificationByCommitId(namespace, commitId);
 
             if (existingNotification != null) {
                 // Reset existing notification to fresh state
-                NotificationStatus resetNotification = existingNotification.resetForRetry(totalUrls);
+                Notification resetNotification = existingNotification.resetForRetry(totalUrls);
                 notificationStorageService.updateNotification(namespace, resetNotification);
             } else {
                 // Create new notification if none exists
-                NotificationStatus notification = NotificationStatus.createInitial(commitId, totalUrls);
+                Notification notification = Notification.createInitial(commitId, totalUrls);
                 notificationStorageService.storeNotification(namespace, notification);
             }
         }
 
         // Send notifications to all configured URLs using virtual threads
-        applicationConfig.getRefreshNotifyUrl().forEach(url ->
-                virtualThreadExecutorService.submit(
-                        () -> sendRequestWithTracking(url, payload, commitId, namespace)
-                )
-        );
+        virtualThreadExecutorService.submit(() -> sendRequestWithTracking(url, payload, commitId, namespace));
+
     }
 
     /**
@@ -83,7 +79,7 @@ public class ClientNotifyService {
      */
     private void sendRequestWithTracking(String url, String payload, String commitId, String namespace) {
         try {
-            log.info("sendRefreshNotifications :: Sending to URL: '{}', payload: '{}'", url, payload);
+            log.debug("sendRefreshNotifications :: Sending to URL: '{}', payload: '{}'", url, payload);
 
             String response = restClient
                     .post()
@@ -95,26 +91,22 @@ public class ClientNotifyService {
                     .body(String.class);
 
             log.debug("sendRefreshNotifications :: response - '{}'", response);
-            log.info("Successfully sent refresh notification to '{}'", url);
-
             updateNotificationSuccess(namespace, commitId);
-
         } catch (Exception e) {
             log.error("Failed to send API request to URL '{}'. Error: ", url, e);
-            if (commitId != null) {
-                updateNotificationFailure(namespace, commitId);
-            }
+            updateNotificationFailure(namespace, commitId);
         }
     }
 
+    // ToDo: optimize the below code
     private void updateNotificationSuccess(String namespace, String commitId) {
         notificationStorageService.updateNotificationAtomic(
-                namespace, commitId, NotificationStatus::withSuccess);
+                namespace, commitId, Notification::withSuccess);
     }
 
     private void updateNotificationFailure(String namespace, String commitId) {
         notificationStorageService.updateNotificationAtomic(
-                namespace, commitId, NotificationStatus::withFailure);
+                namespace, commitId, Notification::withFailure);
     }
 
     /**

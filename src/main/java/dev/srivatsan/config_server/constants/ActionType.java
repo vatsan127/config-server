@@ -1,4 +1,4 @@
-package dev.srivatsan.config_server.model;
+package dev.srivatsan.config_server.constants;
 
 /**
  * Enumeration defining the supported configuration management operations.

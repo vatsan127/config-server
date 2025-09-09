@@ -1,6 +1,7 @@
 package dev.srivatsan.config_server.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import dev.srivatsan.config_server.constants.ActionType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;

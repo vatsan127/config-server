@@ -579,7 +579,8 @@ namespace root directory.
 
 **Endpoint:** `POST /namespace/notify`
 
-Retrieves API call status notifications for the last `commit-history-size` operations within a namespace. Shows execution status, timing information, retry counts, and results for configuration management operations.
+Retrieves API call status notifications for the last `commit-history-size` operations within a namespace. Shows
+execution status, timing information, retry counts, and results for configuration management operations.
 
 **Request Model:**
 
@@ -636,14 +637,14 @@ Retrieves API call status notifications for the last `commit-history-size` opera
 
 - `namespace` (string): The namespace that was queried
 - `notifications` (array): List of notification status objects
-  - `triggeredAt` (string): When the API call was triggered (ISO format)
-  - `appName` (string): Application name from the original payload
-  - `operation` (string): Type of operation (create, update, delete, etc.)
-  - `status` (string): Current status - `success`, `inprogress`, or `failed`
-  - `retryCount` (integer): Number of retry attempts made
-  - `namespace` (string): Namespace where the operation occurred
-  - `commitId` (string, optional): Associated Git commit ID (if operation succeeded)
-  - `errorMessage` (string, optional): Error details (if operation failed or is retrying)
+    - `triggeredAt` (string): When the API call was triggered (ISO format)
+    - `appName` (string): Application name from the original payload
+    - `operation` (string): Type of operation (create, update, delete, etc.)
+    - `status` (string): Current status - `success`, `inprogress`, or `failed`
+    - `retryCount` (integer): Number of retry attempts made
+    - `namespace` (string): Namespace where the operation occurred
+    - `commitId` (string, optional): Associated Git commit ID (if operation succeeded)
+    - `errorMessage` (string, optional): Error details (if operation failed or is retrying)
 - `totalNotifications` (integer): Number of notifications returned
 - `maxNotifications` (integer): Maximum notifications limit (from commit-history-size config)
 

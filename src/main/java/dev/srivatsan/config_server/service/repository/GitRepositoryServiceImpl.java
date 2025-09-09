@@ -13,6 +13,7 @@ import dev.srivatsan.config_server.service.notify.NotificationStorageService;
 import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
+import dev.srivatsan.config_server.service.pool.GitRepositoryPool;
 import dev.srivatsan.config_server.service.secret.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
@@ -51,8 +52,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final NotificationStorageService notificationStorageService;
     private final SecretProcessor secretProcessor;
     private final EncryptionService encryptionService;
+    private final GitRepositoryPool repositoryPool;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, NotificationConfig notificationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, NotificationConfig notificationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService, GitRepositoryPool repositoryPool) {
         this.applicationConfig = applicationConfig;
         this.notificationConfig = notificationConfig;
         this.utilService = utilService;
@@ -63,6 +65,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         this.notificationStorageService = notificationStorageService;
         this.secretProcessor = secretProcessor;
         this.encryptionService = encryptionService;
+        this.repositoryPool = repositoryPool;
     }
 
     public void createNamespace(String namespace) {
@@ -395,6 +398,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             cacheManagerService.evictByPrefix("commit-history", namespace + "/");
             cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
             cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
+            
+            // Evict from repository pool
+            repositoryPool.evictNamespace(namespace);
 
         } catch (IOException e) {
             log.error("Failed to delete namespace '{}': {}", namespace, e.getMessage());

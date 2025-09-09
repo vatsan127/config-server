@@ -3,6 +3,7 @@ package dev.srivatsan.config_server.service.operation;
 import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
+import dev.srivatsan.config_server.service.pool.GitRepositoryPool;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -24,17 +25,22 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
 
     private final ApplicationConfig applicationConfig;
     private final ValidationService validationService;
+    private final GitRepositoryPool repositoryPool;
 
-    public GitOperationServiceImpl(ApplicationConfig applicationConfig, ValidationService validationService) {
+    public GitOperationServiceImpl(ApplicationConfig applicationConfig, 
+                                 ValidationService validationService,
+                                 GitRepositoryPool repositoryPool) {
         this.applicationConfig = applicationConfig;
         this.validationService = validationService;
+        this.repositoryPool = repositoryPool;
     }
 
     @Override
     public <T> T executeGitOperation(String namespace, GitOperation<T> operation) {
         log.debug("Executing Git operation for namespace: {}", namespace);
+        validationService.validateNamespace(namespace);
 
-        try (Git git = openRepository(namespace)) {
+        try (Git git = repositoryPool.getGitInstance(namespace)) {
             T result = operation.execute(git);
             log.debug("Git operation completed successfully for namespace: {}", namespace);
             return result;
@@ -50,8 +56,9 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
     @Override
     public void executeGitVoidOperation(String namespace, GitVoidOperation operation) {
         log.debug("Executing Git void operation for namespace: {}", namespace);
+        validationService.validateNamespace(namespace);
 
-        try (Git git = openRepository(namespace)) {
+        try (Git git = repositoryPool.getGitInstance(namespace)) {
             operation.execute(git);
             log.debug("Git void operation completed successfully for namespace: {}", namespace);
         } catch (IOException e) {
@@ -64,36 +71,17 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
     }
 
     /**
-     * Opens a Git repository for the specified namespace.
-     * This method provides direct access to the Git repository instance for advanced operations.
+     * Opens a Git repository for the specified namespace using the repository pool.
+     * This method provides direct access to a NEW Git repository instance for thread-safe operations.
      *
      * @param namespace the namespace identifier
-     * @return the opened Git repository instance
+     * @return a new Git repository instance from the pool
      * @throws IOException        if the repository cannot be accessed
      * @throws NamespaceException if the namespace is invalid or not found
      */
     @Override
     public Git openRepository(String namespace) throws IOException {
         validationService.validateNamespace(namespace);
-
-        File namespaceDir = new File(applicationConfig.getBasePath(), namespace);
-        if (!namespaceDir.exists()) {
-            log.warn("Namespace directory not found: {}", namespaceDir.getAbsolutePath());
-            throw NamespaceException.notFound(namespace);
-        }
-
-        if (!namespaceDir.isDirectory()) {
-            log.error("Namespace path is not a directory: {}", namespaceDir.getAbsolutePath());
-            throw NamespaceException.notFound(namespace);
-        }
-
-        try {
-            Git git = Git.open(namespaceDir);
-            log.debug("Successfully opened Git repository for namespace: {}", namespace);
-            return git;
-        } catch (IOException e) {
-            log.error("Failed to open Git repository for namespace '{}': {}", namespace, e.getMessage());
-            throw GitOperationException.repositoryAccessFailed(namespace, e);
-        }
+        return repositoryPool.getGitInstance(namespace);
     }
 }

@@ -404,16 +404,26 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     /**
      * Recursively deletes a directory and all its contents.
+     * Uses try-with-resources to ensure proper cleanup of file system resources.
      *
      * @param dirPath the path of the directory to delete
      * @throws IOException if deletion fails
      */
     private void deleteDirectoryRecursively(Path dirPath) throws IOException {
         if (Files.exists(dirPath)) {
-            Files.walk(dirPath)
-                    .sorted(java.util.Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
+            try (var pathStream = Files.walk(dirPath)) {
+                pathStream
+                        .sorted(java.util.Comparator.reverseOrder())
+                        .forEach(path -> {
+                            try {
+                                Files.delete(path);
+                                log.debug("Deleted: {}", path);
+                            } catch (IOException e) {
+                                log.warn("Failed to delete file: {}, error: {}", path, e.getMessage());
+                                throw new RuntimeException("Failed to delete file: " + path, e);
+                            }
+                        });
+            }
         }
     }
 

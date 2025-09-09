@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 public class ClientNotifyService {
 
     private static final Logger log = LoggerFactory.getLogger(ClientNotifyService.class);
+    private static final String NOTIFICATION_PAYLOAD_TEMPLATE = "{\"appName\":\"%s\"}";
     private final ExecutorService virtualThreadExecutorService;
     private final RestClient restClient;
     private final ApplicationConfig applicationConfig;
@@ -50,7 +51,7 @@ public class ClientNotifyService {
         }
 
         String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
-        String payload = String.format("{\"namespace\":\"%s\"}", namespace); // ToDo: add app name and make it as a class level final static
+        String payload = String.format(NOTIFICATION_PAYLOAD_TEMPLATE, appName);
         int totalUrls = applicationConfig.getRefreshNotifyUrl().size();
 
         // Update existing notification or create new one if doesn't exist

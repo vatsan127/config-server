@@ -1,7 +1,6 @@
 package dev.srivatsan.config_server.service.repository;
 
 import dev.srivatsan.config_server.config.ApplicationConfig;
-import dev.srivatsan.config_server.config.NotificationConfig;
 import dev.srivatsan.config_server.exception.ConfigConflictException;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
@@ -41,7 +40,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     private final Logger log = LoggerFactory.getLogger(GitRepositoryServiceImpl.class);
     private final ApplicationConfig applicationConfig;
-    private final NotificationConfig notificationConfig;
     private final UtilService utilService;
     private final GitOperationService gitOperationService;
     private final CacheManagerService cacheManagerService;
@@ -51,9 +49,8 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final SecretProcessor secretProcessor;
     private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, NotificationConfig notificationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
         this.applicationConfig = applicationConfig;
-        this.notificationConfig = notificationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
         this.cacheManagerService = cacheManagerService;
@@ -496,11 +493,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         List<Notification> notifications = notificationStorageService
                 .getRecentNotifications(namespace, applicationConfig.getCommitHistorySize());
 
-        // Convert to response format efficiently with conditional parallel processing
-        List<Map<String, Object>> notificationDetails =
-                (notificationConfig.isEnableParallelProcessing() && notifications.size() >= notificationConfig.getParallelProcessingThreshold())
-                        ? notifications.parallelStream().map(this::formatNotificationInfo).toList()
-                        : notifications.stream().map(this::formatNotificationInfo).toList();
+        // Convert to response format
+        List<Map<String, Object>> notificationDetails = notifications.stream()
+                .map(this::formatNotificationInfo)
+                .toList();
 
         // Pre-size map for better performance
         Map<String, Object> result = new HashMap<>(8);
@@ -508,12 +504,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         result.put("notifications", notificationDetails);
         result.put("totalNotifications", notificationDetails.size());
         result.put("maxNotifications", applicationConfig.getCommitHistorySize());
-
-        // Add storage stats for monitoring if enabled
-        if (notificationConfig.isEnableDebugStats()) {
-            Map<String, Object> stats = notificationStorageService.getStorageStats();
-            result.put("_debug_storage_stats", stats);
-        }
 
         return result;
     }

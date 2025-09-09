@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -53,70 +52,30 @@ public class ClientNotifyService {
         }
 
         String payload = String.format("{\"namespace\":\"%s\",\"appName\":\"%s\"}", namespace, appName);
+        int totalUrls = applicationConfig.getRefreshNotifyUrl().size();
         
-        // Create and store initial notification
-        NotificationStatus initialNotification = NotificationStatus.builder()
-                .appName(appName)
-                .operation("refresh-notify")
-                .namespace(namespace)
-                .status(NotificationStatus.Status.inprogress)
-                .retryCount(0)
-                .commitId(commitId)
-                .build();
-        
-        notificationStorageService.storeNotification(namespace, initialNotification);
-        
-        // Clear namespace notifications cache since we added a new notification
-        cacheManagerService.evictKey("namespace-notifications", namespace);
+        // Create and store initial notification using commitId
+        if (commitId != null) {
+            NotificationStatus notification = NotificationStatus.createInitial(commitId, totalUrls);
+            notificationStorageService.storeNotification(namespace, notification);
+        }
 
-        // Send notifications to all configured URLs asynchronously
-        CompletableFuture<Void> allNotifications = CompletableFuture.allOf(
-            applicationConfig.getRefreshNotifyUrl().stream()
-                .map(url -> CompletableFuture.runAsync(
-                    () -> sendRequestWithTracking(url, payload, namespace, appName, commitId), 
-                    virtualThreadExecutorService))
-                .toArray(CompletableFuture[]::new)
-        );
-
-        // Handle completion
-        allNotifications.whenComplete((result, throwable) -> {
-            if (throwable != null) {
-                log.error("Some refresh notifications failed for app '{}' in namespace '{}'", appName, namespace, throwable);
-            } else {
-                log.debug("All refresh notifications completed for app '{}' in namespace '{}'", appName, namespace);
-            }
-        });
+        // Send notifications to all configured URLs using virtual threads
+        applicationConfig.getRefreshNotifyUrl().forEach(url -> 
+            virtualThreadExecutorService.submit(
+                () -> sendRequestWithTracking(url, payload, commitId, namespace)));
     }
 
     /**
-     * Sends a request with integrated notification tracking
+     * Sends a request with notification tracking
      */
-    private void sendRequestWithTracking(String url, String payload, String namespace, String appName, String commitId) {
+    private void sendRequestWithTracking(String url, String payload, String commitId, String namespace) {
         int maxRetries = applicationConfig.getRefreshApi().getMaxRetries();
         long retryInterval = applicationConfig.getRefreshApi().getRetryIntervalMs();
-        
-        NotificationStatus currentNotification = NotificationStatus.builder()
-                .appName(appName)
-                .operation("refresh-notify")
-                .namespace(namespace)
-                .status(NotificationStatus.Status.inprogress)
-                .retryCount(0)
-                .commitId(commitId)
-                .build();
 
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
                 log.info("sendRefreshNotifications :: Attempt {}/{} - URL: '{}', payload: '{}'", attempt, maxRetries, url, payload);
-                
-                // Update notification for retry attempts
-                if (attempt > 1) {
-                    currentNotification = currentNotification.toBuilder()
-                            .retryCount(attempt - 1)
-                            .errorMessage(String.format("Retrying attempt %d/%d", attempt, maxRetries))
-                            .build();
-                    notificationStorageService.updateNotification(namespace, currentNotification);
-                    cacheManagerService.evictKey("namespace-notifications", namespace);
-                }
 
                 String response = restClient
                         .post()
@@ -130,61 +89,52 @@ public class ClientNotifyService {
                 log.debug("sendRefreshNotifications :: response - '{}'", response);
                 log.info("Successfully sent refresh notification to '{}' on attempt {}", url, attempt);
                 
-                // Update notification to success
-                NotificationStatus successNotification = currentNotification.toBuilder()
-                        .status(NotificationStatus.Status.success)
-                        .retryCount(attempt - 1)
-                        .errorMessage(null)
-                        .build();
-                notificationStorageService.updateNotification(namespace, successNotification);
-                cacheManagerService.evictKey("namespace-notifications", namespace);
-                
+                // Update notification with success if commitId exists
+                if (commitId != null) {
+                    updateNotificationSuccess(namespace, commitId);
+                }
                 return; // Success, exit retry loop
                 
             } catch (Exception e) {
-                String errorMessage = String.format("Attempt %d failed: %s", attempt, e.getMessage());
-                
                 if (attempt == maxRetries) {
                     log.error("Failed to send API request to URL '{}' after {} attempts. Final error: ", url, maxRetries, e);
-                    
-                    // Update notification to failed
-                    NotificationStatus failedNotification = currentNotification.toBuilder()
-                            .status(NotificationStatus.Status.failed)
-                            .retryCount(maxRetries)
-                            .errorMessage(String.format("Failed after %d attempts: %s", maxRetries, e.getMessage()))
-                            .build();
-                    notificationStorageService.updateNotification(namespace, failedNotification);
-                    cacheManagerService.evictKey("namespace-notifications", namespace);
-                    
+                    if (commitId != null) {
+                        updateNotificationFailure(namespace, commitId);
+                    }
                 } else {
                     log.warn("Attempt {}/{} failed for URL '{}', retrying in {}ms. Error: {}", attempt, maxRetries, url, retryInterval, e.getMessage());
-                    
-                    // Update notification with retry info
-                    currentNotification = currentNotification.toBuilder()
-                            .retryCount(attempt)
-                            .errorMessage(errorMessage)
-                            .build();
-                    notificationStorageService.updateNotification(namespace, currentNotification);
-                    cacheManagerService.evictKey("namespace-notifications", namespace);
+                    if (commitId != null) {
+                        updateNotificationRetry(namespace, commitId);
+                    }
                     
                     try {
                         Thread.sleep(retryInterval);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         log.error("Retry interrupted for URL '{}'", url);
-                        
-                        // Update notification to failed due to interruption
-                        NotificationStatus interruptedNotification = currentNotification.toBuilder()
-                                .status(NotificationStatus.Status.failed)
-                                .errorMessage("Operation interrupted during retry")
-                                .build();
-                        notificationStorageService.updateNotification(namespace, interruptedNotification);
-                        cacheManagerService.evictKey("namespace-notifications", namespace);
+                        if (commitId != null) {
+                            updateNotificationFailure(namespace, commitId);
+                        }
                         return;
                     }
                 }
             }
         }
+    }
+
+    private void updateNotificationSuccess(String namespace, String commitId) {
+        notificationStorageService.updateNotificationAtomic(
+            namespace, commitId, NotificationStatus::withSuccess);
+    }
+
+    private void updateNotificationRetry(String namespace, String commitId) {
+        notificationStorageService.updateNotificationAtomic(
+            namespace, commitId, NotificationStatus::withRetry);
+    }
+
+    private void updateNotificationFailure(String namespace, String commitId) {
+        notificationStorageService.updateNotificationAtomic(
+            namespace, commitId, NotificationStatus::withFailure);
     }
 
     /**

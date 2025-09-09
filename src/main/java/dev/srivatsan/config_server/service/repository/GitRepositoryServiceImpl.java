@@ -187,7 +187,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     return revCommit.getId().getName();
                 }
         );
-        clientNotifyService.sendRefreshNotifications(namespace, payload.getAppName());
+        clientNotifyService.sendRefreshNotifications(namespace, payload.getAppName(), commitId);
         return commitId;
 
     }
@@ -510,30 +510,23 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     }
 
     /**
-     * Optimized formatter for notification status information.
-     * Pre-allocates map size and uses efficient string operations.
+     * Formatter for simplified notification status information.
      *
      * @param notification the notification status to format
      * @return formatted notification information map
      */
     private Map<String, Object> formatNotificationInfo(NotificationStatus notification) {
-        // Pre-size map based on expected fields (6-8 fields typically)
-        Map<String, Object> info = new HashMap<>(8);
+        Map<String, Object> info = new HashMap<>(6);
         
-        info.put("triggeredAt", notification.getTriggeredAt().toString());
-        info.put("appName", notification.getAppName());
-        info.put("operation", notification.getOperation());
+        info.put("id", notification.getId());
         info.put("status", notification.getStatus().toString());
         info.put("retryCount", notification.getRetryCount());
-        info.put("namespace", notification.getNamespace());
+        info.put("totalCount", notification.getTotalCount());
+        info.put("initiatedTime", notification.getInitiatedTime().toString());
         
-        // Add optional fields only if present to minimize JSON payload
-        if (notification.getErrorMessage() != null && !notification.getErrorMessage().trim().isEmpty()) {
-            info.put("errorMessage", notification.getErrorMessage());
-        }
-        
-        if (notification.getCommitId() != null && !notification.getCommitId().trim().isEmpty()) {
-            info.put("commitId", notification.getCommitId());
+        // Add completedTime only if present
+        if (notification.getCompletedTime() != null) {
+            info.put("completedTime", notification.getCompletedTime().toString());
         }
         
         return info;

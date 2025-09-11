@@ -51,23 +51,8 @@ service/
 - **Audit trail** - Complete history of all configuration changes
 - **Simplified Vault System** - AES-256-GCM encrypted secrets with merge-based updates
 - **YAML-Vault Integration** - Dynamic secret replacement in configuration files
-- **Smart Secret Processing** - Different views for management UI vs client applications
 
-### Technical Highlights
 
-- **Modern Java 21** - Proper sealed interfaces with non-sealed implementations for Spring compatibility
-- **Clean Architecture** - SOLID principles with clear separation of concerns
-- **Interface-based Design** - All services follow contract-first approach with sealed contracts
-- **Spring Boot 3.5.5** - Latest Spring ecosystem with enhanced performance
-- **Spring Cloud 2025.0.0** - Latest Spring Cloud release for configuration management
-- **Caffeine Caching** - High-performance caching with intelligent eviction
-- **AOP Logging** - Comprehensive request tracing and performance monitoring
-- **Git Integration** - Native JGit implementation for version control
-
-## 📖 API Documentation
-
-This section provides complete REST API documentation with request/response examples and parameter descriptions for all
-endpoints.
 
 ## 🚀 Getting Started
 
@@ -719,11 +704,7 @@ execution status, timing information, retry counts, and results for configuratio
 🆕 **Simplified Design**: The vault system has been redesigned with just 2 core endpoints for better usability. Secrets
 are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption using a single master key.
 
-🔒 **Enhanced Security**: 
-- All vault endpoints use POST requests for better security
-- Single master key approach for simplified key management  
-- Master key stored as environment variable (not files)
-- AES-256-GCM encryption with secure random initialization vectors
+🔒 **Security**: AES-256-GCM encryption with single master key via environment variable
 
 ### 3.1 Get Vault Secrets
 
@@ -879,7 +860,7 @@ java -jar config-server.jar
 #### Security Best Practices
 
 1. **Never hardcode keys** in source code or configuration files
-2. **Use secrets management** (AWS Secrets Manager, Vault, K8s secrets)
+2. **Use secrets management** (HashiCorp Vault, K8s secrets)
 3. **Rotate keys periodically** (requires re-encrypting all secrets)
 4. **Backup your key securely** (without it, all vault data is lost)
 5. **Use different keys** for different environments (dev/staging/prod)
@@ -927,16 +908,6 @@ spec:
               key: master-key
 ```
 
-#### AWS ECS with Secrets Manager
-```yaml
-taskDefinition:
-  containerDefinitions:
-    - name: config-server
-      image: config-server:latest
-      secrets:
-        - name: VAULT_MASTER_KEY
-          valueFrom: arn:aws:secretsmanager:region:account:secret:config-server-vault-key
-```
 
 ---
 
@@ -960,13 +931,8 @@ docker run --name config-server -p 8080:8080 \
 
 ### Production Deployment Checklist
 
-Before deploying to production:
-
-- [ ] ✅ Set custom `VAULT_MASTER_KEY` (never use default)
-- [ ] ✅ Configure proper volume mounts for `/config` directory  
-- [ ] ✅ Set up log aggregation and monitoring
-- [ ] ✅ Configure health checks and restart policies
-- [ ] ✅ Use secrets management for environment variables
-- [ ] ✅ Set appropriate resource limits (CPU/Memory)
-- [ ] ✅ Configure HTTPS/TLS termination (reverse proxy)
-- [ ] ✅ Set up backup strategy for configuration data
+- [ ] Set custom `VAULT_MASTER_KEY` (never use default)
+- [ ] Configure volume mounts for `/config` directory  
+- [ ] Set up monitoring and health checks
+- [ ] Use secrets management for environment variables
+- [ ] Configure HTTPS/TLS termination

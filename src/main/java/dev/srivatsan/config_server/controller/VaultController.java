@@ -68,32 +68,5 @@ public class VaultController implements VaultAPI {
         ));
     }
 
-    @Override
-    public ResponseEntity<Map<String, Object>> getVaultHistory(@RequestBody Map<String, String> request) {
-        String namespace = request.get("namespace");
-        if (namespace == null || namespace.trim().isEmpty()) {
-            throw new IllegalArgumentException("Namespace is required");
-        }
 
-        Map<String, Object> history = gitVaultService.getVaultHistory(namespace);
-        return ResponseEntity.ok(history);
-    }
-
-    @Override
-    @PostMapping("/changes")
-    public ResponseEntity<Map<String, Object>> getVaultChanges(@RequestBody Map<String, String> request) {
-        String namespace = request.get("namespace");
-        String commitId = request.get("commitId");
-
-        if (namespace == null || namespace.trim().isEmpty()) {
-            throw new IllegalArgumentException("Namespace is required");
-        }
-
-        if (commitId == null || commitId.trim().isEmpty()) {
-            throw new IllegalArgumentException("Commit ID is required");
-        }
-
-        Map<String, Object> changes = gitVaultService.getVaultChanges(commitId, namespace);
-        return ResponseEntity.ok(changes);
-    }
 }

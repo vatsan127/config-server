@@ -21,5 +21,5 @@ configserver:
     dev: http://localhost:8085/config-client/actuator/refresh
   vault:
     enabled: ${VAULT_ENABLED:true}
-    cache-ttl: ${VAULT_CACHE_TTL:600}
+    cache-ttl: ${CACHE_TTL:600}
     max-secrets-per-operation: ${VAULT_MAX_SECRETS:100}

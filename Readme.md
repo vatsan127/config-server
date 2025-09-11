@@ -131,13 +131,7 @@ endpoints.
 
 3. **Continue with steps 2-4 above** for creating namespaces and configs.
 
-⚠️ **BREAKING CHANGE**: The default namespace for Spring Cloud Config has been changed from `default` to `main` to avoid
-conflicts with reserved namespace names.
-
-🚨 **Action Required for Existing Users**: If you have existing configurations in a `default` namespace, you must either:
-
-1. Create a `main` namespace and migrate your configs, OR
-2. Update your Spring Boot applications to explicitly specify the namespace using the `label` parameter
+ℹ️ **Note**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
 
 ---
 
@@ -472,8 +466,7 @@ Creates a new namespace directory with Git initialization for configuration isol
 - `409` - Namespace already exists
 - `500` - Internal server error
 
-⚠️ **Important**: The `default` namespace is reserved. Spring Cloud Config now uses `main` as the default namespace when
-no label is specified.
+⚠️ **Important**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
 
 ---
 
@@ -723,7 +716,7 @@ execution status, timing information, retry counts, and results for configuratio
 
 **Base URL:** `/vault`
 
-🆕 **Simplified Design**: The vault system has been redesigned with just 4 core endpoints for better usability. Secrets
+🆕 **Simplified Design**: The vault system has been redesigned with just 2 core endpoints for better usability. Secrets
 are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption using a single master key.
 
 🔒 **Enhanced Security**: 
@@ -802,151 +795,11 @@ Update vault secrets using complete replacement approach. All existing secrets a
 
 ---
 
-### 3.3 Get Vault History
-
-**Endpoint:** `POST /vault/history`
-
-Retrieve the Git commit history of vault changes for audit purposes.
-
-**Request Model:**
-
-```json
-{
-  "namespace": "production"
-}
-```
-
-**Response Model:**
-
-```json
-{
-  "namespace": "production",
-  "vaultFile": ".vault/production-vault.json",
-  "commits": [
-    {
-      "commitId": "abc123def456789",
-      "author": "admin@company.com",
-      "date": "2024-01-15T14:30:00Z",
-      "commitMessage": "Update database secrets"
-    }
-  ],
-  "totalCommits": 1
-}
-```
-
-**Status Codes:**
-
-- `200` - Vault history retrieved successfully
-- `404` - Namespace not found
-- `500` - Internal server error
-
----
-
-### 3.4 Get Vault Changes
-
-**Endpoint:** `POST /vault/changes`
-
-Retrieve detailed changes for a specific commit in the vault, showing what secrets were added, modified, or removed.
-
-**Request Model:**
-
-```json
-{
-  "namespace": "production",
-  "commitId": "abc123def456789"
-}
-```
-
-**Response Model:**
-
-```json
-{
-  "commitId": "abc123def456789",
-  "commitMessage": "Update database secrets",
-  "author": "admin@company.com",
-  "commitTime": "2024-01-15T14:30:00Z",
-  "changes": "@@ -1,3 +1,4 @@\n {\n   \"database.password\": \"encrypted_value_1\",\n-  \"old.secret\": \"encrypted_value_2\"\n+  \"new.secret\": \"encrypted_value_3\",\n+  \"api.token\": \"encrypted_value_4\"\n }"
-}
-```
-
-**Status Codes:**
-
-- `200` - Vault changes retrieved successfully
-- `400` - Invalid request parameters (missing namespace/commitId)
-- `404` - Namespace or commit not found
-- `500` - Internal server error
-
 ---
 
 ## Cache Management
 
 The application automatically preloads namespaces and directory listings on startup for better performance.
-
----
-
-## 5. Recent Changes & Migration Notes
-
-### 🔄 Vault System Simplification (v2.0)
-
-**What Changed:**
-
-- Reduced from 8+ complex vault endpoints to just 3 core methods
-- Removed individual secret operations (create/update/delete single keys)
-- Implemented complete replacement updates for better data consistency
-- Changed vault storage from `.vault-secrets.json` to `.vault/{namespace}-vault.json`
-
-**Migration Guide:**
-
-- Old bulk operations → Use new `POST /vault/update` with complete replacement
-- Old individual secret gets → Use `POST /vault/get` and extract needed keys
-- Old vault history → Use new `POST /vault/history`
-
-### 🔄 Namespace Changes (v2.0)
-
-**What Changed:**
-
-- Default namespace changed from `default` to `main` for Spring Cloud Config
-- `default` is now a reserved namespace name
-- Spring Cloud Config URLs now default to `main` namespace when no label provided
-
-**Migration Impact:**
-
-- **🔴 BREAKING**: Existing Spring Boot applications using default config server will now fetch from `main` namespace
-  instead of `default`
-- **Action Required**: Create a `main` namespace and migrate configs from `default` namespace if needed
-- **Alternative**: Update client applications to specify label explicitly if using other namespaces
-
-**Client Configuration Updates:**
-
-```yaml
-# Before (implicit default namespace)
-spring:
-  cloud:
-    config:
-      uri: http://config-server:8080/config-server
-
-# After - Option 1: Use main namespace (recommended)
-spring:
-  cloud:
-    config:
-      uri: http://config-server:8080/config-server
-      label: main
-
-# After - Option 2: Explicitly specify your namespace
-spring:
-  cloud:
-    config:
-      uri: http://config-server:8080/config-server
-      label: production  # or your specific namespace
-```
-
-### 🔄 YAML-Vault Integration (v2.0)
-
-**New Feature:**
-
-- Automatic vault key detection and replacement in YAML files
-- Different processing for management UI (`<ENCRYPTED_VALUE>`) vs client apps (actual secrets)
-- Pattern-based secret key detection (password, secret, key, token, etc.)
 
 ---
 
@@ -963,7 +816,7 @@ spring:
 | `VAULT_MASTER_KEY` ⭐             | Master encryption key (base64 encoded)    | Auto-generated   |
 | `CONFIG_COMMIT_HISTORY_SIZE`      | Maximum commits returned in history API   | `20`             |
 | `VAULT_ENABLED`                   | Enable vault functionality                | `true`           |
-| `VAULT_CACHE_TTL`                 | Vault cache time-to-live in seconds       | `600`            |
+| `CACHE_TTL`                       | Global cache time-to-live in seconds      | `600`            |
 | `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation        | `100`            |
 
 ⭐ **VAULT_MASTER_KEY**: This is the most important security configuration. See the [Vault Security Setup](#vault-security-setup) section below.
@@ -1045,19 +898,6 @@ To rotate the master key:
 
 ### Docker/Kubernetes Integration
 
-#### Docker Compose
-```yaml
-version: '3.8'
-services:
-  config-server:
-    image: config-server:latest
-    environment:
-      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY}
-    ports:
-      - "8080:8080"
-    volumes:
-      - config-data:/config
-```
 
 #### Kubernetes Secret
 ```yaml

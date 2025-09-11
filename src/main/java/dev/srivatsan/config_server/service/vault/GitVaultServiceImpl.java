@@ -122,7 +122,6 @@ public class GitVaultServiceImpl implements GitVaultService {
 
         // Manually evict cache entries after successful update
         cacheManagerService.evictKey("vault-secrets", namespace);
-        cacheManagerService.evictKey("vault-history", namespace);
 
         // Clear config file caches for this specific namespace since they contain processed secrets
         cacheManagerService.evictByPrefix("config-content", namespace + "/");
@@ -133,40 +132,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         log.debug("Evicted vault and config cache entries for namespace '{}'", namespace);
     }
 
-    @Override
-    @Cacheable(value = "vault-history", key = "#namespace")
-    public Map<String, Object> getVaultHistory(String namespace) {
-        validationService.validateNamespace(namespace);
-
-        return gitOperationService.executeGitOperation(namespace, git -> {
-            try {
-                String vaultFileName = namespace + VAULT_FILE_SUFFIX;
-                String vaultFilePath = VAULT_DIR + "/" + vaultFileName;
-
-                var logCommand = git.log()
-                        .setMaxCount(applicationConfig.getCommitHistorySize())
-                        .add(git.getRepository().resolve(HEAD))
-                        .addPath(vaultFilePath);
-
-                List<Map<String, Object>> commits = new ArrayList<>();
-                for (RevCommit commit : logCommand.call()) {
-                    Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
-                    commitInfo.put("commitMessage", commit.getShortMessage());
-                    commits.add(commitInfo);
-                }
-
-                Map<String, Object> result = new HashMap<>();
-                result.put("namespace", namespace);
-                result.put("vaultFile", vaultFilePath);
-                result.put("commits", commits);
-                return result;
-
-            } catch (Exception e) {
-                log.error("Failed to get vault history for namespace '{}': {}", namespace, e.getMessage());
-                throw VaultException.vaultOperationFailed("Failed to get vault history: " + e.getMessage());
-            }
-        });
-    }
 
     private Map<String, String> loadVaultSecrets(String namespace, org.eclipse.jgit.api.Git git) throws IOException {
         Path workTree = git.getRepository().getWorkTree().toPath();
@@ -208,73 +173,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         }
     }
 
-    @Override
-    public Map<String, Object> getVaultChanges(String commitId, String namespace) {
-        validationService.validateCommitId(commitId);
-        validationService.validateNamespace(namespace);
 
-        return gitOperationService.executeGitOperation(namespace, git -> {
-            Map<String, Object> result = new HashMap<>();
-
-            Repository repository = git.getRepository();
-            try (RevWalk revWalk = new RevWalk(repository)) {
-
-                RevCommit commit = revWalk.parseCommit(repository.resolve(commitId));
-                result.put("commitId", commit.getName());
-                result.put("commitMessage", commit.getFullMessage());
-                result.put("author", commit.getAuthorIdent().getName());
-                result.put("commitTime", new Date(commit.getCommitTime() * 1000L));
-
-                try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-                     DiffFormatter df = new DiffFormatter(out)) {
-                    df.setRepository(repository);
-
-                    var diffs = df.scan(commit.getParentCount() > 0 ? commit.getParent(0) : null, commit);
-                    for (var diff : diffs) {
-                        df.format(diff);
-                    }
-
-                    String rawDiff = out.toString();
-                    String cleanedDiff = filterGitDiffMetadata(rawDiff);
-                    result.put("changes", cleanedDiff);
-                }
-            } catch (Exception e) {
-                log.error("Failed to get vault changes for commit '{}' in namespace '{}': {}", commitId, namespace, e.getMessage());
-                throw VaultException.vaultOperationFailed("Failed to get vault changes: " + e.getMessage());
-            }
-
-            return result;
-        });
-    }
-
-    /**
-     * Filters out git diff metadata headers while preserving content and hunk information.
-     */
-    private String filterGitDiffMetadata(String rawDiff) {
-        if (rawDiff == null || rawDiff.trim().isEmpty()) {
-            return rawDiff;
-        }
-
-        StringBuilder cleanedDiff = new StringBuilder();
-        String[] lines = rawDiff.split("\\r?\\n");
-
-        for (String line : lines) {
-            if (!line.startsWith("diff --git") &&
-                    !line.startsWith("index ") &&
-                    !line.startsWith("--- ") &&
-                    !line.startsWith("+++ ") &&
-                    !line.startsWith("new file mode") &&
-                    !line.startsWith("deleted file mode") &&
-                    !line.startsWith("similarity index") &&
-                    !line.startsWith("rename from") &&
-                    !line.startsWith("rename to") &&
-                    !line.startsWith("copy from") &&
-                    !line.startsWith("copy to")) {
-                cleanedDiff.append(line).append("\n");
-            }
-        }
-
-        return cleanedDiff.toString().trim();
-    }
 
 }

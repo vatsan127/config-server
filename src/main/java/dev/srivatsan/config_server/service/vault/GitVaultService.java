@@ -28,22 +28,5 @@ public interface GitVaultService {
      */
     void updateVault(String namespace, Map<String, String> secrets, String email, String commitMessage);
 
-    /**
-     * Retrieves the complete history of vault changes for the specified namespace.
-     * Returns Git commit history with metadata about each vault modification.
-     *
-     * @param namespace the namespace identifier to get history for
-     * @return a map containing vault history information including commits, timestamps, and authors
-     */
-    Map<String, Object> getVaultHistory(String namespace);
 
-    /**
-     * Retrieves specific changes made to the vault in a particular commit.
-     * Shows the differences introduced by the specified commit for the given namespace.
-     *
-     * @param commitId  the Git commit identifier to examine
-     * @param namespace the namespace identifier to get changes for
-     * @return a map containing the specific changes made in the commit for the namespace
-     */
-    Map<String, Object> getVaultChanges(String commitId, String namespace);
 }

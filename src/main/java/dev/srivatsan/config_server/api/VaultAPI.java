@@ -35,25 +35,5 @@ public interface VaultAPI {
     @PostMapping("/update")
     ResponseEntity<Map<String, Object>> updateVault(@RequestBody Map<String, String> request) throws Exception;
 
-    /**
-     * Retrieves the complete history of changes made to the vault for a namespace.
-     * Returns Git commit history with timestamps, authors, and change descriptions.
-     *
-     * @param request a map containing the namespace identifier
-     * @return ResponseEntity containing vault history with commit details
-     * @throws Exception if history retrieval fails or namespace access is denied
-     */
-    @PostMapping("/history")
-    ResponseEntity<Map<String, Object>> getVaultHistory(@RequestBody Map<String, String> request) throws Exception;
 
-    /**
-     * Retrieves specific changes made in a particular vault commit.
-     * Shows the differences introduced by a specific commit for audit purposes.
-     *
-     * @param request a map containing namespace and commit ID parameters
-     * @return ResponseEntity containing the specific changes made in the commit
-     * @throws Exception if commit is not found or access is denied
-     */
-    @PostMapping("/changes")
-    ResponseEntity<Map<String, Object>> getVaultChanges(@RequestBody Map<String, String> request) throws Exception;
 }

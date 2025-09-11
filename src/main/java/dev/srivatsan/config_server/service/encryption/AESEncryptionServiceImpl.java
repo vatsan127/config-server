@@ -8,20 +8,11 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermission;
-import java.nio.file.attribute.PosixFilePermissions;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
-import java.util.Set;
 
 @Service
 public class AESEncryptionServiceImpl implements EncryptionService {
@@ -49,7 +40,7 @@ public class AESEncryptionServiceImpl implements EncryptionService {
         }
 
         try {
-            SecretKey key = getNamespaceKey(namespace);
+            SecretKey key = getMasterKey();
 
             byte[] iv = new byte[GCM_IV_LENGTH];
             secureRandom.nextBytes(iv);
@@ -68,7 +59,7 @@ public class AESEncryptionServiceImpl implements EncryptionService {
             return ENCRYPTED_PREFIX + Base64.getEncoder().encodeToString(encryptedWithIv);
 
         } catch (Exception e) {
-            log.error("Failed to encrypt data for namespace: {}", namespace, e);
+            log.error("Failed to encrypt data: {}", e.getMessage());
             throw VaultException.encryptionFailed("Encryption failed: " + e.getMessage());
         }
     }
@@ -80,7 +71,7 @@ public class AESEncryptionServiceImpl implements EncryptionService {
         }
 
         try {
-            SecretKey key = getNamespaceKey(namespace);
+            SecretKey key = getMasterKey();
 
             // Remove prefix and decode
             String base64Data = encryptedText.substring(ENCRYPTED_PREFIX.length());
@@ -100,53 +91,17 @@ public class AESEncryptionServiceImpl implements EncryptionService {
             return new String(decryptedData);
 
         } catch (Exception e) {
-            log.error("Failed to decrypt data for namespace: {}", namespace, e);
+            log.error("Failed to decrypt data: {}", e.getMessage());
             throw VaultException.decryptionFailed("Decryption failed: " + e.getMessage());
         }
     }
 
     @Override
     public void initializeNamespaceKey(String namespace) {
-        try {
-            Path keyPath = getNamespaceKeyPath(namespace);
-
-            if (Files.exists(keyPath)) {
-                log.debug("Key already exists for namespace: {}", namespace);
-                return;
-            }
-
-            // Generate new key
-            KeyGenerator keyGenerator = KeyGenerator.getInstance(ENCRYPTION_ALGORITHM);
-            keyGenerator.init(KEY_LENGTH);
-            SecretKey secretKey = keyGenerator.generateKey();
-
-            // Create directory if it doesn't exist with secure permissions
-            Path vaultKeysDir = keyPath.getParent();
-            Files.createDirectories(vaultKeysDir);
-
-
-            try { // Set secure permissions on the .vault-keys directory (owner-only access)
-                Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rwx------");
-                Files.setPosixFilePermissions(vaultKeysDir, perms);
-                log.debug("Set secure permissions on vault keys directory: {}", vaultKeysDir);
-            } catch (UnsupportedOperationException e) {
-                log.debug("POSIX permissions not supported on this filesystem, skipping permission setting");
-            }
-            Files.write(keyPath, secretKey.getEncoded());
-
-            try { // Set secure permissions on the key file (owner read-only for better security)
-                Set<PosixFilePermission> keyPerms = PosixFilePermissions.fromString("r--------");
-                Files.setPosixFilePermissions(keyPath, keyPerms);
-                log.debug("Set read-only secure permissions on key file: {}", keyPath);
-            } catch (UnsupportedOperationException e) {
-                log.debug("POSIX permissions not supported on this filesystem, skipping permission setting");
-            }
-
-            log.info("Initialized encryption key for namespace: {}", namespace);
-        } catch (NoSuchAlgorithmException | IOException e) {
-            log.error("Failed to initialize key for namespace: {}", namespace, e);
-            throw VaultException.keyInitializationFailed("Failed to initialize encryption key: " + e.getMessage());
-        }
+        // For environment variable master key approach, namespace parameter is ignored
+        // This method validates that the master key is available
+        getMasterKey(); // This will validate the key from environment variable
+        log.debug("Master encryption key is ready for namespace: {}", namespace);
     }
 
     @Override
@@ -154,28 +109,54 @@ public class AESEncryptionServiceImpl implements EncryptionService {
         return value != null && value.startsWith(ENCRYPTED_PREFIX);
     }
 
-    @Cacheable(value = "encryption-keys", key = "#namespace")
-    private SecretKey getNamespaceKey(String namespace) {
+    @Cacheable(value = "encryption-keys", key = "'master'")
+    private SecretKey getMasterKey() {
         try {
-            Path keyPath = getNamespaceKeyPath(namespace);
-
-            if (!Files.exists(keyPath)) {
-                initializeNamespaceKey(namespace);
+            String masterKeyBase64 = applicationConfig.getVaultMasterKey();
+            
+            if (masterKeyBase64 == null || masterKeyBase64.trim().isEmpty()) {
+                // This should not happen if application.yml has a default value
+                log.error("No vault master key configured! Check VAULT_MASTER_KEY environment variable or application.yml default.");
+                throw VaultException.keyLoadFailed("No vault master key configured");
             }
-
-            byte[] keyBytes = Files.readAllBytes(keyPath);
+            
+            // Check if using the default key from application.yml (security warning)
+            String envKey = System.getenv("VAULT_MASTER_KEY");
+            if (envKey == null || envKey.trim().isEmpty()) {
+                log.warn("⚠️  SECURITY WARNING: Using default vault master key from application.yml");
+                log.warn("⚠️  This is NOT secure for production! Set VAULT_MASTER_KEY environment variable.");
+                log.warn("⚠️  Generate a new key with: openssl rand -base64 32");
+            }
+            
+            // Decode the base64 key
+            byte[] keyBytes = Base64.getDecoder().decode(masterKeyBase64.trim());
+            
+            // Validate key length (256 bits = 32 bytes)
+            if (keyBytes.length != 32) {
+                throw VaultException.keyLoadFailed("Invalid master key length. Expected 32 bytes (256 bits), got: " + keyBytes.length);
+            }
+            
+            if (envKey != null && !envKey.trim().isEmpty()) {
+                log.info("✅ Master encryption key loaded from VAULT_MASTER_KEY environment variable");
+            } else {
+                log.info("🔑 Master encryption key loaded from application.yml default (change for production!)");
+            }
             return new SecretKeySpec(keyBytes, ENCRYPTION_ALGORITHM);
-
-        } catch (IOException e) {
-            log.error("Failed to load key for namespace: {}", namespace, e);
-            throw VaultException.keyLoadFailed("Failed to load encryption key: " + e.getMessage());
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Failed to decode master encryption key from environment variable: {}", e.getMessage());
+            throw VaultException.keyLoadFailed("Invalid base64 encoding in VAULT_MASTER_KEY: " + e.getMessage());
+        } catch (Exception e) {
+            log.error("Failed to load master encryption key: {}", e.getMessage());
+            throw VaultException.keyLoadFailed("Failed to load master encryption key: " + e.getMessage());
         }
     }
 
-    private Path getNamespaceKeyPath(String namespace) {
-        return new File(applicationConfig.getBasePath(), namespace)
-                .toPath()
-                .resolve(".vault-keys")
-                .resolve(namespace + ".key");
+    @Override
+    public void deleteNamespaceKey(String namespace) {
+        // For environment variable master key approach, we don't delete the shared key when a namespace is deleted
+        // The master key is managed via environment variables, not file system
+        log.debug("Using environment variable master key - no key deletion needed for namespace: {}", namespace);
     }
+
 }

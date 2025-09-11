@@ -77,8 +77,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
+            // Validate that master encryption key is available
             encryptionService.initializeNamespaceKey(namespace);
 
+            // Create .vault directory in namespace for vault JSON files
             File vaultDir = new File(namespaceDir, ".vault");
             if (!vaultDir.exists()) {
                 boolean vaultCreated = vaultDir.mkdirs();
@@ -379,6 +381,9 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         }
 
         try {
+            // Note: Using shared master key approach - no need to delete individual namespace keys
+            // The master key is shared across all namespaces and should not be deleted
+
             // Recursively delete the entire namespace directory
             deleteDirectoryRecursively(namespaceDir.toPath());
             log.info("Successfully deleted namespace '{}' at: {}", namespace, namespaceDir.getAbsolutePath());
@@ -391,6 +396,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             cacheManagerService.evictByPrefix("commit-history", namespace + "/");
             cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
             cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
+            
+            // Clear vault-related caches for this namespace
+            cacheManagerService.evictKey("vault-secrets", namespace);
+            cacheManagerService.evictKey("vault-history", namespace);
 
         } catch (IOException e) {
             log.error("Failed to delete namespace '{}': {}", namespace, e.getMessage());

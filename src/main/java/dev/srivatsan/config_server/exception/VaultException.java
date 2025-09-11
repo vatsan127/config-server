@@ -33,6 +33,11 @@ public class VaultException extends RuntimeException {
     public static final String KEY_LOAD_FAILED = "KEY_LOAD_FAILED";
 
     /**
+     * Error code for encryption key deletion failures
+     */
+    public static final String KEY_DELETION_FAILED = "KEY_DELETION_FAILED";
+
+    /**
      * Error code when vault file cannot be found
      */
     public static final String VAULT_FILE_NOT_FOUND = "VAULT_FILE_NOT_FOUND";
@@ -152,5 +157,15 @@ public class VaultException extends RuntimeException {
      */
     public static VaultException secretNotFound(String key) {
         return new VaultException(SECRET_NOT_FOUND, "Secret not found: " + key);
+    }
+
+    /**
+     * Factory method to create a key deletion failure exception.
+     *
+     * @param message the detailed error message
+     * @return a new VaultException with KEY_DELETION_FAILED error code
+     */
+    public static VaultException keyDeletionFailed(String message) {
+        return new VaultException(KEY_DELETION_FAILED, message);
     }
 }

@@ -15,19 +15,30 @@ service/
 ├── cache/           # Cache management operations
 │   ├── CacheManagerService
 │   └── CacheManagerServiceImpl
+├── cloud/           # Cloud Config integration
+│   └── CloudConfigService
+├── encryption/      # Vault encryption services
+│   ├── EncryptionService
+│   └── AESEncryptionServiceImpl
+├── notify/          # Client notification services
+│   ├── ClientNotifyService
+│   └── NotificationStorageService
 ├── operation/       # Git repository operations  
 │   ├── GitOperationService
 │   └── GitOperationServiceImpl
 ├── repository/      # Configuration file management
 │   ├── GitRepositoryService  
 │   └── GitRepositoryServiceImpl
+├── secret/          # Secret processing and YAML integration
+│   ├── SecretProcessor
+│   └── SecretProcessorImpl
+├── util/           # Utility operations
+│   └── UtilService
 ├── validation/      # Input validation and security
 │   └── ValidationService
-├── util/           # Utility operations
-│   └── UtilService  
-└── environment/    # Environment-specific services
-    ├── KubernetesService (sealed interface)
-    └── KubernetesServiceImpl
+└── vault/          # Vault management services
+    ├── GitVaultService
+    └── GitVaultServiceImpl
 ```
 
 ### Key Features
@@ -48,6 +59,7 @@ service/
 - **Clean Architecture** - SOLID principles with clear separation of concerns
 - **Interface-based Design** - All services follow contract-first approach with sealed contracts
 - **Spring Boot 3.5.5** - Latest Spring ecosystem with enhanced performance
+- **Spring Cloud 2025.0.0** - Latest Spring Cloud release for configuration management
 - **Caffeine Caching** - High-performance caching with intelligent eviction
 - **AOP Logging** - Comprehensive request tracing and performance monitoring
 - **Git Integration** - Native JGit implementation for version control
@@ -59,21 +71,65 @@ endpoints.
 
 ## 🚀 Getting Started
 
-1. **Start the application**:
+### Quick Start (Development)
+
+1. **Start the application** (uses default master key):
    ```bash
    mvn spring-boot:run
    ```
+   
+   ⚠️ **You'll see security warnings** - this is normal for development.
 
-2. **Test API endpoints**: Use the examples below or your preferred REST client
-
-3. **Create a namespace** (required before creating config files):
+2. **Create a namespace** (required before creating config files):
    ```bash
    curl -X POST http://localhost:8080/config-server/namespace/create \
      -H "Content-Type: application/json" \
      -d '{"namespace": "test"}'
    ```
 
-4. **Create your first configuration file** using the API endpoints below.
+3. **Create your first configuration file**:
+   ```bash
+   curl -X POST http://localhost:8080/config-server/config/create \
+     -H "Content-Type: application/json" \
+     -d '{
+       "action": "create",
+       "appName": "my-app", 
+       "namespace": "test",
+       "path": "/",
+       "email": "developer@example.com"
+     }'
+   ```
+
+4. **Add some vault secrets**:
+   ```bash
+   curl -X POST http://localhost:8080/config-server/vault/update \
+     -H "Content-Type: application/json" \
+     -d '{
+       "namespace": "test",
+       "email": "developer@example.com", 
+       "commitMessage": "Add initial secrets",
+       "database.password": "mysecretpassword",
+       "api.token": "myapitoken123"
+     }'
+   ```
+
+### Production Setup
+
+1. **Generate a secure master key**:
+   ```bash
+   export VAULT_MASTER_KEY=$(openssl rand -base64 32)
+   echo "Your master key: $VAULT_MASTER_KEY"
+   # IMPORTANT: Save this key securely!
+   ```
+
+2. **Start the application**:
+   ```bash
+   VAULT_MASTER_KEY=$VAULT_MASTER_KEY mvn spring-boot:run
+   ```
+   
+   ✅ **You'll see success messages** - no security warnings.
+
+3. **Continue with steps 2-4 above** for creating namespaces and configs.
 
 ⚠️ **BREAKING CHANGE**: The default namespace for Spring Cloud Config has been changed from `default` to `main` to avoid
 conflicts with reserved namespace names.
@@ -667,11 +723,14 @@ execution status, timing information, retry counts, and results for configuratio
 
 **Base URL:** `/vault`
 
-🆕 **Simplified Design**: The vault system has been redesigned with just 3 core endpoints for better usability. Secrets
-are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption.
+🆕 **Simplified Design**: The vault system has been redesigned with just 4 core endpoints for better usability. Secrets
+are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption using a single master key.
 
-🔒 **Enhanced Security**: All vault endpoints use POST requests for better security - sensitive data is sent in encrypted
-request bodies instead of URLs, preventing leakage in server logs and browser history.
+🔒 **Enhanced Security**: 
+- All vault endpoints use POST requests for better security
+- Single master key approach for simplified key management  
+- Master key stored as environment variable (not files)
+- AES-256-GCM encryption with secure random initialization vectors
 
 ### 3.1 Get Vault Secrets
 
@@ -899,18 +958,175 @@ spring:
 |-----------------------------------|-------------------------------------------|------------------|
 | `SERVER_PORT`                     | HTTP server port                          | `8080`           |
 | `SERVER_SERVLET_CONTEXT_PATH`     | Application context path                  | `/config-server` |
+| `SPRING_CLOUD_CONFIG_SERVER_PREFIX` | Spring Cloud Config API prefix         | `/config-api`    |
 | `CONFIG_BASE_PATH`                | Base directory for namespace repositories | `/config/`       |
-| `CONFIG_COMMIT_HISTORY_SIZE`      | Maximum commits returned in history API   | `10`             |
+| `VAULT_MASTER_KEY` ⭐             | Master encryption key (base64 encoded)    | Auto-generated   |
+| `CONFIG_COMMIT_HISTORY_SIZE`      | Maximum commits returned in history API   | `20`             |
 | `VAULT_ENABLED`                   | Enable vault functionality                | `true`           |
 | `VAULT_CACHE_TTL`                 | Vault cache time-to-live in seconds       | `600`            |
 | `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation        | `100`            |
 
+⭐ **VAULT_MASTER_KEY**: This is the most important security configuration. See the [Vault Security Setup](#vault-security-setup) section below.
+
+### API Access URLs
+
+The application provides two different API interfaces:
+
+1. **Management APIs** (documented in this README):
+   - Configuration Management: `http://localhost:8080/config-server/config/*`
+   - Namespace Management: `http://localhost:8080/config-server/namespace/*`  
+   - Vault Management: `http://localhost:8080/config-server/vault/*`
+
+2. **Spring Cloud Config API** (for client applications):
+   - Config Retrieval: `http://localhost:8080/config-server/config-api/{application}/{profile}/{label}`
+   - Example: `http://localhost:8080/config-server/config-api/my-app/production/main`
+
+---
+
+## 🔐 Vault Security Setup
+
+### Master Key Configuration
+
+The application uses a **single master key** for encrypting all vault secrets across all namespaces. This key must be configured via the `VAULT_MASTER_KEY` environment variable.
+
+#### Key Generation
+
+Generate a secure 256-bit (32-byte) key and encode it in base64:
+
+```bash
+# Generate a new master key
+export VAULT_MASTER_KEY=$(openssl rand -base64 32)
+
+# Example output:
+# VAULT_MASTER_KEY=8xBqJ9Jk3mN2pQ5rS6tU7vW8xY9zA0bC1dE2fF3gG4hI=
+```
+
+#### Development vs Production
+
+**Development (Default Key):**
+```bash
+# Uses default key from application.yml - NOT SECURE
+java -jar config-server.jar
+
+# Logs will show:
+# ⚠️ SECURITY WARNING: Using default vault master key from application.yml
+# ⚠️ This is NOT secure for production! Set VAULT_MASTER_KEY environment variable.
+```
+
+**Production (Custom Key):**
+```bash
+# Set your own secure key
+export VAULT_MASTER_KEY=YourSecureBase64KeyHere
+java -jar config-server.jar
+
+# Logs will show:
+# ✅ Master encryption key loaded from VAULT_MASTER_KEY environment variable
+```
+
+#### Security Best Practices
+
+1. **Never hardcode keys** in source code or configuration files
+2. **Use secrets management** (AWS Secrets Manager, Vault, K8s secrets)
+3. **Rotate keys periodically** (requires re-encrypting all secrets)
+4. **Backup your key securely** (without it, all vault data is lost)
+5. **Use different keys** for different environments (dev/staging/prod)
+
+#### Key Rotation Process
+
+⚠️ **Important**: Changing the master key will make all existing vault secrets unreadable!
+
+To rotate the master key:
+
+1. **Backup all vault secrets** (export using `/vault/get` API)
+2. **Stop the application**
+3. **Set new `VAULT_MASTER_KEY`**
+4. **Start the application**
+5. **Re-import all secrets** (using `/vault/update` API)
+
+### Docker/Kubernetes Integration
+
+#### Docker Compose
+```yaml
+version: '3.8'
+services:
+  config-server:
+    image: config-server:latest
+    environment:
+      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY}
+    ports:
+      - "8080:8080"
+    volumes:
+      - config-data:/config
+```
+
+#### Kubernetes Secret
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: config-server-vault-key
+type: Opaque
+data:
+  master-key: <base64-encoded-master-key>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: config-server
+spec:
+  template:
+    spec:
+      containers:
+      - name: config-server
+        image: config-server:latest
+        env:
+        - name: VAULT_MASTER_KEY
+          valueFrom:
+            secretKeyRef:
+              name: config-server-vault-key
+              key: master-key
+```
+
+#### AWS ECS with Secrets Manager
+```yaml
+taskDefinition:
+  containerDefinitions:
+    - name: config-server
+      image: config-server:latest
+      secrets:
+        - name: VAULT_MASTER_KEY
+          valueFrom: arn:aws:secretsmanager:region:account:secret:config-server-vault-key
+```
+
+---
+
 ## Docker
+
+### Building and Running
 
 ```bash
 # Build image
-docker build -t config-server-image .
+docker build -t config-server:latest .
 
-# Run container
-docker run --name config-server -p 8080:8080 config-server-image
+# Run with default key (development only)
+docker run --name config-server -p 8080:8080 config-server:latest
+
+# Run with custom master key (production)
+docker run --name config-server -p 8080:8080 \
+  -e VAULT_MASTER_KEY="$(openssl rand -base64 32)" \
+  -v config-data:/config \
+  config-server:latest
 ```
+
+### Production Deployment Checklist
+
+Before deploying to production:
+
+- [ ] ✅ Set custom `VAULT_MASTER_KEY` (never use default)
+- [ ] ✅ Configure proper volume mounts for `/config` directory  
+- [ ] ✅ Set up log aggregation and monitoring
+- [ ] ✅ Configure health checks and restart policies
+- [ ] ✅ Use secrets management for environment variables
+- [ ] ✅ Set appropriate resource limits (CPU/Memory)
+- [ ] ✅ Configure HTTPS/TLS termination (reverse proxy)
+- [ ] ✅ Set up backup strategy for configuration data

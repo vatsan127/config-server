@@ -43,4 +43,13 @@ public interface EncryptionService {
      * @return true if the value is encrypted, false otherwise
      */
     boolean isEncrypted(String value);
+
+    /**
+     * Deletes the encryption key for the specified namespace.
+     * This method should be called when a namespace is being deleted
+     * to clean up associated encryption keys and prevent key orphaning.
+     *
+     * @param namespace the namespace identifier for which to delete the encryption key
+     */
+    void deleteNamespaceKey(String namespace);
 }

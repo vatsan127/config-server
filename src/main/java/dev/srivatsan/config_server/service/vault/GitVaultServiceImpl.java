@@ -83,8 +83,8 @@ public class GitVaultServiceImpl implements GitVaultService {
         validationService.validateEmail(email);
         validationService.validateCommitMessage(commitMessage);
 
-        if (secrets == null || secrets.isEmpty()) {
-            throw VaultException.vaultOperationFailed("Secrets map cannot be null or empty");
+        if (secrets == null) {
+            throw VaultException.vaultOperationFailed("Secrets map cannot be null");
         }
 
         // Validate all secret keys before processing

@@ -139,9 +139,14 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         String commitId = gitOperationService.executeGitOperation(namespace, git -> {
+                    var headRef = git.getRepository().resolve(HEAD);
+                    if (headRef == null) {
+                        throw ConfigFileException.notFound("No commits found in repository for file: " + filePath);
+                    }
+                    
                     var logCommand = git.log()
                             .setMaxCount(1)
-                            .add(git.getRepository().resolve(HEAD))
+                            .add(headRef)
                             .addPath(relativePath);
 
                     String currentCommitId = null;
@@ -220,9 +225,14 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
+                    var headRef = git.getRepository().resolve(HEAD);
+                    if (headRef == null) {
+                        throw ConfigFileException.notFound("No commits found in repository for file: " + filePath);
+                    }
+                    
                     var logCommand = git.log()
                             .setMaxCount(1)
-                            .add(git.getRepository().resolve(HEAD))
+                            .add(headRef)
                             .addPath(relativePath);
 
                     for (RevCommit commit : logCommand.call()) {
@@ -242,16 +252,20 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
-                    var logCommand = git.log()
-                            .setMaxCount(applicationConfig.getCommitHistorySize())
-                            .add(git.getRepository().resolve(HEAD))
-                            .addPath(relativePath);
-
                     List<Map<String, Object>> commits = new ArrayList<>();
-                    for (RevCommit commit : logCommand.call()) {
-                        Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
-                        commitInfo.put("commitMessage", commit.getShortMessage());
-                        commits.add(commitInfo);
+                    
+                    var headRef = git.getRepository().resolve(HEAD);
+                    if (headRef != null) {
+                        var logCommand = git.log()
+                                .setMaxCount(applicationConfig.getCommitHistorySize())
+                                .add(headRef)
+                                .addPath(relativePath);
+
+                        for (RevCommit commit : logCommand.call()) {
+                            Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
+                            commitInfo.put("commitMessage", commit.getShortMessage());
+                            commits.add(commitInfo);
+                        }
                     }
 
                     Map<String, Object> result = new HashMap<>();
@@ -472,15 +486,22 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         validationService.validateNamespace(namespace);
 
         return gitOperationService.executeGitOperation(namespace, git -> {
-            var logCommand = git.log()
-                    .setMaxCount(applicationConfig.getCommitHistorySize())
-                    .add(git.getRepository().resolve(HEAD));
-
             List<Map<String, Object>> commits = new ArrayList<>();
-            for (RevCommit commit : logCommand.call()) {
-                Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
-                commitInfo.put("commitMessage", commit.getShortMessage());
-                commits.add(commitInfo);
+            
+            // Check if repository has any commits by resolving HEAD
+            var headRef = git.getRepository().resolve(HEAD);
+            if (headRef != null) {
+                var logCommand = git.log()
+                        .setMaxCount(applicationConfig.getCommitHistorySize())
+                        .add(headRef);
+
+                for (RevCommit commit : logCommand.call()) {
+                    Map<String, Object> commitInfo = utilService.formatCommitInfo(commit);
+                    commitInfo.put("commitMessage", commit.getShortMessage());
+                    commits.add(commitInfo);
+                }
+            } else {
+                log.debug("Repository for namespace '{}' has no commits yet", namespace);
             }
 
             Map<String, Object> result = new HashMap<>();

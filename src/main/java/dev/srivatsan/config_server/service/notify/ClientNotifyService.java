@@ -39,10 +39,6 @@ public class ClientNotifyService {
 
     public void sendRefreshNotifications(String namespace, String appName, String commitId) {
         String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
-        if (url == null || url.trim().isEmpty()) {
-            return;
-        }
-
         String payload = String.format(NOTIFICATION_PAYLOAD_TEMPLATE, appName);
 
         // Generate unique tracking ID if commitId is null
@@ -50,10 +46,18 @@ public class ClientNotifyService {
             commitId : 
             "notify-" + System.currentTimeMillis() + "-" + appName;
 
-        // Create notification entry for tracking
+        // Always create notification entry for tracking, regardless of URL configuration
         Notification notification = Notification.createInitial(trackingId);
         notificationStorageService.storeNotification(namespace, notification);
         log.debug("Created notification for tracking ID: {}", trackingId);
+
+        // Only send API call if URL is configured
+        if (url == null || url.trim().isEmpty()) {
+            log.debug("No refresh notification URL configured for namespace '{}', skipping API call but tracking commit event", namespace);
+            // Mark as success since there's no URL to call
+            updateNotificationStatus(namespace, trackingId, true);
+            return;
+        }
 
         // Send API call asynchronously
         virtualThreadExecutorService.submit(() -> sendRequestWithTracking(url, payload, trackingId, namespace));

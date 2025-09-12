@@ -2,6 +2,41 @@
 
 A Git-based Configuration Management Server with multi-namespace support for application configuration files.
 
+## 🏆 Competitive Comparison
+
+| Feature | **This Config Server** | Spring Cloud Config | HashiCorp Consul | AWS Parameter Store | Azure App Configuration | Kubernetes ConfigMaps |
+|---------|------------------------|---------------------|-------------------|---------------------|-------------------------|----------------------|
+| **Namespace Isolation** | ✅ **Separate Git repos per namespace** | ⚠️ Branch/label based only | ⚠️ Folder-based separation | ⚠️ Hierarchical paths | ⚠️ App-based grouping | ⚠️ Namespace folders |
+| **Built-in Encryption** | ✅ **AES-256-GCM + vault syntax** | ❌ Requires external vault | ✅ Built-in encryption | ✅ KMS encryption | ✅ Built-in encryption | ❌ Base64 encoding only |
+| **Version Control** | ✅ **Full Git history per namespace** | ✅ Git-based | ⚠️ Limited KV versioning | ⚠️ Parameter versioning | ⚠️ Simple versioning | ❌ K8s events only |
+| **External Dependencies** | ✅ **Zero - single JAR** | ⚠️ Requires Git repo | ❌ Consul cluster required | ❌ AWS services required | ❌ Azure subscription | ❌ Kubernetes cluster |
+| **Configuration Size** | ✅ **Unlimited YAML files** | ✅ Unlimited | ✅ Unlimited | ⚠️ 4KB-8KB per parameter | ❌ 10KB per key-value | ⚠️ 1MB limit |
+| **Audit Trail** | ✅ **Git commits + email attribution** | ✅ Git commits | ⚠️ Basic logging | ✅ CloudTrail integration | ✅ Activity logs | ⚠️ K8s events |
+| **Cost Model** | ✅ **Free (self-hosted)** | ✅ Free (self-hosted) | 💰 Enterprise licensing | 💰 Per-request pricing | 💰 Per-request + storage | ✅ Free (with K8s) |
+| **Deployment Model** | ✅ **Self-hosted/Docker** | ✅ Self-hosted | ⚠️ Cluster deployment | ☁️ Managed service only | ☁️ Managed service only | 🏗️ K8s native only |
+| **Secret Management** | ✅ **Integrated with YAML substitution** | ❌ External vault required | ✅ Built-in secrets | ✅ Secrets Manager integration | ✅ Key Vault integration | ⚠️ Separate Secrets objects |
+| **Real-time Updates** | ⚠️ Pull-based refresh | ⚠️ Pull-based refresh | ✅ Push notifications | ⚠️ Polling required | ✅ Push notifications | ✅ Volume mounts |
+| **Multi-Language Support** | ⚠️ REST API (any language) | ⚠️ Spring-focused | ✅ Language agnostic | ✅ SDK for multiple languages | ✅ SDK for multiple languages | ✅ Language agnostic |
+| **Conflict Resolution** | ✅ **Optimistic locking** | ❌ Last-write-wins | ❌ Last-write-wins | ❌ Last-write-wins | ❌ Last-write-wins | ❌ Last-write-wins |
+| **Notification Tracking** | ✅ **SUCCESS/IN_PROGRESS/FAILED** | ❌ Basic logging | ⚠️ Basic monitoring | ⚠️ CloudWatch integration | ⚠️ Activity logs | ❌ Limited |
+
+### 🎯 **Key Differentiators**
+
+**This Config Server excels at:**
+- **🏛️ True namespace isolation** with separate Git repositories
+- **🔐 Integrated vault** with `${vault:key}` YAML substitution  
+- **📋 Zero dependencies** - single JAR deployment
+- **🔄 Git-first approach** with full audit trails
+- **⚡ Optimistic locking** prevents configuration conflicts
+- **💰 Cost-effective** self-hosted solution
+
+**Choose alternatives for:**
+- **Multi-language ecosystems** → Consul or cloud services
+- **Managed/serverless requirements** → AWS Parameter Store or Azure App Configuration  
+- **Kubernetes-native deployments** → ConfigMaps + External Secrets Operator
+- **Real-time push notifications** → Consul or Azure App Configuration
+- **Complex service discovery** → HashiCorp Consul
+
 ---
 
 ## 🏗️ Architecture
@@ -43,15 +78,41 @@ service/
 
 ### Key Features
 
-- **Multi-namespace isolation** - Each namespace has its own Git repository
-- **Version control** - Full Git history for all configuration changes
-- **Optimistic locking** - Prevents concurrent update conflicts
-- **Intelligent caching** - Automatic cache preloading for performance
-- **Input validation** - Comprehensive security and format validation
-- **Audit trail** - Complete history of all configuration changes
-- **Simplified Vault System** - AES-256-GCM encrypted secrets with merge-based updates
-- **YAML-Vault Integration** - Dynamic secret replacement in configuration files
-- **Simple Notification Tracking** - Clean API call status monitoring (SUCCESS/IN_PROGRESS/FAILED)
+**🔒 Enterprise-Grade Security:**
+- **AES-256-GCM encryption** for vault secrets with configurable master keys
+- **Optimistic locking** prevents concurrent update conflicts (unique among config servers)
+- **Comprehensive input validation** and security checks
+- **Email-based audit attribution** for all changes
+
+**🏛️ Advanced Namespace Management:**
+- **True isolation** with separate Git repositories per namespace
+- **Independent versioning** and rollback capabilities
+- **Namespace-specific vault encryption** and secret management
+- **Hierarchical directory support** within namespaces
+
+**🔄 Git-First Architecture:**
+- **Full Git history** for all configuration changes with detailed commit information
+- **Branch and merge support** for configuration management workflows  
+- **Distributed version control** benefits (offline capabilities, conflict resolution)
+- **Standard Git tooling compatibility** for advanced operations
+
+**⚡ Performance & Reliability:**
+- **Intelligent caching** with automatic preloading for faster response times
+- **Caffeine cache integration** with configurable TTL settings
+- **Async notification processing** using virtual threads
+- **Docker-optimized** JVM settings for encryption workloads
+
+**🔐 Integrated Vault System:**
+- **YAML-native secret substitution** using `${vault:key}` syntax
+- **Zero external dependencies** - no HashiCorp Vault or external secret stores needed
+- **Dynamic secret injection** during configuration retrieval
+- **Simplified secret management** with merge-based updates
+
+**📊 Operational Excellence:**
+- **RESTful API design** with comprehensive request/response models
+- **Built-in notification tracking** (SUCCESS/IN_PROGRESS/FAILED status monitoring)
+- **Detailed error handling** with structured error responses
+- **Production-ready logging** and monitoring capabilities
 
 
 
@@ -869,38 +930,6 @@ To rotate the master key:
 3. **Set new `VAULT_MASTER_KEY`**
 4. **Start the application**
 5. **Re-import all secrets** (using `/vault/update` API)
-
-### Docker/Kubernetes Integration
-
-
-#### Kubernetes Secret
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: config-server-vault-key
-type: Opaque
-data:
-  master-key: <base64-encoded-master-key>
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: config-server
-spec:
-  template:
-    spec:
-      containers:
-      - name: config-server
-        image: config-server:latest
-        env:
-        - name: VAULT_MASTER_KEY
-          valueFrom:
-            secretKeyRef:
-              name: config-server-vault-key
-              key: master-key
-```
-
 
 ---
 

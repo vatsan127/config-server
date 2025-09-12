@@ -524,19 +524,11 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
      * @return formatted notification information map
      */
     private Map<String, Object> formatNotificationInfo(Notification notification) {
-        Map<String, Object> info = new HashMap<>(7);
+        Map<String, Object> info = new HashMap<>(3);
 
         info.put("id", notification.getId());
         info.put("status", notification.getStatus().toString());
-        info.put("totalCount", notification.getTotalCount());
-        info.put("successCount", notification.getSuccessCount());
-        info.put("failureCount", notification.getFailureCount());
         info.put("initiatedTime", notification.getInitiatedTime().toString());
-
-        // Add completedTime only if present
-        if (notification.getCompletedTime() != null) {
-            info.put("completedTime", notification.getCompletedTime().toString());
-        }
 
         return info;
     }

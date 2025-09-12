@@ -20,7 +20,7 @@ service/
 ├── encryption/      # Vault encryption services
 │   ├── EncryptionService
 │   └── AESEncryptionServiceImpl
-├── notify/          # Client notification services
+├── notify/          # Simple client notification tracking
 │   ├── ClientNotifyService
 │   └── NotificationStorageService
 ├── operation/       # Git repository operations  
@@ -51,6 +51,7 @@ service/
 - **Audit trail** - Complete history of all configuration changes
 - **Simplified Vault System** - AES-256-GCM encrypted secrets with merge-based updates
 - **YAML-Vault Integration** - Dynamic secret replacement in configuration files
+- **Simple Notification Tracking** - Clean API call status monitoring (SUCCESS/IN_PROGRESS/FAILED)
 
 
 
@@ -635,31 +636,19 @@ execution status, timing information, retry counts, and results for configuratio
   "namespace": "production",
   "notifications": [
     {
-      "triggeredAt": "2024-01-15T14:35:00",
-      "appName": "user-service",
-      "operation": "update",
-      "status": "success",
-      "retryCount": 0,
-      "namespace": "production",
-      "commitId": "abc123def456789"
+      "id": "abc123def456789",
+      "status": "SUCCESS", 
+      "initiatedTime": "2024-01-15T14:35:00"
     },
     {
-      "triggeredAt": "2024-01-15T14:32:00",
-      "appName": "order-service",
-      "operation": "create",
-      "status": "inprogress",
-      "retryCount": 2,
-      "namespace": "production",
-      "errorMessage": "Network timeout, retrying..."
+      "id": "def456abc789012",
+      "status": "IN_PROGRESS",
+      "initiatedTime": "2024-01-15T14:32:00"
     },
     {
-      "triggeredAt": "2024-01-15T14:25:00",
-      "appName": "payment-service",
-      "operation": "delete",
-      "status": "failed",
-      "retryCount": 3,
-      "namespace": "production",
-      "errorMessage": "Maximum retry attempts exceeded"
+      "id": "ghi789jkl012345", 
+      "status": "FAILED",
+      "initiatedTime": "2024-01-15T14:25:00"
     }
   ],
   "totalNotifications": 3,
@@ -671,22 +660,17 @@ execution status, timing information, retry counts, and results for configuratio
 
 - `namespace` (string): The namespace that was queried
 - `notifications` (array): List of notification status objects
-    - `triggeredAt` (string): When the API call was triggered (ISO format)
-    - `appName` (string): Application name from the original payload
-    - `operation` (string): Type of operation (create, update, delete, etc.)
-    - `status` (string): Current status - `success`, `inprogress`, or `failed`
-    - `retryCount` (integer): Number of retry attempts made
-    - `namespace` (string): Namespace where the operation occurred
-    - `commitId` (string, optional): Associated Git commit ID (if operation succeeded)
-    - `errorMessage` (string, optional): Error details (if operation failed or is retrying)
+    - `id` (string): Unique identifier (commit ID or generated tracking ID)
+    - `status` (string): Current status - `SUCCESS`, `IN_PROGRESS`, or `FAILED`
+    - `initiatedTime` (string): When the notification was initiated (ISO format)
 - `totalNotifications` (integer): Number of notifications returned
 - `maxNotifications` (integer): Maximum notifications limit (from commit-history-size config)
 
 **Status Descriptions:**
 
-- `success` - Operation completed successfully without errors
-- `inprogress` - Operation is currently being retried due to previous failures
-- `failed` - Operation failed after all retry attempts were exhausted
+- `SUCCESS` - API call completed successfully
+- `IN_PROGRESS` - API call is currently being processed
+- `FAILED` - API call failed permanently
 
 **Status Codes:**
 
@@ -781,6 +765,15 @@ Update vault secrets using complete replacement approach. All existing secrets a
 ## Cache Management
 
 The application automatically preloads namespaces and directory listings on startup for better performance.
+
+## Notification System
+
+The simplified notification system tracks API call statuses for client refresh operations:
+
+- **In-Memory Storage**: Recent notification statuses are stored in memory (configurable limit)
+- **Simple Status Tracking**: Direct status assignment - SUCCESS, IN_PROGRESS, or FAILED
+- **Async Processing**: API calls are processed asynchronously using virtual threads
+- **Automatic Cleanup**: Old notifications are automatically removed when limits are exceeded
 
 ---
 

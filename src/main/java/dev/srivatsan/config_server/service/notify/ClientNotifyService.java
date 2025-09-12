@@ -13,8 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Enhanced client notification service with async notification tracking integration.
- * Tracks notification attempts and results for monitoring purposes.
+ * Client notification service with async API call tracking
  */
 @Service
 public class ClientNotifyService {
@@ -27,60 +26,42 @@ public class ClientNotifyService {
     private final NotificationStorageService notificationStorageService;
 
     public ClientNotifyService(RestClient restClient, ApplicationConfig applicationConfig,
-                               NotificationStorageService notificationStorageService,
-                               CacheManagerService cacheManagerService) {
+                               NotificationStorageService notificationStorageService) {
         this.restClient = restClient;
         this.applicationConfig = applicationConfig;
         this.notificationStorageService = notificationStorageService;
         this.virtualThreadExecutorService = Executors.newVirtualThreadPerTaskExecutor();
     }
 
-    /**
-     * Sends refresh notifications with integrated tracking
-     */
     public void sendRefreshNotifications(String namespace, String appName) {
         sendRefreshNotifications(namespace, appName, null);
     }
 
-    /**
-     * Enhanced version that tracks notifications and optionally associates with a commit
-     */
     public void sendRefreshNotifications(String namespace, String appName, String commitId) {
-        if (applicationConfig.getRefreshNotifyUrl().get(namespace) == null || applicationConfig.getRefreshNotifyUrl().get(namespace).isEmpty()) {
+        String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
+        if (url == null || url.trim().isEmpty()) {
             return;
         }
 
-        String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
         String payload = String.format(NOTIFICATION_PAYLOAD_TEMPLATE, appName);
-        int totalUrls = applicationConfig.getRefreshNotifyUrl().size();
 
-        // Update existing notification or create new one if doesn't exist
-        if (commitId != null) {
-            // Try to update existing notification, or create new one if not found
-            Notification existingNotification = notificationStorageService.getNotificationByCommitId(namespace, commitId);
+        // Generate unique tracking ID if commitId is null
+        final String trackingId = (commitId != null) ? 
+            commitId : 
+            "notify-" + System.currentTimeMillis() + "-" + appName;
 
-            if (existingNotification != null) {
-                // Reset existing notification to fresh state
-                Notification resetNotification = existingNotification.resetForRetry(totalUrls);
-                notificationStorageService.updateNotification(namespace, resetNotification);
-            } else {
-                // Create new notification if none exists
-                Notification notification = Notification.createInitial(commitId, totalUrls);
-                notificationStorageService.storeNotification(namespace, notification);
-            }
-        }
+        // Create notification entry for tracking
+        Notification notification = Notification.createInitial(trackingId);
+        notificationStorageService.storeNotification(namespace, notification);
+        log.debug("Created notification for tracking ID: {}", trackingId);
 
-        // Send notifications to all configured URLs using virtual threads
-        virtualThreadExecutorService.submit(() -> sendRequestWithTracking(url, payload, commitId, namespace));
-
+        // Send API call asynchronously
+        virtualThreadExecutorService.submit(() -> sendRequestWithTracking(url, payload, trackingId, namespace));
     }
 
-    /**
-     * Sends a request with notification tracking
-     */
-    private void sendRequestWithTracking(String url, String payload, String commitId, String namespace) {
+    private void sendRequestWithTracking(String url, String payload, String trackingId, String namespace) {
         try {
-            log.debug("sendRefreshNotifications :: Sending to URL: '{}', payload: '{}'", url, payload);
+            log.debug("Sending notification to URL: '{}', payload: '{}'", url, payload);
 
             String response = restClient
                     .post()
@@ -91,23 +72,25 @@ public class ClientNotifyService {
                     .retrieve()
                     .body(String.class);
 
-            log.debug("sendRefreshNotifications :: response - '{}'", response);
-            updateNotificationSuccess(namespace, commitId);
+            log.debug("Notification response: '{}'", response);
+            updateNotificationStatus(namespace, trackingId, true);
         } catch (Exception e) {
-            log.error("Failed to send API request to URL '{}'. Error: ", url, e);
-            updateNotificationFailure(namespace, commitId);
+            log.error("Failed to send notification to URL '{}': {}", url, e.getMessage());
+            updateNotificationStatus(namespace, trackingId, false);
         }
     }
 
-    // ToDo: optimize the below code
-    private void updateNotificationSuccess(String namespace, String commitId) {
-        notificationStorageService.updateNotificationAtomic(
-                namespace, commitId, Notification::withSuccess);
-    }
-
-    private void updateNotificationFailure(String namespace, String commitId) {
-        notificationStorageService.updateNotificationAtomic(
-                namespace, commitId, Notification::withFailure);
+    private void updateNotificationStatus(String namespace, String trackingId, boolean success) {
+        Notification updated = notificationStorageService.updateNotificationAtomic(
+                namespace, trackingId, success ? Notification::withSuccess : Notification::withFailure);
+        
+        if (updated == null) {
+            log.error("Failed to update notification status for trackingId '{}' in namespace '{}'", 
+                     trackingId, namespace);
+        } else {
+            log.debug("Updated notification status to {} for trackingId '{}' in namespace '{}'", 
+                     success ? "SUCCESS" : "FAILED", trackingId, namespace);
+        }
     }
 
     /**

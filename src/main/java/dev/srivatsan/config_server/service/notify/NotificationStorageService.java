@@ -10,11 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Simple queue-based service for storing recent notification status information.
- * Each namespace maintains a bounded queue that automatically removes old data.
+ * In-memory storage for notification status tracking
  */
 @Service
-public class NotificationStorageService { // ToDO: can we move this to inmemory db
+public class NotificationStorageService {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationStorageService.class);
     private static final int MAX_NOTIFICATIONS_PER_NAMESPACE = 20;
@@ -102,8 +101,16 @@ public class NotificationStorageService { // ToDO: can we move this to inmemory 
      */
     public Notification updateNotificationAtomic(String namespace, String commitId,
                                                  java.util.function.UnaryOperator<Notification> updateFunction) {
+        if (namespace == null || commitId == null) {
+            log.warn("Cannot update notification: namespace or commitId is null (namespace: '{}', commitId: '{}')", 
+                    namespace, commitId);
+            return null;
+        }
+
         Queue<Notification> queue = notificationQueues.get(namespace);
         if (queue == null) {
+            log.warn("No notification queue exists for namespace '{}', cannot update commitId '{}'", 
+                    namespace, commitId);
             return null;
         }
 
@@ -117,13 +124,26 @@ public class NotificationStorageService { // ToDO: can we move this to inmemory 
         }
 
         if (found != null) {
-            Notification updated = updateFunction.apply(found);
-            queue.remove(found);
-            queue.offer(updated);
-            log.debug("Updated notification in namespace '{}': {} -> {}", namespace, commitId, updated.getStatus());
-            return updated;
+            try {
+                Notification updated = updateFunction.apply(found);
+                if (updated == null) {
+                    log.error("Update function returned null for notification '{}' in namespace '{}'", 
+                            commitId, namespace);
+                    return null;
+                }
+                
+                queue.remove(found);
+                queue.offer(updated);
+                log.debug("Updated notification in namespace '{}': {} -> {}", namespace, commitId, updated.getStatus());
+                return updated;
+            } catch (Exception e) {
+                log.error("Error updating notification '{}' in namespace '{}': {}", 
+                        commitId, namespace, e.getMessage(), e);
+                return null;
+            }
         }
 
+        log.warn("Notification with commitId '{}' not found in namespace '{}'", commitId, namespace);
         return null;
     }
 
@@ -132,6 +152,10 @@ public class NotificationStorageService { // ToDO: can we move this to inmemory 
      * Retrieves a specific notification by commit ID
      */
     public Notification getNotificationByCommitId(String namespace, String commitId) {
+        if (namespace == null || commitId == null) {
+            return null;
+        }
+        
         Queue<Notification> queue = notificationQueues.get(namespace);
         if (queue == null) {
             return null;
@@ -142,6 +166,7 @@ public class NotificationStorageService { // ToDO: can we move this to inmemory 
                 .findFirst()
                 .orElse(null);
     }
+
 
 
     /**

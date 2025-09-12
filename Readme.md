@@ -842,19 +842,22 @@ The simplified notification system tracks API call statuses for client refresh o
 
 ### Environment Variables
 
-| Variable                          | Description                               | Default Value    |
-|-----------------------------------|-------------------------------------------|------------------|
-| `SERVER_PORT`                     | HTTP server port                          | `8080`           |
-| `SERVER_SERVLET_CONTEXT_PATH`     | Application context path                  | `/config-server` |
-| `SPRING_CLOUD_CONFIG_SERVER_PREFIX` | Spring Cloud Config API prefix         | `/config-api`    |
-| `CONFIG_BASE_PATH`                | Base directory for namespace repositories | `/config/`       |
-| `VAULT_MASTER_KEY` ⭐             | Master encryption key (base64 encoded)    | Auto-generated   |
-| `CONFIG_COMMIT_HISTORY_SIZE`      | Maximum commits returned in history API   | `20`             |
-| `VAULT_ENABLED`                   | Enable vault functionality                | `true`           |
-| `CACHE_TTL`                       | Global cache time-to-live in seconds      | `600`            |
-| `VAULT_MAX_SECRETS_PER_OPERATION` | Maximum secrets per bulk operation        | `100`            |
+| Variable                     | Description                               | Default Value    |
+|------------------------------|-------------------------------------------|------------------|
+| `CONFIG_BASE_PATH`           | Base directory for namespace repositories | `/config/`       |
+| `VAULT_MASTER_KEY` ⭐        | Master encryption key (base64 encoded)    | Auto-generated   |
+| `CONFIG_COMMIT_HISTORY_SIZE` | Maximum commits returned in history API   | `20`             |
+| `VAULT_ENABLED`              | Enable vault functionality                | `true`           |
+| `CACHE_TTL`                  | Cache time-to-live in seconds             | `600`            |
 
 ⭐ **VAULT_MASTER_KEY**: This is the most important security configuration. See the [Vault Security Setup](#vault-security-setup) section below.
+
+### Fixed Server Configuration
+
+The following server settings are configured in `application.yml` and cannot be overridden via environment variables:
+- **HTTP server port**: `8080`
+- **Application context path**: `/config-server`
+- **Spring Cloud Config API prefix**: `/config-api`
 
 ### API Access URLs
 

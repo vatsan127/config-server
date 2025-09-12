@@ -30,6 +30,5 @@ public class ApplicationConfig {
     public static class VaultConfig {
         private boolean enabled = true;
         private long cacheTtl = 600; // 10 minutes in seconds
-        private int maxSecretsPerOperation = 100;
     }
 }

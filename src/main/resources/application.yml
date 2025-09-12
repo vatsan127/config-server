@@ -22,4 +22,3 @@ configserver:
   vault:
     enabled: ${VAULT_ENABLED:true}
     cache-ttl: ${CACHE_TTL:600}
-    max-secrets-per-operation: ${VAULT_MAX_SECRETS:100}

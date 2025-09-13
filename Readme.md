@@ -1,8 +1,6 @@
 # Config Server
 
-A **Git-based Configuration Management Server** with multi-namespace support, integrated vault system, and zero external dependencies.
-
-> 📖 **[Complete User Manual](USER_MANUAL.md)** - Detailed usage guide with examples and best practices
+A Git-based Configuration Management Server with multi-namespace support for application configuration files.
 
 ## 🏆 Competitive Comparison
 
@@ -118,115 +116,73 @@ service/
 
 
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### 1. Development Setup (5 minutes)
+### Quick Start (Development)
 
-```bash
-# Start the server (uses default encryption key)
-mvn spring-boot:run
+1. **Start the application** (uses default master key):
+   ```bash
+   mvn spring-boot:run
+   ```
+   
+   ⚠️ **You'll see security warnings** - this is normal for development.
 
-# Create a namespace
-curl -X POST http://localhost:8080/config-server/namespace/create \
-  -H "Content-Type: application/json" \
-  -d '{"namespace": "test"}'
+2. **Create a namespace** (required before creating config files):
+   ```bash
+   curl -X POST http://localhost:8080/config-server/namespace/create \
+     -H "Content-Type: application/json" \
+     -d '{"namespace": "test"}'
+   ```
 
-# Create your first config file  
-curl -X POST http://localhost:8080/config-server/config/create \
-  -H "Content-Type: application/json" \
-  -d '{
-    "action": "create",
-    "appName": "my-app",
-    "namespace": "test", 
-    "path": "/",
-    "email": "developer@example.com"
-  }'
-```
+3. **Create your first configuration file**:
+   ```bash
+   curl -X POST http://localhost:8080/config-server/config/create \
+     -H "Content-Type: application/json" \
+     -d '{
+       "action": "create",
+       "appName": "my-app", 
+       "namespace": "test",
+       "path": "/",
+       "email": "developer@example.com"
+     }'
+   ```
 
-⚠️ **Development Note**: You'll see security warnings - this is normal for local development.
+4. **Add some vault secrets**:
+   ```bash
+   curl -X POST http://localhost:8080/config-server/vault/update \
+     -H "Content-Type: application/json" \
+     -d '{
+       "namespace": "test",
+       "email": "developer@example.com", 
+       "commitMessage": "Add initial secrets",
+       "database.password": "mysecretpassword",
+       "api.token": "myapitoken123"
+     }'
+   ```
 
-### 2. Production Setup
+### Production Setup
 
-```bash
-# Generate secure master key
-export VAULT_MASTER_KEY=$(openssl rand -base64 32)
-echo "Save this key securely: $VAULT_MASTER_KEY"
+1. **Generate a secure master key**:
+   ```bash
+   export VAULT_MASTER_KEY=$(openssl rand -base64 32)
+   echo "Your master key: $VAULT_MASTER_KEY"
+   # IMPORTANT: Save this key securely!
+   ```
 
-# Start with production security
-VAULT_MASTER_KEY=$VAULT_MASTER_KEY mvn spring-boot:run
-```
+2. **Start the application**:
+   ```bash
+   VAULT_MASTER_KEY=$VAULT_MASTER_KEY mvn spring-boot:run
+   ```
+   
+   ✅ **You'll see success messages** - no security warnings.
 
-✅ **Production Ready**: No security warnings, full encryption active.
+3. **Continue with steps 2-4 above** for creating namespaces and configs.
 
-### 3. Add Secrets
-
-```bash
-curl -X POST http://localhost:8080/config-server/vault/update \
-  -H "Content-Type: application/json" \
-  -d '{
-    "namespace": "test",
-    "email": "developer@example.com",
-    "commitMessage": "Add initial secrets", 
-    "database.password": "mysecretpassword",
-    "api.token": "myapitoken123"
-  }'
-```
-
-### 4. Use in Spring Cloud Config
-
-**application.yml** in your Spring Boot app:
-```yaml
-spring:
-  cloud:
-    config:
-      uri: http://localhost:8080/config-server/config-api
-      label: test  # your namespace
-```
-
-**Your config file** (`my-app.yml`):
-```yaml
-server:
-  port: 8080
-  
-database:
-  url: jdbc:postgresql://localhost:5432/mydb
-  password: ${vault:database.password}  # Automatic secret substitution
-  
-external-api:
-  token: ${vault:api.token}
-```
+ℹ️ **Note**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
 
 ---
 
-## 📋 Features Overview
-
-### Core Capabilities
-- **🏛️ True Namespace Isolation** - Separate Git repositories per environment/team
-- **🔐 Integrated Vault** - AES-256-GCM encryption with `${vault:key}` YAML substitution
-- **📋 Zero Dependencies** - Single JAR, no external databases or vault systems
-- **🔄 Git-First** - Full version history and audit trails for all changes
-- **⚡ Optimistic Locking** - Prevents concurrent update conflicts (unique feature)
-- **🔧 Spring Cloud Config** - Drop-in replacement for existing Spring applications
-
-### Management APIs
-- **Configuration Management**: Create, read, update, delete YAML config files
-- **Namespace Management**: Isolated environments with separate Git repos  
-- **Vault Management**: Encrypted secret storage with automatic YAML substitution
-- **History & Auditing**: Complete Git history and change tracking
-- **Notification System**: Track API operation status (SUCCESS/IN_PROGRESS/FAILED)
-
-### Use Cases
-- **Microservices Configuration** - Centralized config for distributed systems
-- **Multi-Environment Management** - Dev/staging/prod isolation
-- **Secret Management** - Encrypted secrets without external vault dependencies  
-- **Team Isolation** - Separate configuration spaces per team
-- **Compliance & Auditing** - Full Git-based audit trail for all changes
-
-> 📖 **Need detailed examples?** See the [User Manual](USER_MANUAL.md) for comprehensive guides and best practices.
-
----
-
-# API Reference
+# API Endpoints
 
 ## 1. Configuration Management API
 
@@ -980,78 +936,28 @@ To rotate the master key:
 
 ---
 
-## 🐳 Docker Deployment
+## Docker
 
-### Quick Docker Setup
+### Building and Running
 
 ```bash
-# Build the image
+# Build image
 docker build -t config-server:latest .
 
-# Development (with default key)
-docker run -d --name config-server \
-  -p 8080:8080 \
-  config-server:latest
+# Run with default key (development only)
+docker run --name config-server -p 8080:8080 config-server:latest
 
-# Production (with secure key + persistence)
-docker run -d --name config-server \
-  -p 8080:8080 \
+# Run with custom master key (production)
+docker run --name config-server -p 8080:8080 \
   -e VAULT_MASTER_KEY="$(openssl rand -base64 32)" \
   -v config-data:/config \
-  -v config-logs:/var/log \
-  --restart unless-stopped \
   config-server:latest
-```
-
-### Docker Compose
-
-```yaml
-version: '3.8'
-services:
-  config-server:
-    image: config-server:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - VAULT_MASTER_KEY=${VAULT_MASTER_KEY}
-      - CONFIG_BASE_PATH=/config
-      - CACHE_TTL=600
-    volumes:
-      - config-data:/config
-      - config-logs:/var/log
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/config-server/actuator/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-volumes:
-  config-data:
-  config-logs:
 ```
 
 ### Production Deployment Checklist
 
-✅ **Security**
 - [ ] Set custom `VAULT_MASTER_KEY` (never use default)
-- [ ] Use secrets management (Docker Secrets, K8s Secrets)
-- [ ] Configure HTTPS/TLS termination (nginx, traefik)
-- [ ] Implement authentication/authorization
-
-✅ **Storage & Persistence**  
-- [ ] Configure volume mounts for `/config` directory
-- [ ] Set up backup strategy for configuration data
-- [ ] Monitor disk space usage
-
-✅ **Monitoring & Operations**
-- [ ] Set up health checks and monitoring
-- [ ] Configure log aggregation
-- [ ] Set up alerting for failures
-- [ ] Plan disaster recovery
-
-✅ **Network & Performance**
-- [ ] Use private networks when possible
-- [ ] Configure appropriate cache TTL settings
-- [ ] Set resource limits (CPU, memory)
-- [ ] Plan for high availability if needed
+- [ ] Configure volume mounts for `/config` directory  
+- [ ] Set up monitoring and health checks
+- [ ] Use secrets management for environment variables
+- [ ] Configure HTTPS/TLS termination

@@ -186,13 +186,13 @@ service/
 
 ## 1. Configuration Management API
 
-**Base URL:** `/config`
+**Base URL:** **/config**
 
 Manages application configuration files with Git version control and namespace isolation.
 
 ### 1.1 Create Configuration File
 
-**Endpoint:** `POST /config/create`
+**Endpoint: POST /config/create**
 
 Creates a new configuration file with default YAML template and commits it to Git.
 
@@ -210,11 +210,11 @@ Creates a new configuration file with default YAML template and commits it to Gi
 
 **Request Fields:**
 
-- `action` (string, required): Must be "create"
-- `appName` (string, required): Application name (alphanumeric, dash, underscore only)
-- `namespace` (string, required): Target namespace (must exist)
-- `path` (string, required): Directory path within namespace (usually "/")
-- `email` (string, required): Email for Git commit attribution
+- **action** (string, required): Must be "create"
+- **appName** (string, required): Application name (alphanumeric, dash, underscore only)
+- **namespace** (string, required): Target namespace (must exist)
+- **path** (string, required): Directory path within namespace (usually "/")
+- **email** (string, required): Email for Git commit attribution
 
 **Response Model:**
 
@@ -229,11 +229,11 @@ Creates a new configuration file with default YAML template and commits it to Gi
 
 **Status Codes:**
 
-- `201` - Configuration file created successfully
-- `400` - Invalid request parameters
-- `404` - Namespace not found
-- `409` - Configuration file already exists
-- `500` - Internal server error
+- **201** - Configuration file created successfully
+- **400** - Invalid request parameters
+- **404** - Namespace not found
+- **409** - Configuration file already exists
+- **500** - Internal server error
 
 ---
 
@@ -257,11 +257,11 @@ Retrieves the current content of a configuration file.
 
 **Request Fields:**
 
-- `action` (string, required): Must be "fetch"
-- `appName` (string, required): Application name
-- `namespace` (string, required): Source namespace
-- `path` (string, required): Directory path within namespace
-- `email` (string, required): Email for audit trail
+- **action** (string, required): Must be "fetch"
+- **appName** (string, required): Application name
+- **namespace** (string, required): Source namespace
+- **path** (string, required): Directory path within namespace
+- **email** (string, required): Email for audit trail
 
 **Response Model:**
 
@@ -280,10 +280,10 @@ Retrieves the current content of a configuration file.
 
 **Status Codes:**
 
-- `200` - Configuration file retrieved successfully
-- `400` - Invalid request parameters
-- `404` - Configuration file or namespace not found
-- `500` - Internal server error
+- **200** - Configuration file retrieved successfully
+- **400** - Invalid request parameters
+- **404** - Configuration file or namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -310,14 +310,14 @@ Updates an existing configuration file with new content and commits changes to G
 
 **Request Fields:**
 
-- `action` (string, required): Must be "update"
-- `appName` (string, required): Application name
-- `namespace` (string, required): Target namespace
-- `path` (string, required): Directory path within namespace
-- `content` (string, required): New YAML configuration content
-- `message` (string, required): Git commit message
-- `email` (string, required): Email for Git commit attribution
-- `commitId` (string, optional): Current commit ID for optimistic locking
+- **action** (string, required): Must be "update"
+- **appName** (string, required): Application name
+- **namespace** (string, required): Target namespace
+- **path** (string, required): Directory path within namespace
+- **content** (string, required): New YAML configuration content
+- **message** (string, required): Git commit message
+- **email** (string, required): Email for Git commit attribution
+- **commitId** (string, optional): Current commit ID for optimistic locking
 
 **Response Model:**
 
@@ -333,11 +333,11 @@ Updates an existing configuration file with new content and commits changes to G
 
 **Status Codes:**
 
-- `200` - Configuration updated successfully
-- `400` - Invalid request or YAML content
-- `404` - Configuration file not found
-- `409` - Commit conflict (file was modified by another user)
-- `500` - Internal server error
+- **200** - Configuration updated successfully
+- **400** - Invalid request or YAML content
+- **404** - Configuration file not found
+- **409** - Commit conflict (file was modified by another user)
+- **500** - Internal server error
 
 ---
 
@@ -384,10 +384,10 @@ Retrieves the commit history for a specific configuration file.
 
 **Status Codes:**
 
-- `200` - History retrieved successfully
-- `400` - Invalid request parameters
-- `404` - Configuration file not found
-- `500` - Internal server error
+- **200** - History retrieved successfully
+- **400** - Invalid request parameters
+- **404** - Configuration file not found
+- **500** - Internal server error
 
 ---
 
@@ -424,10 +424,10 @@ Retrieves detailed changes for a specific commit ID including diff information.
 
 **Status Codes:**
 
-- `200` - Commit changes retrieved successfully
-- `400` - Invalid commit ID
-- `404` - Commit not found
-- `500` - Internal server error
+- **200** - Commit changes retrieved successfully
+- **400** - Invalid commit ID
+- **404** - Commit not found
+- **500** - Internal server error
 
 ---
 
@@ -463,10 +463,10 @@ Deletes an existing configuration file and commits the change to Git.
 
 **Status Codes:**
 
-- `200` - Configuration file deleted successfully
-- `400` - Invalid request parameters
-- `404` - Configuration file not found
-- `500` - Internal server error
+- **200** - Configuration file deleted successfully
+- **400** - Invalid request parameters
+- **404** - Configuration file not found
+- **500** - Internal server error
 
 ---
 
@@ -492,7 +492,7 @@ Creates a new namespace directory with Git initialization for configuration isol
 
 **Request Fields:**
 
-- `namespace` (string, required): Namespace name (alphanumeric, dash, underscore only)
+- **namespace** (string, required): Namespace name (alphanumeric, dash, underscore only)
 
 **Response Model:**
 
@@ -508,10 +508,10 @@ Creates a new namespace directory with Git initialization for configuration isol
 
 **Status Codes:**
 
-- `201` - Namespace created successfully
-- `400` - Invalid namespace name (reserved names: system, admin, dashboard, default, log, root)
-- `409` - Namespace already exists
-- `500` - Internal server error
+- **201** - Namespace created successfully
+- **400** - Invalid namespace name (reserved names: system, admin, dashboard, default, log, root)
+- **409** - Namespace already exists
+- **500** - Internal server error
 
 ⚠️ **Important**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
 
@@ -543,8 +543,8 @@ Retrieves a list of all available namespaces in the configuration server.
 
 **Status Codes:**
 
-- `200` - Namespaces retrieved successfully
-- `500` - Internal server error
+- **200** - Namespaces retrieved successfully
+- **500** - Internal server error
 
 ---
 
@@ -565,8 +565,8 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 
 **Request Fields:**
 
-- `namespace` (string, required): Target namespace
-- `path` (string, required): Directory path to list (e.g., "/", "/services", "/config")
+- **namespace** (string, required): Target namespace
+- **path** (string, required): Directory path to list (e.g., "/", "/services", "/config")
 
 **Response Model:**
 
@@ -582,10 +582,10 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 
 **Status Codes:**
 
-- `200` - Directory contents retrieved successfully
-- `400` - Invalid request parameters
-- `404` - Namespace or directory not found
-- `500` - Internal server error
+- **200** - Directory contents retrieved successfully
+- **400** - Invalid request parameters
+- **404** - Namespace or directory not found
+- **500** - Internal server error
 
 ---
 
@@ -613,10 +613,10 @@ Deletes an existing namespace directory and all its contents permanently.
 
 **Status Codes:**
 
-- `200` - Namespace deleted successfully
-- `400` - Invalid namespace name or reserved namespace
-- `404` - Namespace not found
-- `500` - Internal server error
+- **200** - Namespace deleted successfully
+- **400** - Invalid namespace name or reserved namespace
+- **404** - Namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -637,7 +637,7 @@ namespace root directory.
 
 **Request Fields:**
 
-- `namespace` (string, required): Target namespace name
+- **namespace** (string, required): Target namespace name
 
 **Response Model:**
 
@@ -664,10 +664,10 @@ namespace root directory.
 
 **Status Codes:**
 
-- `200` - Namespace events retrieved successfully
-- `400` - Invalid request parameters or namespace name
-- `404` - Namespace not found
-- `500` - Internal server error
+- **200** - Namespace events retrieved successfully
+- **400** - Invalid request parameters or namespace name
+- **404** - Namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -688,7 +688,7 @@ execution status, timing information, retry counts, and results for configuratio
 
 **Request Fields:**
 
-- `namespace` (string, required): Target namespace name
+- **namespace** (string, required): Target namespace name
 
 **Response Model:**
 
@@ -719,26 +719,26 @@ execution status, timing information, retry counts, and results for configuratio
 
 **Response Fields:**
 
-- `namespace` (string): The namespace that was queried
-- `notifications` (array): List of notification status objects
-    - `id` (string): Unique identifier (commit ID or generated tracking ID)
-    - `status` (string): Current status - `SUCCESS`, `IN_PROGRESS`, or `FAILED`
-    - `initiatedTime` (string): When the notification was initiated (ISO format)
-- `totalNotifications` (integer): Number of notifications returned
-- `maxNotifications` (integer): Maximum notifications limit (from commit-history-size config)
+- **namespace** (string): The namespace that was queried
+- **notifications** (array): List of notification status objects
+    - **id** (string): Unique identifier (commit ID or generated tracking ID)
+    - **status** (string): Current status - **SUCCESS**, **IN_PROGRESS**, or **FAILED**
+    - **initiatedTime** (string): When the notification was initiated (ISO format)
+- **totalNotifications** (integer): Number of notifications returned
+- **maxNotifications** (integer): Maximum notifications limit (from commit-history-size config)
 
 **Status Descriptions:**
 
-- `SUCCESS` - API call completed successfully
-- `IN_PROGRESS` - API call is currently being processed
-- `FAILED` - API call failed permanently
+- **SUCCESS** - API call completed successfully
+- **IN_PROGRESS** - API call is currently being processed
+- **FAILED** - API call failed permanently
 
 **Status Codes:**
 
-- `200` - Namespace notifications retrieved successfully
-- `400` - Invalid request parameters or namespace name
-- `404` - Namespace not found
-- `500` - Internal server error
+- **200** - Namespace notifications retrieved successfully
+- **400** - Invalid request parameters or namespace name
+- **404** - Namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -777,9 +777,9 @@ Retrieve all decrypted secrets from the namespace vault.
 
 **Status Codes:**
 
-- `200` - Vault retrieved successfully (returns `{}` if no secrets exist)
-- `404` - Namespace not found
-- `500` - Internal server error
+- **200** - Vault retrieved successfully (returns **{}** if no secrets exist)
+- **404** - Namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -814,10 +814,10 @@ Update vault secrets using complete replacement approach. All existing secrets a
 
 **Status Codes:**
 
-- `200` - Vault updated successfully
-- `400` - Invalid request parameters (missing email/commitMessage)
-- `404` - Namespace not found
-- `500` - Internal server error
+- **200** - Vault updated successfully
+- **400** - Invalid request parameters (missing email/commitMessage)
+- **404** - Namespace not found
+- **500** - Internal server error
 
 ---
 
@@ -844,20 +844,20 @@ The simplified notification system tracks API call statuses for client refresh o
 
 | Variable                     | Description                               | Default Value    |
 |------------------------------|-------------------------------------------|------------------|
-| `CONFIG_BASE_PATH`           | Base directory for namespace repositories | `/config/`       |
-| `VAULT_MASTER_KEY` ⭐        | Master encryption key (base64 encoded)    | Auto-generated   |
-| `CONFIG_COMMIT_HISTORY_SIZE` | Maximum commits returned in history API   | `20`             |
-| `VAULT_ENABLED`              | Enable vault functionality                | `true`           |
-| `CACHE_TTL`                  | Cache time-to-live in seconds             | `600`            |
+| **CONFIG_BASE_PATH**           | Base directory for namespace repositories | `/config/`       |
+| **VAULT_MASTER_KEY** ⭐        | Master encryption key (base64 encoded)    | Auto-generated   |
+| **CONFIG_COMMIT_HISTORY_SIZE** | Maximum commits returned in history API   | **20**             |
+| **VAULT_ENABLED**              | Enable vault functionality                | **true**           |
+| **CACHE_TTL**                  | Cache time-to-live in seconds             | **600**            |
 
 ⭐ **VAULT_MASTER_KEY**: This is the most important security configuration. See the [Vault Security Setup](#vault-security-setup) section below.
 
 ### Fixed Server Configuration
 
-The following server settings are configured in `application.yml` and cannot be overridden via environment variables:
-- **HTTP server port**: `8080`
-- **Application context path**: `/config-server`
-- **Spring Cloud Config API prefix**: `/config-api`
+The following server settings are configured in **application.yml** and cannot be overridden via environment variables:
+- **HTTP server port**: **8080**
+- **Application context path**: **/config-server**
+- **Spring Cloud Config API prefix**: **/config-api**
 
 ### API Access URLs
 
@@ -878,7 +878,7 @@ The application provides two different API interfaces:
 
 ### Master Key Configuration
 
-The application uses a **single master key** for encrypting all vault secrets across all namespaces. This key must be configured via the `VAULT_MASTER_KEY` environment variable.
+The application uses a **single master key** for encrypting all vault secrets across all namespaces. This key must be configured via the **VAULT_MASTER_KEY** environment variable.
 
 #### Key Generation
 
@@ -930,7 +930,7 @@ To rotate the master key:
 
 1. **Backup all vault secrets** (export using `/vault/get` API)
 2. **Stop the application**
-3. **Set new `VAULT_MASTER_KEY`**
+3. **Set new **VAULT_MASTER_KEY****
 4. **Start the application**
 5. **Re-import all secrets** (using `/vault/update` API)
 
@@ -956,8 +956,8 @@ docker run --name config-server -p 8080:8080 \
 
 ### Production Deployment Checklist
 
-- [ ] Set custom `VAULT_MASTER_KEY` (never use default)
-- [ ] Configure volume mounts for `/config` directory  
+- [ ] Set custom **VAULT_MASTER_KEY** (never use default)
+- [ ] Configure volume mounts for **/config** directory  
 - [ ] Set up monitoring and health checks
 - [ ] Use secrets management for environment variables
 - [ ] Configure HTTPS/TLS termination

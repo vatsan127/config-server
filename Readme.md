@@ -24,7 +24,7 @@ A Git-based Configuration Management Server with multi-namespace support for app
 
 **This Config Server excels at:**
 - **🏛️ True namespace isolation** with separate Git repositories
-- **🔐 Integrated vault** with `${vault:key}` YAML substitution  
+- **🔐 Integrated vault** with **${vault:key}** YAML substitution  
 - **📋 Zero dependencies** - single JAR deployment
 - **🔄 Git-first approach** with full audit trails
 - **⚡ Optimistic locking** prevents configuration conflicts
@@ -103,7 +103,7 @@ service/
 - **Docker-optimized** JVM settings for encryption workloads
 
 **🔐 Integrated Vault System:**
-- **YAML-native secret substitution** using `${vault:key}` syntax
+- **YAML-native secret substitution** using **${vault:key}** syntax
 - **Zero external dependencies** - no HashiCorp Vault or external secret stores needed
 - **Dynamic secret injection** during configuration retrieval
 - **Simplified secret management** with merge-based updates
@@ -178,7 +178,7 @@ service/
 
 3. **Continue with steps 2-4 above** for creating namespaces and configs.
 
-ℹ️ **Note**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
+ℹ️ **Note**: The **default** namespace is reserved for system use. Spring Cloud Config uses **main** as the default namespace when no label is specified.
 
 ---
 
@@ -239,7 +239,7 @@ Creates a new configuration file with default YAML template and commits it to Gi
 
 ### 1.2 Fetch Configuration File
 
-**Endpoint:** `POST /config/fetch`
+**Endpoint:** **POST /config/fetch**
 
 Retrieves the current content of a configuration file.
 
@@ -289,7 +289,7 @@ Retrieves the current content of a configuration file.
 
 ### 1.3 Update Configuration File
 
-**Endpoint:** `POST /config/update`
+**Endpoint:** **POST /config/update**
 
 Updates an existing configuration file with new content and commits changes to Git.
 
@@ -343,7 +343,7 @@ Updates an existing configuration file with new content and commits changes to G
 
 ### 1.4 Get Configuration History
 
-**Endpoint:** `POST /config/history`
+**Endpoint:** **POST /config/history**
 
 Retrieves the commit history for a specific configuration file.
 
@@ -393,7 +393,7 @@ Retrieves the commit history for a specific configuration file.
 
 ### 1.5 Get Commit Changes
 
-**Endpoint:** `POST /config/changes`
+**Endpoint:** **POST /config/changes**
 
 Retrieves detailed changes for a specific commit ID including diff information.
 
@@ -433,7 +433,7 @@ Retrieves detailed changes for a specific commit ID including diff information.
 
 ### 1.6 Delete Configuration File
 
-**Endpoint:** `POST /config/delete`
+**Endpoint:** **POST /config/delete**
 
 Deletes an existing configuration file and commits the change to Git.
 
@@ -472,13 +472,13 @@ Deletes an existing configuration file and commits the change to Git.
 
 ## 2. Namespace Management API
 
-**Base URL:** `/namespace`
+**Base URL:** **/namespace**
 
 Manages configuration namespaces and directory operations with complete isolation.
 
 ### 2.1 Create Namespace
 
-**Endpoint:** `POST /namespace/create`
+**Endpoint:** **POST /namespace/create**
 
 Creates a new namespace directory with Git initialization for configuration isolation.
 
@@ -513,13 +513,13 @@ Creates a new namespace directory with Git initialization for configuration isol
 - **409** - Namespace already exists
 - **500** - Internal server error
 
-⚠️ **Important**: The `default` namespace is reserved for system use. Spring Cloud Config uses `main` as the default namespace when no label is specified.
+⚠️ **Important**: The **default** namespace is reserved for system use. Spring Cloud Config uses **main** as the default namespace when no label is specified.
 
 ---
 
 ### 2.2 List All Namespaces
 
-**Endpoint:** `POST /namespace/list`
+**Endpoint:** **POST /namespace/list**
 
 Retrieves a list of all available namespaces in the configuration server.
 
@@ -550,7 +550,7 @@ Retrieves a list of all available namespaces in the configuration server.
 
 ### 2.3 List Directory Contents
 
-**Endpoint:** `POST /namespace/files`
+**Endpoint:** **POST /namespace/files**
 
 Retrieves the list of .yml files and subdirectories within a specified directory path in a namespace.
 
@@ -591,7 +591,7 @@ Retrieves the list of .yml files and subdirectories within a specified directory
 
 ### 2.4 Delete Namespace
 
-**Endpoint:** `POST /namespace/delete`
+**Endpoint:** **POST /namespace/delete**
 
 Deletes an existing namespace directory and all its contents permanently.
 
@@ -622,7 +622,7 @@ Deletes an existing namespace directory and all its contents permanently.
 
 ### 2.5 Get Namespace Events
 
-**Endpoint:** `POST /namespace/events`
+**Endpoint:** **POST /namespace/events**
 
 Retrieves the complete event history (git log) for an entire namespace. Shows all Git commits and activities within the
 namespace root directory.
@@ -673,9 +673,9 @@ namespace root directory.
 
 ### 2.6 Get Namespace Notifications
 
-**Endpoint:** `POST /namespace/notify`
+**Endpoint:** **POST /namespace/notify**
 
-Retrieves API call status notifications for the last `commit-history-size` operations within a namespace. Shows
+Retrieves API call status notifications for the last **commit-history-size** operations within a namespace. Shows
 execution status, timing information, retry counts, and results for configuration management operations.
 
 **Request Model:**
@@ -744,16 +744,16 @@ execution status, timing information, retry counts, and results for configuratio
 
 ## 3. Vault Management API (Simplified)
 
-**Base URL:** `/vault`
+**Base URL:** **/vault**
 
 🆕 **Simplified Design**: The vault system has been redesigned with just 2 core endpoints for better usability. Secrets
-are stored in `.vault/{namespace}-vault.json` files with AES-256-GCM encryption using a single master key.
+are stored in **.vault/{namespace}-vault.json** files with AES-256-GCM encryption using a single master key.
 
 🔒 **Security**: AES-256-GCM encryption with single master key via environment variable
 
 ### 3.1 Get Vault Secrets
 
-**Endpoint:** `POST /vault/get`
+**Endpoint:** **POST /vault/get**
 
 Retrieve all decrypted secrets from the namespace vault.
 
@@ -785,7 +785,7 @@ Retrieve all decrypted secrets from the namespace vault.
 
 ### 3.2 Update Vault Secrets (Complete Replacement)
 
-**Endpoint:** `POST /vault/update`
+**Endpoint:** **POST /vault/update**
 
 Update vault secrets using complete replacement approach. All existing secrets are replaced with the provided ones.
 
@@ -844,7 +844,7 @@ The simplified notification system tracks API call statuses for client refresh o
 
 | Variable                     | Description                               | Default Value    |
 |------------------------------|-------------------------------------------|------------------|
-| **CONFIG_BASE_PATH**           | Base directory for namespace repositories | `/config/`       |
+| **CONFIG_BASE_PATH**           | Base directory for namespace repositories | **/config/**       |
 | **VAULT_MASTER_KEY** ⭐        | Master encryption key (base64 encoded)    | Auto-generated   |
 | **CONFIG_COMMIT_HISTORY_SIZE** | Maximum commits returned in history API   | **20**             |
 | **VAULT_ENABLED**              | Enable vault functionality                | **true**           |
@@ -864,13 +864,13 @@ The following server settings are configured in **application.yml** and cannot b
 The application provides two different API interfaces:
 
 1. **Management APIs** (documented in this README):
-   - Configuration Management: `http://localhost:8080/config-server/config/*`
-   - Namespace Management: `http://localhost:8080/config-server/namespace/*`  
-   - Vault Management: `http://localhost:8080/config-server/vault/*`
+   - Configuration Management: **http://localhost:8080/config-server/config/***
+   - Namespace Management: **http://localhost:8080/config-server/namespace/***  
+   - Vault Management: **http://localhost:8080/config-server/vault/***
 
 2. **Spring Cloud Config API** (for client applications):
-   - Config Retrieval: `http://localhost:8080/config-server/config-api/{application}/{profile}/{label}`
-   - Example: `http://localhost:8080/config-server/config-api/my-app/production/main`
+   - Config Retrieval: **http://localhost:8080/config-server/config-api/{application}/{profile}/{label}**
+   - Example: **http://localhost:8080/config-server/config-api/my-app/production/main**
 
 ---
 
@@ -928,11 +928,11 @@ java -jar config-server.jar
 
 To rotate the master key:
 
-1. **Backup all vault secrets** (export using `/vault/get` API)
+1. **Backup all vault secrets** (export using **/vault/get** API)
 2. **Stop the application**
 3. **Set new **VAULT_MASTER_KEY****
 4. **Start the application**
-5. **Re-import all secrets** (using `/vault/update` API)
+5. **Re-import all secrets** (using **/vault/update** API)
 
 ---
 

@@ -7,10 +7,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * In-memory storage for notification status tracking
+ * Simplified in-memory storage for notification status tracking using List-based approach
  */
 @Service
 public class NotificationStorageService {
@@ -19,34 +18,34 @@ public class NotificationStorageService {
     private static final int MAX_NOTIFICATIONS_PER_NAMESPACE = 20;
 
     /**
-     * Thread-safe storage: namespace -> queue of recent notifications
-     * Each queue is bounded to MAX_NOTIFICATIONS_PER_NAMESPACE
+     * Thread-safe storage: namespace -> list of recent notifications (insertion order maintained)
+     * Each list is bounded to MAX_NOTIFICATIONS_PER_NAMESPACE
      */
-    private final Map<String, Queue<Notification>> notificationQueues = new ConcurrentHashMap<>();
+    private final Map<String, List<Notification>> notificationStorage = new ConcurrentHashMap<>();
 
     public NotificationStorageService() {
     }
 
     /**
-     * Stores a notification in the namespace queue
-     * Automatically removes oldest notification if queue exceeds size limit
+     * Stores a notification in the namespace list
+     * Automatically removes oldest notification if list exceeds size limit
      *
      * @param namespace    the namespace identifier
      * @param notification the notification status to store
      */
     public void storeNotification(String namespace, Notification notification) {
-        Queue<Notification> queue = notificationQueues.computeIfAbsent(
-                namespace, k -> new ConcurrentLinkedQueue<>());
+        List<Notification> notifications = notificationStorage.computeIfAbsent(
+                namespace, k -> Collections.synchronizedList(new ArrayList<>()));
 
-        // Add new notification
-        queue.offer(notification);
-
-        // Remove oldest if exceeds limit
-        while (queue.size() > MAX_NOTIFICATIONS_PER_NAMESPACE) {
-            Notification removed = queue.poll();
-            if (removed != null) {
+        synchronized (notifications) {
+            // Remove oldest if at max capacity (before adding new one)
+            if (notifications.size() >= MAX_NOTIFICATIONS_PER_NAMESPACE) {
+                Notification removed = notifications.removeFirst();
                 log.debug("Removed oldest notification from namespace '{}': {}", namespace, removed.getId());
             }
+            
+            // Add new notification at the end
+            notifications.add(notification);
         }
 
         log.debug("Stored notification in namespace '{}': {} -> {}", namespace, notification.getId(), notification.getStatus());
@@ -58,41 +57,27 @@ public class NotificationStorageService {
      *
      * @param namespace the namespace identifier
      * @param maxCount  the maximum number of notifications to return
-     * @return list of most recent notification statuses
+     * @return list of most recent notification statuses (newest first)
      */
     public List<Notification> getRecentNotifications(String namespace, int maxCount) {
-        Queue<Notification> queue = notificationQueues.get(namespace);
-        if (queue == null || queue.isEmpty()) {
+        List<Notification> notifications = notificationStorage.get(namespace);
+        if (notifications == null || notifications.isEmpty()) {
             return List.of();
         }
 
-        return queue.stream()
-                .sorted((n1, n2) -> n2.getInitiatedTime().compareTo(n1.getInitiatedTime()))
-                .limit(maxCount)
-                .toList();
-    }
-
-    /**
-     * Updates an existing notification in the queue
-     * Since queues don't support direct update, this removes the old and adds the new
-     *
-     * @param namespace    the namespace identifier
-     * @param notification the updated notification status
-     */
-    public void updateNotification(String namespace, Notification notification) {
-        Queue<Notification> queue = notificationQueues.get(namespace);
-        if (queue != null) {
-            // Remove existing notification with same id if present
-            queue.removeIf(existing -> Objects.equals(existing.getId(), notification.getId()));
-            // Add updated notification
-            queue.offer(notification);
-            log.debug("Updated notification in namespace '{}': {} -> {}", namespace, notification.getId(), notification.getStatus());
+        synchronized (notifications) {
+            return notifications.stream()
+                    .sorted((n1, n2) -> n2.getInitiatedTime().compareTo(n1.getInitiatedTime()))
+                    .limit(maxCount)
+                    .toList();
         }
     }
 
+
+
     /**
      * Updates a notification using the provided function
-     * Note: Not truly atomic with queues, but sufficient for this use case
+     * Simplified with direct list access and replacement
      *
      * @param namespace      the namespace identifier
      * @param commitId       the commit ID identifier
@@ -107,81 +92,39 @@ public class NotificationStorageService {
             return null;
         }
 
-        Queue<Notification> queue = notificationQueues.get(namespace);
-        if (queue == null) {
-            log.warn("No notification queue exists for namespace '{}', cannot update commitId '{}'", 
+        List<Notification> notifications = notificationStorage.get(namespace);
+        if (notifications == null) {
+            log.warn("No notifications exist for namespace '{}', cannot update commitId '{}'", 
                     namespace, commitId);
             return null;
         }
 
-        // Find and update the notification
-        Notification found = null;
-        for (Notification notification : queue) {
+        // Find and update the notification by index
+        // No synchronization needed since only one thread updates a specific notification
+        for (int i = 0; i < notifications.size(); i++) {
+            Notification notification = notifications.get(i);
             if (Objects.equals(notification.getId(), commitId)) {
-                found = notification;
-                break;
-            }
-        }
-
-        if (found != null) {
-            try {
-                Notification updated = updateFunction.apply(found);
-                if (updated == null) {
-                    log.error("Update function returned null for notification '{}' in namespace '{}'", 
-                            commitId, namespace);
+                try {
+                    Notification updated = updateFunction.apply(notification);
+                    if (updated == null) {
+                        log.error("Update function returned null for notification '{}' in namespace '{}'", 
+                                commitId, namespace);
+                        return null;
+                    }
+                    
+                    // Replace at the same index to maintain order
+                    notifications.set(i, updated);
+                    log.debug("Updated notification in namespace '{}': {} -> {}", namespace, commitId, updated.getStatus());
+                    return updated;
+                } catch (Exception e) {
+                    log.error("Error updating notification '{}' in namespace '{}': {}", 
+                            commitId, namespace, e.getMessage(), e);
                     return null;
                 }
-                
-                queue.remove(found);
-                queue.offer(updated);
-                log.debug("Updated notification in namespace '{}': {} -> {}", namespace, commitId, updated.getStatus());
-                return updated;
-            } catch (Exception e) {
-                log.error("Error updating notification '{}' in namespace '{}': {}", 
-                        commitId, namespace, e.getMessage(), e);
-                return null;
             }
         }
 
         log.warn("Notification with commitId '{}' not found in namespace '{}'", commitId, namespace);
         return null;
-    }
-
-
-    /**
-     * Retrieves a specific notification by commit ID
-     */
-    public Notification getNotificationByCommitId(String namespace, String commitId) {
-        if (namespace == null || commitId == null) {
-            return null;
-        }
-        
-        Queue<Notification> queue = notificationQueues.get(namespace);
-        if (queue == null) {
-            return null;
-        }
-
-        return queue.stream()
-                .filter(notification -> Objects.equals(notification.getId(), commitId))
-                .findFirst()
-                .orElse(null);
-    }
-
-
-
-    /**
-     * Returns storage statistics for monitoring
-     */
-    public Map<String, Object> getStorageStats() {
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("totalNamespaces", notificationQueues.size());
-
-        // Count total notifications across all namespaces
-        int totalNotifications = notificationQueues.values().stream()
-                .mapToInt(Queue::size)
-                .sum();
-        stats.put("totalNotifications", totalNotifications);
-        stats.put("maxNotificationsPerNamespace", MAX_NOTIFICATIONS_PER_NAMESPACE);
-        return stats;
     }
 }

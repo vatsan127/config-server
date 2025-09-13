@@ -33,10 +33,6 @@ public class ClientNotifyService {
         this.virtualThreadExecutorService = Executors.newVirtualThreadPerTaskExecutor();
     }
 
-    public void sendRefreshNotifications(String namespace, String appName) {
-        sendRefreshNotifications(namespace, appName, null);
-    }
-
     public void sendRefreshNotifications(String namespace, String appName, String commitId) {
         String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
         String payload = String.format(NOTIFICATION_PAYLOAD_TEMPLATE, appName);
@@ -100,6 +96,7 @@ public class ClientNotifyService {
     /**
      * Graceful shutdown of the executor service
      */
+    // ToDo: this should be annotated with predestry right
     public void shutdown() {
         virtualThreadExecutorService.shutdown();
         log.info("ClientNotifyService executor shutdown initiated");

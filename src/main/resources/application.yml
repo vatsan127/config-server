@@ -46,5 +46,5 @@ configserver:
 # JWT Configuration
 app:
   jwt:
-    secret: ${JWT_SECRET} # REQUIRED - Must be set via environment variable
+    secret: ${JWT_SECRET:dGVzdFNlY3JldEtleVRlc3RTZWNyZXRLZXlUZXN0U2VjcmV0S2V5VGVzdFNlY3JldEtleQ==} # Base64: testSecretKeyTestSecretKeyTestSecretKeyTestSecretKey
     expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds

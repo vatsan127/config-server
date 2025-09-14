@@ -1088,19 +1088,17 @@ curl -X DELETE http://localhost:8080/config-server/api/users/1 \
 
 ### Security Configuration
 
-- **Endpoints requiring authentication:**
-  - All configuration management APIs (`/config/*`)
-  - All namespace management APIs (`/namespace/*`)
-  - All vault management APIs (`/vault/*`)
+- **ADMIN-only endpoints (require ADMIN role):**
+  - Configuration management APIs (`/config/*`)
+  - Namespace management APIs (`/namespace/*`)
+  - Vault management APIs (`/vault/*`)
+  - User management APIs (`/api/users/*`)
 
-- **Public endpoints:**
+- **Public endpoints (no authentication required):**
   - Authentication endpoints (`/api/auth/*`)
   - Spring Cloud Config API (`/config-api/*`) - for client applications
   - Actuator endpoints (`/actuator/*`)
   - H2 console (`/h2-console/*`) - development only
-
-- **ADMIN-only endpoints:**
-  - User management (`/api/users/*`)
 
 ### Token Security
 
@@ -1114,19 +1112,19 @@ curl -X DELETE http://localhost:8080/config-server/api/users/1 \
 Users can have multiple roles simultaneously, enabling fine-grained access control:
 
 **Available Roles:**
-- **ADMIN** - Full system access, including user management
-- **USER** - Standard configuration access
+- **ADMIN** - Full system access (configuration, namespace, vault, user management)
+- **USER** - Limited access (authentication only, useful for future features)
 
 **Role Combinations:**
-- `["ADMIN"]` - Admin-only access
-- `["USER"]` - User-only access
-- `["ADMIN", "USER"]` - Combined admin and user access
+- `["ADMIN"]` - Full system access to all management operations
+- `["USER"]` - Authentication-only access (for future features)
+- `["ADMIN", "USER"]` - Full admin access (USER role provides no additional permissions)
 
 **Authorization Behavior:**
-- Users with **ADMIN role** can access all endpoints
-- Users with **USER role** can access configuration/namespace/vault endpoints
-- Users with **multiple roles** get combined permissions
-- Spring Security grants access if user has **any required role**
+- Users with **ADMIN role** can access all endpoints (configuration, namespace, vault, user management)
+- Users with **USER role** can only authenticate and access public endpoints
+- Users with **multiple roles including ADMIN** get full admin permissions
+- **All configuration management operations require ADMIN role**
 
 ### Validation Rules
 

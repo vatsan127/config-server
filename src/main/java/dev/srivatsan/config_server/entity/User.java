@@ -18,7 +18,6 @@ import java.util.stream.Collectors;
 @Table(name = "users")
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class User implements UserDetails {
 
     @Id
@@ -49,6 +48,13 @@ public class User implements UserDetails {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    public User(String username, String password, Set<Role> roles) {
+        this.username = username;
+        this.password = password;
+        this.roles = roles != null ? new HashSet<>(roles) : new HashSet<>();
+        this.enabled = true;
+    }
 
     @PrePersist
     protected void onCreate() {

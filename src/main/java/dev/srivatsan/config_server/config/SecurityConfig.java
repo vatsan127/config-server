@@ -14,7 +14,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -53,6 +52,9 @@ public class SecurityConfig {
                             .requestMatchers("/actuator/**").permitAll()
                             .requestMatchers("/h2-console/**").permitAll()
                             .requestMatchers("/config-api/**").permitAll()
+                            .requestMatchers("/config/**").hasRole("ADMIN")
+                            .requestMatchers("/namespace/**").hasRole("ADMIN")
+                            .requestMatchers("/vault/**").hasRole("ADMIN")
                             .requestMatchers("/api/users/**").hasRole("ADMIN")
                             .anyRequest().authenticated()
                 );

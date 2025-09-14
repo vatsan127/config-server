@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -52,10 +53,11 @@ public class SecurityConfig {
                             .requestMatchers("/actuator/**").permitAll()
                             .requestMatchers("/h2-console/**").permitAll()
                             .requestMatchers("/config-api/**").permitAll()
-                            .requestMatchers("/config/**").hasRole("ADMIN")
-                            .requestMatchers("/namespace/**").hasRole("ADMIN")
-                            .requestMatchers("/vault/**").hasRole("ADMIN")
-                            .requestMatchers("/api/users/**").hasRole("ADMIN")
+                            .requestMatchers("/config/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                            .requestMatchers(HttpMethod.DELETE, "/namespace/**").hasRole("SUPERADMIN")
+                            .requestMatchers("/namespace/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                            .requestMatchers("/vault/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                            .requestMatchers("/api/users/**").hasAnyRole("ADMIN", "SUPERADMIN")
                             .anyRequest().authenticated()
                 );
 

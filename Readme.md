@@ -1112,19 +1112,28 @@ curl -X DELETE http://localhost:8080/config-server/api/users/1 \
 Users can have multiple roles simultaneously, enabling fine-grained access control:
 
 **Available Roles:**
-- **ADMIN** - Full system access (configuration, namespace, vault, user management)
+- **SUPERADMIN** - Ultimate system access (all ADMIN permissions + namespace deletion)
+- **ADMIN** - Full system access (configuration, namespace read/write, vault, user management)
 - **USER** - Limited access (authentication only, useful for future features)
 
 **Role Combinations:**
-- `["ADMIN"]` - Full system access to all management operations
+- `["SUPERADMIN"]` - Ultimate system access including namespace deletion
+- `["ADMIN"]` - Full system access except namespace deletion
 - `["USER"]` - Authentication-only access (for future features)
-- `["ADMIN", "USER"]` - Full admin access (USER role provides no additional permissions)
+- `["SUPERADMIN", "ADMIN"]` - Ultimate access (ADMIN provides no additional permissions)
+- `["ADMIN", "USER"]` - Full admin access (USER provides no additional permissions)
 
 **Authorization Behavior:**
-- Users with **ADMIN role** can access all endpoints (configuration, namespace, vault, user management)
+- Users with **SUPERADMIN role** can access all endpoints including namespace deletion (DELETE /namespace/**)
+- Users with **ADMIN role** can access all endpoints except namespace deletion
 - Users with **USER role** can only authenticate and access public endpoints
-- Users with **multiple roles including ADMIN** get full admin permissions
-- **All configuration management operations require ADMIN role**
+- Users with **multiple roles including SUPERADMIN** get ultimate permissions
+- **Namespace deletion requires SUPERADMIN role exclusively**
+- **All other configuration management operations require ADMIN or SUPERADMIN role**
+
+**Default Admin User:**
+- The default "admin" user is automatically created with **SUPERADMIN** role on first startup
+- This ensures there's always at least one user who can delete namespaces
 
 ### Validation Rules
 

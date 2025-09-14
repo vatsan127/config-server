@@ -37,7 +37,7 @@ public class DataInitializer implements CommandLineRunner {
             }
 
             try {
-                Set<Role> adminRoles = Set.of(Role.ADMIN);
+                Set<Role> adminRoles = Set.of(Role.SUPERADMIN);
                 userService.createUser(adminUsername, adminPassword, adminRoles);
                 log.info("Default admin user created successfully with username: {}", adminUsername);
             } catch (Exception e) {

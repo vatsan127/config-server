@@ -957,7 +957,206 @@ docker run --name config-server -p 8080:8080 \
 ### Production Deployment Checklist
 
 - [ ] Set custom **VAULT_MASTER_KEY** (never use default)
-- [ ] Configure volume mounts for **/config** directory  
+- [ ] Set secure **JWT_SECRET** (minimum 32 characters, base64 encoded)
+- [ ] Set strong **ADMIN_PASSWORD** (minimum 6 characters)
+- [ ] Configure volume mounts for **/config** directory
 - [ ] Set up monitoring and health checks
 - [ ] Use secrets management for environment variables
 - [ ] Configure HTTPS/TLS termination
+- [ ] Review and configure user roles appropriately
+- [ ] Test authentication and authorization workflows
+
+---
+
+## 🔐 Authentication & Authorization
+
+The config server includes JWT-based authentication with role-based access control for secure configuration management.
+
+### Features
+
+- **JWT Authentication** with token-based security
+- **Multiple roles per user** - Users can have multiple roles (ADMIN, USER, etc.)
+- **Default admin user** ("admin") with ADMIN role
+- **User management endpoints** (ADMIN only)
+- **Role-based authorization** with fine-grained access control
+- **Password encoding** with BCrypt
+- **H2 in-memory database** for user storage
+- **Comprehensive validation** with detailed error messages
+
+### Required Environment Variables
+
+**REQUIRED:**
+```bash
+# JWT secret (minimum 32 characters, base64 encoded recommended)
+export JWT_SECRET="your-secure-base64-encoded-secret-key-here"
+```
+
+**OPTIONAL:**
+```bash
+# Admin password (defaults to 'admin123')
+export ADMIN_PASSWORD="your-secure-admin-password"
+```
+
+### Generate Secure Secrets
+
+```bash
+# Generate a secure JWT secret (256-bit base64 encoded)
+export JWT_SECRET=$(openssl rand -base64 32)
+
+# Set a secure admin password
+export ADMIN_PASSWORD="MySecureAdminPassword123!"
+```
+
+### Authentication Endpoints
+
+**Login:**
+```bash
+# Login as admin
+curl -X POST http://localhost:8080/config-server/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"admin123"}'
+
+# Response includes JWT token:
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "type": "Bearer",
+  "username": "admin",
+  "roles": ["ADMIN"]
+}
+```
+
+**Get Current User:**
+```bash
+curl -X GET http://localhost:8080/config-server/api/auth/me \
+  -H "Authorization: Bearer <your-jwt-token>"
+```
+
+### User Management (ADMIN Only)
+
+**Create User:**
+```bash
+# Create user with single role
+curl -X POST http://localhost:8080/config-server/api/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-jwt-token>" \
+  -d '{
+    "username": "developer",
+    "password": "devpass123",
+    "roles": ["USER"]
+  }'
+
+# Create user with multiple roles
+curl -X POST http://localhost:8080/config-server/api/users \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <admin-jwt-token>" \
+  -d '{
+    "username": "poweruser",
+    "password": "securepass123",
+    "roles": ["ADMIN", "USER"]
+  }'
+```
+
+**Expected Response:**
+```json
+{
+  "id": 2,
+  "username": "poweruser",
+  "roles": ["ADMIN", "USER"],
+  "enabled": true,
+  "createdAt": "2024-01-15T10:30:00",
+  "updatedAt": "2024-01-15T10:30:00"
+}
+```
+
+**List All Users:**
+```bash
+curl -X GET http://localhost:8080/config-server/api/users \
+  -H "Authorization: Bearer <admin-jwt-token>"
+```
+
+**Get Specific User:**
+```bash
+curl -X GET http://localhost:8080/config-server/api/users/developer \
+  -H "Authorization: Bearer <admin-jwt-token>"
+```
+
+**Delete User:**
+```bash
+curl -X DELETE http://localhost:8080/config-server/api/users/1 \
+  -H "Authorization: Bearer <admin-jwt-token>"
+```
+
+### Security Configuration
+
+- **Endpoints requiring authentication:**
+  - All configuration management APIs (`/config/*`)
+  - All namespace management APIs (`/namespace/*`)
+  - All vault management APIs (`/vault/*`)
+
+- **Public endpoints:**
+  - Authentication endpoints (`/api/auth/*`)
+  - Spring Cloud Config API (`/config-api/*`) - for client applications
+  - Actuator endpoints (`/actuator/*`)
+  - H2 console (`/h2-console/*`) - development only
+
+- **ADMIN-only endpoints:**
+  - User management (`/api/users/*`)
+
+### Token Security
+
+- **JWT tokens expire in 24 hours** (configurable via `JWT_EXPIRATION`)
+- **Tokens are signed** with your custom JWT secret
+- **No token refresh** - users must re-authenticate when tokens expire
+- **Tokens include all user roles** for fine-grained authorization decisions
+
+### Multiple Roles System
+
+Users can have multiple roles simultaneously, enabling fine-grained access control:
+
+**Available Roles:**
+- **ADMIN** - Full system access, including user management
+- **USER** - Standard configuration access
+
+**Role Combinations:**
+- `["ADMIN"]` - Admin-only access
+- `["USER"]` - User-only access
+- `["ADMIN", "USER"]` - Combined admin and user access
+
+**Authorization Behavior:**
+- Users with **ADMIN role** can access all endpoints
+- Users with **USER role** can access configuration/namespace/vault endpoints
+- Users with **multiple roles** get combined permissions
+- Spring Security grants access if user has **any required role**
+
+### Validation Rules
+
+**User Creation Validation:**
+- **Username:** Cannot be blank, must be unique
+- **Password:** Minimum 6 characters required
+- **Roles:** Must have at least one role, cannot be empty
+
+**Error Examples:**
+```json
+# Empty roles - returns 400 Bad Request
+{
+  "username": "testuser",
+  "password": "password123",
+  "roles": []
+}
+
+# Short password - returns 400 Bad Request
+{
+  "username": "testuser",
+  "password": "123",
+  "roles": ["USER"]
+}
+```
+
+### Default Admin User
+
+A default admin user is automatically created on startup:
+- **Username:** `admin`
+- **Roles:** `["ADMIN"]`
+- **Password:** Set via `ADMIN_PASSWORD` environment variable (defaults to `admin123`)
+
+⚠️ **Security Warning:** Change the default admin password in production!

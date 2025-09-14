@@ -18,6 +18,7 @@ public class ApplicationConfig {
     private int commitHistorySize;
     private String basePath;
     private String vaultMasterKey;
+    private String adminPassword;
     private Map<String, String> refreshNotifyUrl;
     private VaultConfig vault = new VaultConfig();
 

@@ -113,7 +113,6 @@ public class SecretProcessorImpl implements SecretProcessor {
                 String secretValue = vaultSecrets.get(currentKey);
                 if (secretValue != null) {
                     entry.setValue(secretValue);
-                    log.debug("Replaced vault key '{}' with actual secret for client", currentKey);
                 } else if ("<ENCRYPTED_VALUE>".equals(value)) {
                     log.warn("Found <ENCRYPTED_VALUE> placeholder for key '{}' but no corresponding vault secret", currentKey);
                 }

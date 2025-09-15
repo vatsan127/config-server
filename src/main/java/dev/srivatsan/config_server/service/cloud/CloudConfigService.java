@@ -98,7 +98,6 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
                 String trimmedProfile = singleProfile.trim();
                 if (!trimmedProfile.isEmpty() && !"default".equals(trimmedProfile)) {
                     loadRawPropertySource(rawPropertyMaps, namespace, path, application, trimmedProfile);
-                    log.debug("Loaded profile-specific configuration for profile: {}", trimmedProfile);
                 }
             }
         }
@@ -141,13 +140,12 @@ public class CloudConfigService implements EnvironmentRepository, Ordered {
 
             if (!properties.isEmpty()) {
                 rawPropertyMaps.add(properties);
-                log.debug("Loaded raw properties from: {}", filePath);
             }
 
             log.info("rawPropertyMaps - {}", rawPropertyMaps);
 
         } catch (Exception e) {
-            log.debug("Configuration file not found or could not be loaded: {} - {}", filePath, e.getMessage());
+            // Configuration file not found - silent handling
         }
     }
 

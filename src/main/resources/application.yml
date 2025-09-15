@@ -36,12 +36,26 @@ configserver:
     enabled: ${VAULT_ENABLED:true}
     cache-ttl: ${CACHE_TTL:600}
   refreshNotifyUrl:
-    demo: http://localhost:8085/config-client/actuator/refresh
-    prod: http://localhost:8085/config-client/actuator/refresh
-    production: http://localhost:8085/config-client/actuator/refresh
-    test: http://localhost:8085/config-client/actuator/refresh
-    uat: http://localhost:8085/config-client/actuator/refresh
-    dev: http://localhost:8085/config-client/actuator/refresh
+    demo:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://localhost:8086/config-client/actuator/refresh
+    prod:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://prod-server-1:8085/config-client/actuator/refresh  
+      - http://prod-server-2:8085/config-client/actuator/refresh
+    production:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://prod-primary:8085/config-client/actuator/refresh
+      - http://prod-secondary:8085/config-client/actuator/refresh
+    test:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://test-server:8085/config-client/actuator/refresh
+    uat:
+      - http://localhost:8085/config-client/actuator/refresh  
+      - http://uat-server:8085/config-client/actuator/refresh
+    dev:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://localhost:8087/config-client/actuator/refresh
 
 # JWT Configuration
 app:

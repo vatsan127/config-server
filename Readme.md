@@ -852,6 +852,48 @@ The simplified notification system tracks API call statuses for client refresh o
 
 ⭐ **VAULT_MASTER_KEY**: This is the most important security configuration. See the [Vault Security Setup](#vault-security-setup) section below.
 
+### Multi-Endpoint Refresh Notifications
+
+The config server supports **multiple refresh endpoints per namespace** for high availability and load distribution. Each namespace can have multiple client applications or instances that need to be notified when configurations change.
+
+#### Configuration Format (application.yml):
+
+```yaml
+configserver:
+  refreshNotifyUrl:
+    production:
+      - http://prod-server-1:8085/config-client/actuator/refresh
+      - http://prod-server-2:8085/config-client/actuator/refresh
+      - http://prod-server-3:8085/config-client/actuator/refresh
+    development:
+      - http://localhost:8085/config-client/actuator/refresh
+      - http://localhost:8086/config-client/actuator/refresh
+    test:
+      - http://test-server:8085/config-client/actuator/refresh
+      - http://test-backup:8085/config-client/actuator/refresh
+```
+
+#### Features:
+
+- **🔄 Multiple Endpoints**: Each namespace can have multiple refresh URLs
+- **⚡ Async Processing**: All endpoints are called concurrently using virtual threads
+- **📊 Success Tracking**: Notification succeeds if **at least one** endpoint responds successfully  
+- **🛡️ Error Resilience**: Failed endpoints don't block successful ones
+- **📝 Comprehensive Logging**: Detailed logs for each endpoint call and overall batch status
+- **🧹 URL Validation**: Empty/null URLs are automatically filtered out
+
+#### Notification Behavior:
+
+```bash
+# Example: 3 endpoints configured for 'production' namespace
+# - Server 1: ✅ SUCCESS (200 OK)  
+# - Server 2: ❌ FAILED (Connection refused)
+# - Server 3: ✅ SUCCESS (200 OK)
+# 
+# Result: Overall status = SUCCESS (2/3 endpoints succeeded)
+# Logs: "Notification batch completed for namespace 'production': 2/3 endpoints succeeded"
+```
+
 ### Fixed Server Configuration
 
 The following server settings are configured in **application.yml** and cannot be overridden via environment variables:

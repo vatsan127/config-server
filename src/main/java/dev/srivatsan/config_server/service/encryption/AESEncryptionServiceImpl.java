@@ -101,7 +101,6 @@ public class AESEncryptionServiceImpl implements EncryptionService {
         // For environment variable master key approach, namespace parameter is ignored
         // This method validates that the master key is available
         getMasterKey(); // This will validate the key from environment variable
-        log.debug("Master encryption key is ready for namespace: {}", namespace);
     }
 
     @Override
@@ -156,7 +155,6 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     public void deleteNamespaceKey(String namespace) {
         // For environment variable master key approach, we don't delete the shared key when a namespace is deleted
         // The master key is managed via environment variables, not file system
-        log.debug("Using environment variable master key - no key deletion needed for namespace: {}", namespace);
     }
 
 }

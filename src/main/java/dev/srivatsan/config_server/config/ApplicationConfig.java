@@ -19,12 +19,12 @@ public class ApplicationConfig {
     private String basePath;
     private String vaultMasterKey;
     private String adminPassword;
-    private Map<String, String> refreshNotifyUrl;
+    private Map<String, List<String>> refreshNotifyUrl;
     private VaultConfig vault = new VaultConfig();
 
     @PostConstruct
     public void init() {
-        log.info("Global config loaded -> {}", this);
+        // Configuration loaded successfully
     }
 
     @Data

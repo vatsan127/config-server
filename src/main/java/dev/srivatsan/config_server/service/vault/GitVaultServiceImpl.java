@@ -129,7 +129,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
         cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
 
-        log.debug("Evicted vault and config cache entries for namespace '{}'", namespace);
     }
 
 
@@ -140,7 +139,6 @@ public class GitVaultServiceImpl implements GitVaultService {
         Path vaultFilePath = vaultDirPath.resolve(vaultFileName);
 
         if (!Files.exists(vaultFilePath)) {
-            log.debug("Vault file does not exist for namespace '{}', returning empty map", namespace);
             return new HashMap<>();
         }
 

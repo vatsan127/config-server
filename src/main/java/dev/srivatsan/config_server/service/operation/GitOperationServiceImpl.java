@@ -32,12 +32,8 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
 
     @Override
     public <T> T executeGitOperation(String namespace, GitOperation<T> operation) {
-        log.debug("Executing Git operation for namespace: {}", namespace);
-
         try (Git git = openRepository(namespace)) {
-            T result = operation.execute(git);
-            log.debug("Git operation completed successfully for namespace: {}", namespace);
-            return result;
+            return operation.execute(git);
         } catch (IOException e) {
             log.error("Repository access failed for namespace '{}': {}", namespace, e.getMessage());
             throw GitOperationException.repositoryAccessFailed(namespace, e);
@@ -49,11 +45,8 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
 
     @Override
     public void executeGitVoidOperation(String namespace, GitVoidOperation operation) {
-        log.debug("Executing Git void operation for namespace: {}", namespace);
-
         try (Git git = openRepository(namespace)) {
             operation.execute(git);
-            log.debug("Git void operation completed successfully for namespace: {}", namespace);
         } catch (IOException e) {
             log.error("Repository access failed for namespace '{}': {}", namespace, e.getMessage());
             throw GitOperationException.repositoryAccessFailed(namespace, e);
@@ -89,7 +82,6 @@ public non-sealed class GitOperationServiceImpl implements GitOperationService {
 
         try {
             Git git = Git.open(namespaceDir);
-            log.debug("Successfully opened Git repository for namespace: {}", namespace);
             return git;
         } catch (IOException e) {
             log.error("Failed to open Git repository for namespace '{}': {}", namespace, e.getMessage());

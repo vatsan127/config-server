@@ -122,19 +122,9 @@ public class UtilService {
                 .sorted()
                 .collect(Collectors.toList());
 
-        log.debug("Found {} namespaces in base directory", namespaces.size());
         return namespaces;
     }
 
-    /**
-     * Retrieves the contents of a directory within a namespace.
-     * Returns only .yml files and subdirectories in the specified path.
-     *
-     * @param namespace the namespace identifier
-     * @param path      the relative directory path within the namespace (empty string for root)
-     * @return a list of .yml file names and folder names
-     * @throws RuntimeException if the namespace or directory is not found or cannot be accessed
-     */
     @org.springframework.cache.annotation.Cacheable(value = "directory-listing", key = "#namespace + '_' + #path")
     public List<String> listDirectoryContents(String namespace, String path) {
         validationService.validateNamespace(namespace);
@@ -154,7 +144,6 @@ public class UtilService {
         }
 
         List<String> fileNames = filterAndSortFiles(files);
-        log.debug("Listed {} entries in namespace '{}' path '{}'", fileNames.size(), namespace, cleanPath);
         return fileNames;
     }
 
@@ -167,7 +156,6 @@ public class UtilService {
             File gitDir = new File(namespaceDir, ".git");
             return gitDir.exists() && gitDir.isDirectory();
         } catch (Exception e) {
-            log.debug("Skipping invalid namespace directory: {}", name);
             return false;
         }
     }
@@ -294,18 +282,9 @@ public class UtilService {
         return filePath.toString();
     }
 
-    /**
-     * Parse YAML content into a map of properties.
-     * Assumes content is already validated during config updates.
-     *
-     * @param content  the YAML content to parse
-     * @param filePath the file path for logging purposes
-     * @return a map containing the parsed YAML properties
-     */
     @SuppressWarnings("unchecked")
     public Map<String, Object> parseYamlContent(String content, String filePath) {
         if (content == null || content.trim().isEmpty()) {
-            log.debug("Empty content for file: {}, returning empty properties", filePath);
             return new LinkedHashMap<>();
         }
 

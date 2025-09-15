@@ -8,13 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import jakarta.annotation.PreDestroy;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Client notification service with async API call tracking
- */
 @Service
 public class ClientNotifyService {
 
@@ -34,51 +34,64 @@ public class ClientNotifyService {
     }
 
     public void sendRefreshNotifications(String namespace, String appName, String commitId) {
-        String url = applicationConfig.getRefreshNotifyUrl().get(namespace);
+        Map<String, List<String>> refreshUrlConfig = applicationConfig.getRefreshNotifyUrl();
+        List<String> urls = (refreshUrlConfig != null) ? refreshUrlConfig.get(namespace) : null;
         String payload = String.format(NOTIFICATION_PAYLOAD_TEMPLATE, appName);
 
-        // Generate unique tracking ID if commitId is null
         final String trackingId = (commitId != null) ? 
             commitId : 
             "notify-" + System.currentTimeMillis() + "-" + appName;
 
-        // Always create notification entry for tracking, regardless of URL configuration
         Notification notification = Notification.createInitial(trackingId);
         notificationStorageService.storeNotification(namespace, notification);
-        log.debug("Created notification for tracking ID: {}", trackingId);
 
-        // Only send API call if URL is configured
-        if (url == null || url.trim().isEmpty()) {
-            log.debug("No refresh notification URL configured for namespace '{}', skipping API call but tracking commit event", namespace);
-            // Mark as success since there's no URL to call
+        if (urls == null || urls.isEmpty()) {
             updateNotificationStatus(namespace, trackingId, true);
             return;
         }
 
-        // Send API call asynchronously
-        virtualThreadExecutorService.submit(() -> sendRequestWithTracking(url, payload, trackingId, namespace));
-    }
+        List<String> validUrls = urls.stream()
+            .filter(url -> url != null && !url.trim().isEmpty())
+            .toList();
 
-    private void sendRequestWithTracking(String url, String payload, String trackingId, String namespace) {
-        try {
-            log.debug("Sending notification to URL: '{}', payload: '{}'", url, payload);
-
-            String response = restClient
-                    .post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(payload)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(String.class);
-
-            log.debug("Notification response: '{}'", response);
+        if (validUrls.isEmpty()) {
             updateNotificationStatus(namespace, trackingId, true);
-        } catch (Exception e) {
-            log.error("Failed to send notification to URL '{}': {}", url, e.getMessage());
-            updateNotificationStatus(namespace, trackingId, false);
+            return;
         }
+
+        virtualThreadExecutorService.submit(() -> sendRequestsToMultipleEndpoints(validUrls, payload, trackingId, namespace));
     }
+
+    private void sendRequestsToMultipleEndpoints(List<String> urls, String payload, String trackingId, String namespace) {
+        int successCount = 0;
+        int totalCount = urls.size();
+        
+        for (String url : urls) {
+            try {
+                restClient
+                        .post()
+                        .uri(url)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(payload)
+                        .accept(MediaType.APPLICATION_JSON)
+                        .retrieve()
+                        .body(String.class);
+
+                successCount++;
+            } catch (Exception e) {
+                log.error("Failed to send notification to URL '{}': {}", url, e.getMessage());
+            }
+        }
+        
+        boolean overallSuccess = successCount > 0;
+        if (successCount != urls.size()) {
+            log.warn("Notification batch completed for namespace '{}': {}/{} endpoints succeeded", 
+                    namespace, successCount, urls.size());
+        }
+        
+        updateNotificationStatus(namespace, trackingId, overallSuccess);
+    }
+
 
     private void updateNotificationStatus(String namespace, String trackingId, boolean success) {
         Notification updated = notificationStorageService.updateNotificationAtomic(
@@ -87,16 +100,10 @@ public class ClientNotifyService {
         if (updated == null) {
             log.error("Failed to update notification status for trackingId '{}' in namespace '{}'", 
                      trackingId, namespace);
-        } else {
-            log.debug("Updated notification status to {} for trackingId '{}' in namespace '{}'", 
-                     success ? "SUCCESS" : "FAILED", trackingId, namespace);
         }
     }
 
-    /**
-     * Graceful shutdown of the executor service
-     */
-    // ToDo: this should be annotated with predestry right
+    @PreDestroy
     public void shutdown() {
         virtualThreadExecutorService.shutdown();
         log.info("ClientNotifyService executor shutdown initiated");

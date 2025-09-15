@@ -40,25 +40,16 @@ public class NotificationStorageService {
         synchronized (notifications) {
             // Remove oldest if at max capacity (before adding new one)
             if (notifications.size() >= MAX_NOTIFICATIONS_PER_NAMESPACE) {
-                Notification removed = notifications.removeFirst();
-                log.debug("Removed oldest notification from namespace '{}': {}", namespace, removed.getId());
+                notifications.removeFirst();
             }
             
             // Add new notification at the end
             notifications.add(notification);
         }
 
-        log.debug("Stored notification in namespace '{}': {} -> {}", namespace, notification.getId(), notification.getStatus());
     }
 
 
-    /**
-     * Retrieves recent notifications for a namespace
-     *
-     * @param namespace the namespace identifier
-     * @param maxCount  the maximum number of notifications to return
-     * @return list of most recent notification statuses (newest first)
-     */
     public List<Notification> getRecentNotifications(String namespace, int maxCount) {
         List<Notification> notifications = notificationStorage.get(namespace);
         if (notifications == null || notifications.isEmpty()) {
@@ -114,7 +105,6 @@ public class NotificationStorageService {
                     
                     // Replace at the same index to maintain order
                     notifications.set(i, updated);
-                    log.debug("Updated notification in namespace '{}': {} -> {}", namespace, commitId, updated.getStatus());
                     return updated;
                 } catch (Exception e) {
                     log.error("Error updating notification '{}' in namespace '{}': {}", 

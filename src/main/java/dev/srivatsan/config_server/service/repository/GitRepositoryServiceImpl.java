@@ -436,7 +436,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                         .forEach(path -> {
                             try {
                                 Files.delete(path);
-                                log.debug("Deleted: {}", path);
                             } catch (IOException e) {
                                 log.warn("Failed to delete file: {}, error: {}", path, e.getMessage());
                                 throw new RuntimeException("Failed to delete file: " + path, e);
@@ -500,8 +499,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     commitInfo.put("commitMessage", commit.getShortMessage());
                     commits.add(commitInfo);
                 }
-            } else {
-                log.debug("Repository for namespace '{}' has no commits yet", namespace);
             }
 
             Map<String, Object> result = new HashMap<>();

@@ -5,12 +5,11 @@ import dev.srivatsan.config_server.exception.ConfigConflictException;
 import dev.srivatsan.config_server.exception.ConfigFileException;
 import dev.srivatsan.config_server.exception.GitOperationException;
 import dev.srivatsan.config_server.exception.NamespaceException;
-import dev.srivatsan.config_server.model.Payload;
 import dev.srivatsan.config_server.model.Notification;
+import dev.srivatsan.config_server.model.Payload;
+import dev.srivatsan.config_server.service.cache.CacheManagerService;
 import dev.srivatsan.config_server.service.notify.ClientNotifyService;
 import dev.srivatsan.config_server.service.notify.NotificationStorageService;
-import dev.srivatsan.config_server.service.cache.CacheManagerService;
-import dev.srivatsan.config_server.service.encryption.EncryptionService;
 import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.secret.SecretProcessor;
 import dev.srivatsan.config_server.service.util.UtilService;
@@ -47,9 +46,15 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     private final ClientNotifyService clientNotifyService;
     private final NotificationStorageService notificationStorageService;
     private final SecretProcessor secretProcessor;
-    private final EncryptionService encryptionService;
 
-    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig, UtilService utilService, GitOperationService gitOperationService, CacheManagerService cacheManagerService, ValidationService validationService, ClientNotifyService clientNotifyService, NotificationStorageService notificationStorageService, SecretProcessor secretProcessor, EncryptionService encryptionService) {
+    public GitRepositoryServiceImpl(ApplicationConfig applicationConfig,
+                                    UtilService utilService,
+                                    GitOperationService gitOperationService,
+                                    CacheManagerService cacheManagerService,
+                                    ValidationService validationService,
+                                    ClientNotifyService clientNotifyService,
+                                    NotificationStorageService notificationStorageService,
+                                    SecretProcessor secretProcessor) {
         this.applicationConfig = applicationConfig;
         this.utilService = utilService;
         this.gitOperationService = gitOperationService;
@@ -58,7 +63,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
         this.clientNotifyService = clientNotifyService;
         this.notificationStorageService = notificationStorageService;
         this.secretProcessor = secretProcessor;
-        this.encryptionService = encryptionService;
     }
 
     public void createNamespace(String namespace) {
@@ -72,15 +76,10 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
         boolean created = namespaceDir.mkdirs();
         if (!created) {
-            throw NamespaceException.creationFailed(namespace,
-                    new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath()));
+            throw NamespaceException.creationFailed(namespace, new IOException("Failed to create namespace directory: " + namespaceDir.getAbsolutePath()));
         }
 
         try (Git git = Git.init().setDirectory(namespaceDir).call()) {
-            // Validate that master encryption key is available
-            encryptionService.initializeNamespaceKey(namespace);
-
-            // Create .vault directory in namespace for vault JSON files
             File vaultDir = new File(namespaceDir, ".vault");
             if (!vaultDir.exists()) {
                 boolean vaultCreated = vaultDir.mkdirs();
@@ -106,7 +105,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     public void initializeConfigFile(String filePath, String appName, String email) {
         validationService.validateSafePath(filePath);
         validationService.validateAppName(appName);
-        validationService.validateEmail(email);
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
         String relativePath = utilService.getRelativePathWithinNamespace(filePath);
@@ -127,7 +125,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
     public String updateConfigFile(String filePath, Payload payload) {
         validationService.validateSafePath(filePath);
-        validationService.validateEmail(payload.getEmail());
         validationService.validateYamlContent(payload.getContent());
         validationService.validateCommitMessage(payload.getMessage());
         validationService.validateCommitId(payload.getCommitId());
@@ -143,7 +140,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     if (headRef == null) {
                         throw ConfigFileException.notFound("No commits found in repository for file: " + filePath);
                     }
-                    
+
                     var logCommand = git.log()
                             .setMaxCount(1)
                             .add(headRef)
@@ -229,7 +226,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
                     if (headRef == null) {
                         throw ConfigFileException.notFound("No commits found in repository for file: " + filePath);
                     }
-                    
+
                     var logCommand = git.log()
                             .setMaxCount(1)
                             .add(headRef)
@@ -253,7 +250,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
         return gitOperationService.executeGitOperation(namespace, git -> {
                     List<Map<String, Object>> commits = new ArrayList<>();
-                    
+
                     var headRef = git.getRepository().resolve(HEAD);
                     if (headRef != null) {
                         var logCommand = git.log()
@@ -343,7 +340,6 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
     @Override
     public void deleteConfigFile(String filePath, Payload payload) {
         validationService.validateSafePath(filePath);
-        validationService.validateEmail(payload.getEmail());
         validationService.validateCommitMessage(payload.getMessage());
 
         String namespace = utilService.extractNamespaceFromFilePath(filePath);
@@ -410,7 +406,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
             cacheManagerService.evictByPrefix("commit-history", namespace + "/");
             cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
             cacheManagerService.evictByPrefix("commit-details", "_" + namespace);
-            
+
             // Clear vault-related caches for this namespace
             cacheManagerService.evictKey("vault-secrets", namespace);
             cacheManagerService.evictKey("vault-history", namespace);
@@ -487,7 +483,7 @@ public non-sealed class GitRepositoryServiceImpl implements GitRepositoryService
 
         return gitOperationService.executeGitOperation(namespace, git -> {
             List<Map<String, Object>> commits = new ArrayList<>();
-            
+
             // Check if repository has any commits by resolving HEAD
             var headRef = git.getRepository().resolve(HEAD);
             if (headRef != null) {

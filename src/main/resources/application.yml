@@ -9,9 +9,12 @@ spring:
   cloud.config.server.prefix: /config-api
 
 configserver:
-  base-path: ${CONFIG_BASE_PATH:/config/}
+  base-path: /config/
   vault-master-key: ${VAULT_MASTER_KEY:TWoO/YHuQQ2+/6moI08ri8x3St30TTBc9Gk/BiGzRb0=}
-  commit-history-size: ${CONFIG_COMMIT_HISTORY_SIZE:20}
+  commit-history-size: 20
+  cache-ttl: ${CACHE_TTL:600}
+
+
   refreshNotifyUrl:
     demo: http://localhost:8085/config-client/actuator/refresh
     prod: http://localhost:8085/config-client/actuator/refresh
@@ -19,6 +22,3 @@ configserver:
     test: http://localhost:8085/config-client/actuator/refresh
     uat: http://localhost:8085/config-client/actuator/refresh
     dev: http://localhost:8085/config-client/actuator/refresh
-  vault:
-    enabled: ${VAULT_ENABLED:true}
-    cache-ttl: ${CACHE_TTL:600}

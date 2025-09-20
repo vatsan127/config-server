@@ -26,7 +26,7 @@ public class ApplicationBeanConfig {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(500)
-                .expireAfterWrite(applicationConfig.getVault().getCacheTtl(), TimeUnit.SECONDS));
+                .expireAfterWrite(applicationConfig.getCacheTTL(), TimeUnit.SECONDS));
         return cacheManager;
     }
 

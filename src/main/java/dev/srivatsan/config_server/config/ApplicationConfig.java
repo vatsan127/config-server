@@ -6,7 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -19,16 +18,11 @@ public class ApplicationConfig {
     private String basePath;
     private String vaultMasterKey;
     private Map<String, String> refreshNotifyUrl;
-    private VaultConfig vault = new VaultConfig();
+    private long cacheTTL;
 
     @PostConstruct
     public void init() {
         log.info("Global config loaded -> {}", this);
     }
 
-    @Data
-    public static class VaultConfig {
-        private boolean enabled = true;
-        private long cacheTtl = 600; // 10 minutes in seconds
-    }
 }

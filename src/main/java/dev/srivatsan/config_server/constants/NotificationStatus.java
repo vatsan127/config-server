@@ -1,6 +1,6 @@
 package dev.srivatsan.config_server.constants;
 
-/**
+/** TODo: this will be deprecated
  * Status enumeration for tracking notification operation lifecycle across multiple API calls.
  * Represents the aggregate status of all API calls within a single notification batch.
  */

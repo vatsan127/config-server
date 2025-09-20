@@ -10,22 +10,16 @@ import dev.srivatsan.config_server.service.operation.GitOperationService;
 import dev.srivatsan.config_server.service.util.UtilService;
 import dev.srivatsan.config_server.service.validation.ValidationService;
 import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.diff.DiffFormatter;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevWalk;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
-
-import static org.eclipse.jgit.lib.Constants.HEAD;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class GitVaultServiceImpl implements GitVaultService {
@@ -80,7 +74,6 @@ public class GitVaultServiceImpl implements GitVaultService {
     @Override
     public void updateVault(String namespace, Map<String, String> secrets, String email, String commitMessage) {
         validationService.validateNamespace(namespace);
-        validationService.validateEmail(email);
         validationService.validateCommitMessage(commitMessage);
 
         if (secrets == null) {
@@ -120,10 +113,7 @@ public class GitVaultServiceImpl implements GitVaultService {
             }
         });
 
-        // Manually evict cache entries after successful update
         cacheManagerService.evictKey("vault-secrets", namespace);
-
-        // Clear config file caches for this specific namespace since they contain processed secrets
         cacheManagerService.evictByPrefix("config-content", namespace + "/");
         cacheManagerService.evictByPrefix("commit-history", namespace + "/");
         cacheManagerService.evictByPrefix("latest-commit", namespace + "/");
@@ -172,7 +162,6 @@ public class GitVaultServiceImpl implements GitVaultService {
             throw VaultException.vaultOperationFailed("Failed to save vault file: " + e.getMessage());
         }
     }
-
 
 
 }

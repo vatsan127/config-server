@@ -4,7 +4,6 @@ import dev.srivatsan.config_server.config.ApplicationConfig;
 import dev.srivatsan.config_server.exception.VaultException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.Cipher;
@@ -23,7 +22,6 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     private static final String CIPHER_TRANSFORMATION = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH = 12;
     private static final int GCM_TAG_LENGTH = 16;
-    private static final int KEY_LENGTH = 256;
     private static final String ENCRYPTED_PREFIX = "VAULT:";
 
     private final ApplicationConfig applicationConfig;
@@ -97,52 +95,33 @@ public class AESEncryptionServiceImpl implements EncryptionService {
     }
 
     @Override
-    public void initializeNamespaceKey(String namespace) {
-        // For environment variable master key approach, namespace parameter is ignored
-        // This method validates that the master key is available
-        getMasterKey(); // This will validate the key from environment variable
-        log.debug("Master encryption key is ready for namespace: {}", namespace);
-    }
-
-    @Override
     public boolean isEncrypted(String value) {
         return value != null && value.startsWith(ENCRYPTED_PREFIX);
     }
 
-    @Cacheable(value = "encryption-keys", key = "'master'")
     private SecretKey getMasterKey() {
         try {
             String masterKeyBase64 = applicationConfig.getVaultMasterKey();
-            
+
             if (masterKeyBase64 == null || masterKeyBase64.trim().isEmpty()) {
-                // This should not happen if application.yml has a default value
                 log.error("No vault master key configured! Check VAULT_MASTER_KEY environment variable or application.yml default.");
                 throw VaultException.keyLoadFailed("No vault master key configured");
             }
-            
-            // Check if using the default key from application.yml (security warning)
+
             String envKey = System.getenv("VAULT_MASTER_KEY");
             if (envKey == null || envKey.trim().isEmpty()) {
                 log.warn("⚠️  SECURITY WARNING: Using default vault master key from application.yml");
                 log.warn("⚠️  This is NOT secure for production! Set VAULT_MASTER_KEY environment variable.");
                 log.warn("⚠️  Generate a new key with: openssl rand -base64 32");
             }
-            
+
             // Decode the base64 key
             byte[] keyBytes = Base64.getDecoder().decode(masterKeyBase64.trim());
-            
-            // Validate key length (256 bits = 32 bytes)
-            if (keyBytes.length != 32) {
+            if (keyBytes.length != 32) { // Validate key length (256 bits = 32 bytes)
                 throw VaultException.keyLoadFailed("Invalid master key length. Expected 32 bytes (256 bits), got: " + keyBytes.length);
             }
-            
-            if (envKey != null && !envKey.trim().isEmpty()) {
-                log.info("✅ Master encryption key loaded from VAULT_MASTER_KEY environment variable");
-            } else {
-                log.info("🔑 Master encryption key loaded from application.yml default (change for production!)");
-            }
             return new SecretKeySpec(keyBytes, ENCRYPTION_ALGORITHM);
-            
+
         } catch (IllegalArgumentException e) {
             log.error("Failed to decode master encryption key from environment variable: {}", e.getMessage());
             throw VaultException.keyLoadFailed("Invalid base64 encoding in VAULT_MASTER_KEY: " + e.getMessage());
@@ -152,11 +131,5 @@ public class AESEncryptionServiceImpl implements EncryptionService {
         }
     }
 
-    @Override
-    public void deleteNamespaceKey(String namespace) {
-        // For environment variable master key approach, we don't delete the shared key when a namespace is deleted
-        // The master key is managed via environment variables, not file system
-        log.debug("Using environment variable master key - no key deletion needed for namespace: {}", namespace);
-    }
 
 }

@@ -1,7 +1,7 @@
 package dev.srivatsan.config_server.service.validation;
 
-import dev.srivatsan.config_server.exception.ValidationException;
 import dev.srivatsan.config_server.constants.ActionType;
+import dev.srivatsan.config_server.exception.ValidationException;
 import dev.srivatsan.config_server.model.Payload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,10 +21,6 @@ public class ValidationService {
     /**
      * Validates that the action type in the payload matches the expected action type.
      * Ensures that the request action is consistent with the endpoint being called.
-     *
-     * @param request    the payload containing the action to validate
-     * @param actionType the expected action type for the current operation
-     * @throws ValidationException if the action types do not match
      */
     public void validateActionType(Payload request, ActionType actionType) {
         if (!actionType.equals(request.getAction())) {
@@ -36,9 +32,6 @@ public class ValidationService {
     /**
      * Validates that a file path is safe and doesn't contain path traversal attacks.
      * Checks for dangerous patterns like "../" and ensures only safe characters are used.
-     *
-     * @param filePath the file path to validate
-     * @throws ValidationException if the path contains unsafe characters or patterns
      */
     public void validateSafePath(String filePath) {
         if (filePath == null || filePath.trim().isEmpty()) {
@@ -66,9 +59,6 @@ public class ValidationService {
 
     /**
      * Validates that a namespace name is safe and follows naming conventions.
-     *
-     * @param namespace the namespace to validate
-     * @throws ValidationException if the namespace is invalid
      */
     public void validateNamespace(String namespace) {
         if (namespace == null || namespace.trim().isEmpty()) {
@@ -115,6 +105,7 @@ public class ValidationService {
     }
 
     /**
+     * ToDo: use only while authentication
      * Validates email format.
      *
      * @param email the email to validate
@@ -159,9 +150,6 @@ public class ValidationService {
     /**
      * Validates YAML configuration content for basic syntax.
      * Supports both single and multi-document YAML (separated by ---).
-     *
-     * @param content the YAML content to validate
-     * @throws ValidationException if the content is invalid
      */
     public void validateYamlContent(String content) {
         if (content == null) {
@@ -170,9 +158,7 @@ public class ValidationService {
 
         try {
             Yaml yaml = new Yaml();
-            // Use loadAll() to validate multi-document YAML with --- separators
             for (Object document : yaml.loadAll(content)) {
-                // Just iterate through all documents to ensure they're valid
                 // The iteration itself validates the YAML syntax
             }
         } catch (YAMLException e) {
@@ -183,9 +169,6 @@ public class ValidationService {
 
     /**
      * Validates that a commit message is appropriate and not empty.
-     *
-     * @param message the commit message to validate
-     * @throws ValidationException if the message is invalid
      */
     public void validateCommitMessage(String message) {
         if (message == null || message.trim().isEmpty()) {
@@ -208,10 +191,6 @@ public class ValidationService {
      * Validates Spring Cloud Config request parameters to prevent security issues.
      * Supports comma-separated multiple profiles.
      *
-     * @param application the application name
-     * @param profile     the profile name (can be null, supports comma-separated values)
-     * @param label       the label/branch name (can be null)
-     * @throws ValidationException if any parameter is invalid
      */
     public void validateConfigRequest(String application, String profile, String label) {
         if (application == null || application.trim().isEmpty()) {
@@ -241,7 +220,6 @@ public class ValidationService {
      * Supports comma-separated multiple profiles (e.g., "dev,local,debug" or "default,dev").
      *
      * @param profile the profile to validate (can contain comma-separated values)
-     * @throws ValidationException if the profile is invalid
      */
     public void validateProfile(String profile) {
         if (profile != null && !profile.trim().isEmpty()) {
@@ -262,9 +240,6 @@ public class ValidationService {
 
     /**
      * Validates a single profile name.
-     *
-     * @param profile the individual profile name to validate
-     * @throws ValidationException if the profile is invalid
      */
     private void validateSingleProfile(String profile) {
         if (profile.isEmpty()) {
@@ -285,9 +260,6 @@ public class ValidationService {
     /**
      * Validates that a secret key follows YAML key naming conventions.
      * Keys must not contain spaces and can use dot notation for nested structures.
-     *
-     * @param secretKey the secret key to validate
-     * @throws ValidationException if the key is invalid
      */
     public void validateSecretKey(String secretKey) {
         if (secretKey == null || secretKey.trim().isEmpty()) {
@@ -301,8 +273,7 @@ public class ValidationService {
             throw ValidationException.invalidPath(secretKey, "Secret key cannot contain spaces. Use dot notation for nested keys (e.g., 'parent.child')");
         }
 
-        // Check for invalid YAML key characters
-        // Allow alphanumeric, dots, dashes, and underscores
+        // Check for invalid YAML key characters. Allow alphanumeric, dots, dashes, and underscores
         if (!cleanKey.matches("^[a-zA-Z0-9._-]+$")) {
             throw ValidationException.invalidPath(secretKey, "Secret key contains invalid characters. Only alphanumeric characters, dots, dashes, and underscores are allowed");
         }

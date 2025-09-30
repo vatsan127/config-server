@@ -22,9 +22,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Service
-public class GitVaultServiceImpl implements GitVaultService {
+public class VaultServiceImpl implements VaultService {
 
-    private static final Logger log = LoggerFactory.getLogger(GitVaultServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(VaultServiceImpl.class);
     private static final String VAULT_DIR = ".vault";
     private static final String VAULT_FILE_SUFFIX = "-vault.json";
 
@@ -36,12 +36,12 @@ public class GitVaultServiceImpl implements GitVaultService {
     private final CacheManagerService cacheManagerService;
     private final ObjectMapper objectMapper;
 
-    public GitVaultServiceImpl(ApplicationConfig applicationConfig,
-                               EncryptionService encryptionService,
-                               GitOperationService gitOperationService,
-                               ValidationService validationService,
-                               UtilService utilService,
-                               CacheManagerService cacheManagerService) {
+    public VaultServiceImpl(ApplicationConfig applicationConfig,
+                            EncryptionService encryptionService,
+                            GitOperationService gitOperationService,
+                            ValidationService validationService,
+                            UtilService utilService,
+                            CacheManagerService cacheManagerService) {
         this.applicationConfig = applicationConfig;
         this.encryptionService = encryptionService;
         this.gitOperationService = gitOperationService;

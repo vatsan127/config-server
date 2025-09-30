@@ -96,7 +96,7 @@ public class ClientNotifyService {
     /**
      * Graceful shutdown of the executor service
      */
-    // ToDo: this should be annotated with predestry right
+    // ToDo: this should be annotated with predestry
     public void shutdown() {
         virtualThreadExecutorService.shutdown();
         log.info("ClientNotifyService executor shutdown initiated");

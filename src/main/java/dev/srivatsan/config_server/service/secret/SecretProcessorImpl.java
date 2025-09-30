@@ -1,6 +1,6 @@
 package dev.srivatsan.config_server.service.secret;
 
-import dev.srivatsan.config_server.service.vault.GitVaultService;
+import dev.srivatsan.config_server.service.vault.VaultService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -15,11 +15,11 @@ public class SecretProcessorImpl implements SecretProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(SecretProcessorImpl.class);
 
-    private final GitVaultService gitVaultService;
+    private final VaultService vaultService;
     private final Yaml yaml;
 
-    public SecretProcessorImpl(GitVaultService gitVaultService) {
-        this.gitVaultService = gitVaultService;
+    public SecretProcessorImpl(VaultService vaultService) {
+        this.vaultService = vaultService;
 
         // Configure YAML dumper for proper block-style formatting
         DumperOptions options = new DumperOptions();
@@ -34,7 +34,7 @@ public class SecretProcessorImpl implements SecretProcessor {
     @Override
     public String processConfigurationForClient(String configContent, String namespace) {
         try {
-            Map<String, String> vaultSecrets = gitVaultService.getVault(namespace);
+            Map<String, String> vaultSecrets = vaultService.getVault(namespace);
 
             if (vaultSecrets.isEmpty()) {
                 return configContent;
@@ -57,7 +57,7 @@ public class SecretProcessorImpl implements SecretProcessor {
     @Override
     public String processConfigurationForInternal(String configContent, String namespace) {
         try {
-            Map<String, String> vaultSecrets = gitVaultService.getVault(namespace);
+            Map<String, String> vaultSecrets = vaultService.getVault(namespace);
 
             if (vaultSecrets.isEmpty()) { // No vault secrets, return as-is
                 return configContent;

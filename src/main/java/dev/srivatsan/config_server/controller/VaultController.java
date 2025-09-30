@@ -1,11 +1,10 @@
 package dev.srivatsan.config_server.controller;
 
 import dev.srivatsan.config_server.api.VaultAPI;
-import dev.srivatsan.config_server.service.vault.GitVaultService;
+import dev.srivatsan.config_server.service.vault.VaultService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,10 +18,10 @@ public class VaultController implements VaultAPI {
 
     private static final Logger log = LoggerFactory.getLogger(VaultController.class);
 
-    private final GitVaultService gitVaultService;
+    private final VaultService vaultService;
 
-    public VaultController(GitVaultService gitVaultService) {
-        this.gitVaultService = gitVaultService;
+    public VaultController(VaultService vaultService) {
+        this.vaultService = vaultService;
     }
 
     @Override
@@ -32,7 +31,7 @@ public class VaultController implements VaultAPI {
             throw new IllegalArgumentException("Namespace is required");
         }
 
-        Map<String, String> secrets = gitVaultService.getVault(namespace);
+        Map<String, String> secrets = vaultService.getVault(namespace);
         return ResponseEntity.ok(Map.of(
                 "namespace", namespace,
                 "secrets", secrets,
@@ -60,7 +59,7 @@ public class VaultController implements VaultAPI {
         }
 
         // Remaining entries are the secrets
-        gitVaultService.updateVault(namespace, requestData, email, commitMessage);
+        vaultService.updateVault(namespace, requestData, email, commitMessage);
         return ResponseEntity.ok(Map.of(
                 "message", "Vault updated successfully",
                 "namespace", namespace,

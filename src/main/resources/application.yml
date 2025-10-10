@@ -1,0 +1,24 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /config-server
+
+spring:
+  application.name: config-server
+  cache.type: caffeine
+  cloud.config.server.prefix: /config-api
+
+configserver:
+  base-path: /config/
+  vault-master-key: ${VAULT_MASTER_KEY:TWoO/YHuQQ2+/6moI08ri8x3St30TTBc9Gk/BiGzRb0=}
+  commit-history-size: 20
+  cache-ttl: ${CACHE_TTL:600}
+
+
+  refreshNotifyUrl:
+    demo: http://localhost:8085/config-client/actuator/refresh
+    prod: http://localhost:8085/config-client/actuator/refresh
+    production: http://localhost:8085/config-client/actuator/refresh
+    test: http://localhost:8085/config-client/actuator/refresh
+    uat: http://localhost:8085/config-client/actuator/refresh
+    dev: http://localhost:8085/config-client/actuator/refresh

@@ -23,8 +23,8 @@ public class AspectService {
     private final UtilService utilService;
 
     private static final String COMBINED_POINTCUT =
-            "execution(* dev.srivatsan.config_server.service.*.*.*(..)) || " +
-                    "execution(* dev.srivatsan.config_server.controller.*.*(..))";
+            "execution(* com.github.config_server.service.*.*.*(..)) || " +
+                    "execution(* com.github.config_server.controller.*.*(..))";
 
     public AspectService(UtilService utilService) {
         this.utilService = utilService;

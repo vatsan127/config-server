@@ -20,7 +20,6 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/config")
 public class ConfigurationController implements ConfigurationAPI {
 
     private final GitRepositoryService gitRepositoryService;

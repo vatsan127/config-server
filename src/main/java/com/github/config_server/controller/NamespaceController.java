@@ -18,7 +18,7 @@ import java.util.Map;
 
 @Slf4j
 @RestController
-@RequestMapping("/namespace")
+
 public class NamespaceController implements NamespaceAPI {
 
     private final GitRepositoryService gitRepositoryService;

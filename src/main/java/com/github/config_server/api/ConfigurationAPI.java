@@ -5,6 +5,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.io.IOException;
 import java.util.Map;
@@ -12,6 +13,7 @@ import java.util.Map;
 /**
  * REST API interface for configuration file management operations.
  */
+@RequestMapping("/config")
 public interface ConfigurationAPI {
 
     /**

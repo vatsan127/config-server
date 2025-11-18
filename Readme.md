@@ -41,7 +41,130 @@ A Git-based Configuration Management Server with multi-namespace support for app
 
 ## 🏗️ Architecture
 
-The application follows a clean, layered architecture with well-defined service boundaries:
+The application follows a clean, layered architecture with well-defined service boundaries, built on **Spring Boot 3.5.6** and **Java 21**.
+
+### Technology Stack
+
+**Core Framework:**
+- **Spring Boot 3.5.6** with **Java 21** (modern LTS)
+- Spring Cloud Config 2025.0.0
+- Spring Web, Spring AOP (AspectJ), Spring Actuator
+- Maven 3.x for build and dependency management
+
+**Performance & Caching:**
+- **Caffeine 3.2.0** - High-performance caching (500 max entries, configurable TTL)
+- Virtual threads (Java 21 feature) for async operations
+
+**Security:**
+- AES-256-GCM encryption (custom implementation)
+- Input validation and security checks
+
+**Data Formats:**
+- SnakeYAML for YAML parsing
+- Jackson for JSON serialization
+- org.json for JSON processing
+
+### Complete Directory Structure
+
+```
+src/main/java/com/github/config_server/
+├── ConfigServerApplication.java    # Main entry point
+├── aop/                           # Aspect-Oriented Programming
+│   └── AspectService.java         # Method logging & performance tracking
+├── api/                           # Interface definitions (contract-first)
+│   ├── ConfigurationAPI.java
+│   ├── NamespaceAPI.java
+│   └── VaultAPI.java
+├── config/                        # Spring configuration
+│   ├── ApplicationConfig.java     # @ConfigurationProperties
+│   └── ApplicationBeanConfig.java # Bean definitions (cache, CORS, RestClient)
+├── constants/                     # Enums and constants
+│   ├── ActionType.java
+│   └── NotificationStatus.java
+├── controller/                    # REST Controllers (implement API interfaces)
+│   ├── ConfigurationController.java
+│   ├── NamespaceController.java
+│   └── VaultController.java
+├── exception/                     # Exception hierarchy & handling
+│   ├── GlobalExceptionHandler.java  # Centralized @RestControllerAdvice
+│   ├── ValidationException.java
+│   ├── NamespaceException.java
+│   ├── ConfigFileException.java
+│   ├── ConfigConflictException.java
+│   ├── VaultException.java
+│   ├── GitOperationException.java
+│   └── ErrorResponse.java
+├── model/                         # Domain models
+│   ├── Payload.java               # Universal request/response model
+│   └── Notification.java          # Notification tracking
+└── service/                       # Business logic layer
+    ├── cache/
+    ├── cloud/
+    ├── encryption/
+    ├── notify/
+    ├── operation/
+    ├── repository/
+    ├── secret/
+    ├── util/
+    ├── validation/
+    └── vault/
+```
+
+### Layered Architecture Flow
+
+```
+┌─────────────────────────────────────────────────┐
+│          Client Request (HTTP/REST)             │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  API Layer (Interfaces)                         │
+│  - ConfigurationAPI                             │
+│  - NamespaceAPI                                 │
+│  - VaultAPI                                     │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  Controller Layer                               │
+│  - Input validation (Payload model)             │
+│  - Request routing                              │
+│  - Response mapping                             │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  Service Layer (Business Logic)                 │
+│  - GitRepositoryService (CRUD operations)       │
+│  - VaultService (secret management)             │
+│  - ValidationService (security checks)          │
+│  - CloudConfigService (Spring Cloud Config)     │
+│  - SecretProcessor (vault substitution)         │
+│  - ClientNotifyService (async notifications)    │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  Git Operations Layer                           │
+│  - GitOperationService (functional wrapper)     │
+│  - JGit (low-level Git operations)              │
+└────────────────────┬────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────┐
+│  File System & Git Repositories                 │
+│  /config/{namespace}/.git                       │
+│  /config/{namespace}/{path}/{app}.yml           │
+│  /config/{namespace}/.vault/{namespace}-vault   │
+└─────────────────────────────────────────────────┘
+
+Cross-Cutting Concerns (AOP):
+├── AspectService: Method logging & performance tracking
+├── GlobalExceptionHandler: Centralized error handling
+├── CacheManager: Caffeine-based caching
+└── ThreadLocal: Request ID propagation
+```
 
 ### Service Layer Structure
 
@@ -106,7 +229,7 @@ service/
 - **YAML-native secret substitution** using **${vault:key}** syntax
 - **Zero external dependencies** - no HashiCorp Vault or external secret stores needed
 - **Dynamic secret injection** during configuration retrieval
-- **Simplified secret management** with merge-based updates
+- **Complete replacement strategy** for simplified secret management
 
 **📊 Operational Excellence:**
 - **RESTful API design** with comprehensive request/response models
@@ -114,7 +237,249 @@ service/
 - **Detailed error handling** with structured error responses
 - **Production-ready logging** and monitoring capabilities
 
+---
 
+### Design Patterns & Architectural Decisions
+
+**1. Sealed Interfaces (Java 17+)**
+```java
+public sealed interface GitRepositoryService permits GitRepositoryServiceImpl
+```
+- Restricts implementations to known classes for enhanced type safety
+- Prevents external implementations and improves code maintainability
+
+**2. Functional Interface Pattern (Transaction-like Git Operations)**
+```java
+@FunctionalInterface
+interface GitOperation<T> {
+    T execute(Git git) throws IOException, GitAPIException;
+}
+
+<T> T executeGitOperation(String namespace, GitOperation<T> operation);
+```
+- Encapsulates Git operations in lambdas with automatic resource cleanup
+- Provides transaction-like semantics for all Git interactions
+
+**3. Strategy Pattern (Secret Processing)**
+- `SecretProcessor` has two processing modes:
+  - **Client-facing**: Resolves `${vault:key}` placeholders with actual values
+  - **Internal**: Preserves encrypted references for storage
+
+**4. Repository Pattern**
+- `GitRepositoryService` abstracts all file system and Git operations
+- Single source of truth for configuration data access
+
+**5. Facade Pattern**
+- `CloudConfigService` simplifies Spring Cloud Config integration
+- Hides complexity of multi-file loading and secret resolution
+
+**6. Interface-First API Design**
+- Controllers implement interfaces (`ConfigurationAPI`, `NamespaceAPI`, `VaultAPI`)
+- Clear contract separation from implementation
+- Easier mocking for tests and future versioning
+
+**7. POST-Only API Design**
+- All endpoints use POST (even for reads)
+- Consistent request/response structure across all operations
+- Request bodies for all operations including list/fetch
+
+**8. Validation-First Approach**
+- Dedicated `ValidationService` for all input checks
+- Prevents directory traversal attacks
+- Validates reserved namespace names (system, admin, default, etc.)
+- Regex patterns for `appName` and `namespace`: `^[a-zA-Z0-9-_]+$`
+
+**9. Complete Replacement Strategy (Vault)**
+- Vault updates replace all secrets (no partial updates)
+- Simplifies conflict resolution and state management
+- Reduces complexity compared to merge-based approaches
+
+---
+
+### Configuration Resolution Flow (Spring Cloud Config Integration)
+
+When a Spring Cloud Config client requests configuration:
+
+**Request Example:**
+```
+GET /config-server/config-api/my-app/production/main
+```
+
+**Resolution Process:**
+
+1. **CloudConfigService.findOne()** receives request with:
+   - `application`: `my-app` (app name)
+   - `profile`: `production` (environment)
+   - `label`: `main` (namespace/path)
+
+2. **Configuration Loading** (in precedence order):
+   ```
+   application.yml          → Base configuration (lowest priority)
+   my-app.yml              → App-specific configuration
+   my-app-production.yml   → Profile-specific (highest priority)
+   ```
+
+3. **Property Flattening**:
+   - All YAML files are parsed and flattened into a single property map
+   - Later files override earlier ones for conflicting keys
+   - Provides single merged view to clients
+
+4. **Secret Resolution**:
+   - `SecretProcessor` identifies `${vault:key}` placeholders
+   - Retrieves secrets from `.vault/{namespace}-vault.json`
+   - Decrypts using `AESEncryptionServiceImpl`
+   - Substitutes placeholders with actual values
+
+5. **Response**:
+   - Returns Spring `Environment` object with merged properties
+   - Includes version information (Git commit ID)
+   - Client receives fully-resolved configuration ready to use
+
+**Example Configuration Files:**
+
+**application.yml** (base):
+```yaml
+server:
+  port: 8080
+logging:
+  level:
+    root: INFO
+```
+
+**my-app.yml** (app-specific):
+```yaml
+server:
+  port: 8081
+database:
+  host: ${vault:db_host}
+  password: ${vault:db_password}
+```
+
+**my-app-production.yml** (profile-specific):
+```yaml
+logging:
+  level:
+    root: WARN
+    com.mycompany: DEBUG
+```
+
+**Final Merged Result** (sent to client):
+```yaml
+server:
+  port: 8081                    # Overridden by my-app.yml
+logging:
+  level:
+    root: WARN                  # Overridden by profile
+    com.mycompany: DEBUG
+database:
+  host: prod-db.example.com     # Resolved from vault
+  password: actual_password     # Resolved from vault
+```
+
+---
+
+### Cross-Cutting Concerns
+
+**Aspect-Oriented Programming (AOP)**
+- `AspectService` provides automatic observability for all service and controller methods
+- **Method logging**: Entry/exit logs with parameters (sensitive data masked)
+- **Performance measurement**: `StopWatch` tracks execution time for all operations
+- **Request tracking**: `ThreadLocal` propagates request IDs across the call stack
+- **Configurable log levels**: Controllers (INFO), Services (DEBUG)
+
+**Global Exception Handling**
+- `GlobalExceptionHandler` with `@RestControllerAdvice` provides centralized error handling
+- Custom exceptions mapped to HTTP status codes:
+  - `ValidationException` → 400 Bad Request
+  - `NamespaceException` → 404/409/500 (based on cause)
+  - `ConfigFileException` → 404/409/500
+  - `ConfigConflictException` → 409 Conflict (optimistic locking violation)
+  - `VaultException` → 404/500
+  - `GitOperationException` → 500
+- Structured error responses with error codes and detailed messages
+- Stack trace logging for debugging (not exposed to clients)
+
+**Model Layer**
+- **Payload**: Universal request/response model with validation annotations
+  - `@NotBlank`, `@Pattern` for input validation
+  - Fields: `appName`, `namespace`, `path`, `content`, `action`, `email`, `commitId`
+- **Notification**: Immutable design with factory methods
+  - Tracks lifecycle: IN_PROGRESS → SUCCESS/FAILED
+  - Thread-safe for concurrent access
+
+---
+
+### Application Startup Sequence
+
+**1. JVM Launch**
+```bash
+java -jar config-server.jar
+```
+
+**2. Spring Boot Initialization**
+- `ConfigServerApplication.main()` starts the application
+- `ApplicationConfig` loads properties from `application.yml`
+
+**3. Bean Registration** (`ApplicationBeanConfig`)
+- **CacheManager**: Caffeine cache (500 max entries, configurable TTL)
+- **CORS Configuration**: Allows all origins (configure for production)
+- **RestClient**: HTTP client for notifications (30s timeouts)
+
+**4. Base Directory Validation**
+- `@PostConstruct` checks `/config/` directory exists
+- Throws exception if missing (prevents startup with invalid configuration)
+
+**5. AOP Initialization**
+- `AspectService` activates method interception
+- Logging and performance tracking become active
+
+**6. Spring Cloud Config Registration**
+- `CloudConfigService` registers as `EnvironmentRepository`
+- Spring Cloud Config API becomes available at `/config-api/*`
+
+**7. Server Start**
+- Embedded Tomcat starts on port **8080**
+- Application ready to accept requests at `/config-server/*`
+
+**8. Cache Preloading**
+- Namespaces and directory listings are automatically cached
+- Improves first-request performance
+
+---
+
+### Security Architecture
+
+**Encryption Layer:**
+- **AES-256-GCM** (authenticated encryption) for all vault secrets
+- Single master key via `VAULT_MASTER_KEY` environment variable
+- Base64 encoding for storage and transport
+- Warning system for default key usage in development
+
+**Input Validation Layer:**
+- Regex validation for `namespace` and `appName`: `^[a-zA-Z0-9-_]+$`
+- Path validation to prevent directory traversal attacks
+- Reserved name validation (system, admin, default, root, log, dashboard)
+- Email format validation for audit trail
+- Commit ID validation for optimistic locking
+
+**Audit Trail:**
+- Every change tracked in Git with commit history
+- Email attribution for all operations
+- Namespace-level event logs via `/namespace/events`
+- Notification status tracking via `/namespace/notify`
+
+**Optimistic Locking:**
+- Prevents lost updates during concurrent modifications
+- Client must provide current `commitId` for updates
+- Returns `409 Conflict` if file was modified by another user
+- Unique feature compared to other configuration servers
+
+**CORS Configuration:**
+- Currently allows all origins (`allowedOriginPatterns: "*"`)
+- **Production Recommendation**: Restrict to known domains
+- Configure in `ApplicationBeanConfig`
+
+---
 
 ## 🚀 Getting Started
 
